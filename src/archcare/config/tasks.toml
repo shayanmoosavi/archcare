@@ -1,0 +1,94 @@
+# Archcare Maintenance Tasks Configuration
+# Format: Each [task-name] section defines a maintenance task
+#
+# Fields:
+#   type = "automated" | "manual"
+#   frequency = <number>  (days between runs)
+#   description = <description>
+#   command = <task identifier>
+#   enabled = true | false
+
+# ============================================================================
+# AUTOMATED TASKS (run automatically via systemd timers)
+# ============================================================================
+
+[maintenance-check]
+type = "automated"
+frequency = 1
+description = "Check for due system maintenance tasks"
+command = "check-maintenance"
+enabled = true
+
+[mirrorlist-update]
+type = "automated"
+frequency = 7
+description = "Update pacman mirror list"
+command = "update-mirrorlist"
+enabled = true
+
+[journal-cleanup]
+type = "automated"
+frequency = 30
+description = "Clean old systemd journal logs"
+command = "cleanup-journal"
+enabled = true
+
+[btrfs-scrub]
+type = "automated"
+frequency = 30
+description = "Verify Btrfs filesystem integrity"
+command = "btrfs-scrub"
+enabled = true
+
+# ============================================================================
+# MANUAL TASKS (require user interaction)
+# ============================================================================
+
+[system-update]
+type = "manual"
+frequency = 7
+description = "Update system packages and clean caches"
+command = "update-system"
+enabled = true
+
+[orphan-removal]
+type = "manual"
+frequency = 30
+description = "Remove orphaned packages"
+command = "orphan-removal"
+enabled = true
+
+[cache-cleanup]
+type = "manual"
+frequency = 30
+description = "Clean user cache directories (~/.cache)"
+command = "cache-cleanup"
+enabled = true
+
+[pacnew-review]
+type = "manual"
+frequency = 30
+description = "Review and merge .pacnew/.pacsave files"
+command = "pacnew-review"
+enabled = true
+
+[failed-services]
+type = "manual"
+frequency = 30
+description = "Check for failed systemd services"
+command = "failed-services"
+enabled = true
+
+[health-check]
+type = "manual"
+frequency = 30
+description = "Perform health checks on system components"
+command = "check-health"
+enabled = true
+
+[disk-space-review]
+type = "manual"
+frequency = 90
+description = "Review large files and disk space usage"
+command = "disk-space-review"
+enabled = true
