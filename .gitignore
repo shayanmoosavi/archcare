@@ -1,1 +1,3 @@
+.idea/
 poetry.lock
+.mypy_cache/
