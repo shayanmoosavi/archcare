@@ -14,6 +14,8 @@ from .models import (
     TaskConfig,
     TasksConfig,
     TaskState,
+    TaskStatus,
+    TaskType
 )
 
 __all__ = [
@@ -23,6 +25,8 @@ __all__ = [
     "TaskConfig",
     "TasksConfig",
     "TaskState",
+    "TaskStatus",
+    "TaskType",
     "IgnoredServicesConfig",
     "CacheCleanupConfig",
     "CacheCleanupMapping",

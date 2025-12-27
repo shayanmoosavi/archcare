@@ -36,7 +36,8 @@ class TaskConfig(BaseModel):
 
     name: str = Field(..., description="Unique task identifier")
     task_type: TaskType = Field(
-        ..., description="Whether task runs automatically or requires manual trigger"
+        ..., alias="type",
+        description="Whether task runs automatically or requires manual trigger"
     )
     frequency: int = Field(
         ..., gt=0, description="Number of days between task executions"
@@ -204,7 +205,7 @@ class AppState(BaseModel):
     def get_task_state(self, task_name: str) -> TaskState:
         """Get state for a task, creating if it doesn't exist."""
         if task_name not in self.tasks:
-            self.tasks[task_name] = TaskState()
+            self.tasks[task_name] = TaskState()  # type: ignore[call-arg]
         return self.tasks[task_name]
 
     def update_task_state(
