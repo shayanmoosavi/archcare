@@ -22,6 +22,9 @@ class TaskStatus(Enum):
     SKIPPED = "skipped"
     RUNNING = "running"
 
+    def __str__(self) -> str:
+        return self.value
+
 
 class LogLevel(Enum):
     DEBUG = "DEBUG"
