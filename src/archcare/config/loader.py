@@ -7,8 +7,6 @@ Handles loading and parsing TOML configuration files into Pydantic models.
 import json
 import tomllib
 from pathlib import Path
-from typing import Any
-
 import tomli_w
 from loguru import logger
 
@@ -142,7 +140,9 @@ class ConfigLoader:
 
         return settings
 
-    def save_settings(self, settings: AppSettings, settings_file: Path | None = None) -> None:
+    def save_settings(
+        self, settings: AppSettings, settings_file: Path | None = None
+    ) -> None:
         """
         Save application settings to TOML file.
 
@@ -202,7 +202,7 @@ class ConfigLoader:
         logger.info(f"Saving state to: {state_path}")
 
         # Use model_dump with mode='json' to handle datetime serialization
-        data = state.model_dump(mode='json')
+        data = state.model_dump(mode="json")
 
         with open(state_path, "w") as f:
             json.dump(data, f, indent=4)
@@ -218,11 +218,12 @@ def create_default_config_files(config_dir: Path) -> None:
         config_dir: Directory to create config files in
     """
     config_dir.mkdir(parents=True, exist_ok=True)
+    default_config_dir = Path(__file__).parent
 
     # Create default tasks.toml
     tasks_path = config_dir / "tasks.toml"
     if not tasks_path.exists():
-        with open("tasks.toml", "rb") as f:
+        with open(default_config_dir / "tasks.toml", "rb") as f:
             data = tomllib.load(f)
 
         default_tasks = tomli_w.dumps(data)
@@ -232,7 +233,7 @@ def create_default_config_files(config_dir: Path) -> None:
     # Create default ignored-services.toml
     services_path = config_dir / "ignored-services.toml"
     if not services_path.exists():
-        with open("ignored-services.toml", "rb") as f:
+        with open(default_config_dir / "ignored-services.toml", "rb") as f:
             data = tomllib.load(f)
 
         default_services = tomli_w.dumps(data)
