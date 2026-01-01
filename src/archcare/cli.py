@@ -166,6 +166,10 @@ def run(
         else:  # FAILED
             raise typer.Exit(1)
 
+    except typer.Exit as e:
+        if e.exit_code != 0:
+            raise
+
     except Exception as e:
         print_error(f"Failed to run task: {e}")
         logger.exception(f"Error running task {task_name}")
