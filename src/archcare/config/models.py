@@ -19,7 +19,7 @@ class TaskStatus(Enum):
     SUCCESS = "success"
     FAILURE = "failure"
     SKIPPED = "skipped"
-    RUNNING = "running"
+    PARTIAL = "partial"
 
     def __str__(self) -> str:
         return self.value

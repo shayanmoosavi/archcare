@@ -39,9 +39,9 @@ class TaskResult:
         """Check if task was skipped."""
         return self.status == TaskStatus.SKIPPED
 
-    def is_running(self) -> bool:
-        """Check if task is currently running."""
-        return self.status == TaskStatus.RUNNING
+    def is_partial(self) -> bool:
+        """Check if task partially succeeded."""
+        return self.status == TaskStatus.PARTIAL
 
     def __str__(self) -> str:
         """Human-readable representation."""
@@ -122,15 +122,15 @@ def skipped(message: str, **details) -> TaskResult:
     return TaskResult(status=TaskStatus.SKIPPED, message=message, details=details)
 
 
-def running(message: str, **details) -> TaskResult:
+def partial(message: str, **details) -> TaskResult:
     """
-    Create a running result.
+    Create a partial result.
 
     Args:
         message: Current status message
         **details: Additional details to include
 
     Returns:
-        TaskResult with RUNNING status
+        TaskResult with PARTIAL status
     """
-    return TaskResult(status=TaskStatus.RUNNING, message=message, details=details)
+    return TaskResult(status=TaskStatus.PARTIAL, message=message, details=details)
