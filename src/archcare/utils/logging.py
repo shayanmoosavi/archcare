@@ -4,19 +4,11 @@ Logging configuration for archcare.
 Sets up loguru for structured logging to files.
 """
 
-from enum import Enum
 import sys
+
 from loguru import logger
 
-from archcare.config import AppSettings
-
-
-class LogLevel(Enum):
-    DEBUG = "DEBUG"
-    INFO = "INFO"
-    WARNING = "WARNING"
-    ERROR = "ERROR"
-    CRITICAL = "CRITICAL"
+from archcare.config import AppSettings, LogLevel
 
 
 def setup_logging(settings: AppSettings) -> None:
