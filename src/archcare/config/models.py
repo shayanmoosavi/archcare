@@ -73,12 +73,14 @@ class TasksConfig(BaseModel):
         """Return only enabled tasks."""
         return {name: task for name, task in self.tasks.items() if task.enabled}
 
-    def get_tasks_by_type(self, task_type: TaskType) -> dict[str, TaskConfig]:
+    def get_tasks_by_type(self, task_type: str) -> dict[str, TaskConfig]:
         """Return tasks filtered by type."""
+        if task_type not in ["automated", "manual"]:
+            raise ValueError("task_type must be 'automated' or 'manual'")
         return {
             name: task
             for name, task in self.tasks.items()
-            if task.task_type == task_type and task.enabled
+            if task.task_type.value == task_type and task.enabled
         }
 
     def get_task(self, name: str) -> TaskConfig | None:

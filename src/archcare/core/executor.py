@@ -133,7 +133,7 @@ class TaskExecutor:
 
         # Get tasks to execute
         if task_type:
-            tasks_to_run = tasks_config.get_tasks_by_type(task_type)
+            tasks_to_run = tasks_config.get_tasks_by_type(task_type.value)
         else:
             tasks_to_run = tasks_config.get_enabled_tasks()
 
