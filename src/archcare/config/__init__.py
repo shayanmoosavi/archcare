@@ -16,6 +16,7 @@ from .models import (
     TaskState,
     TaskStatus,
     TaskType,
+    LogLevel,
 )
 
 __all__ = [
@@ -27,6 +28,7 @@ __all__ = [
     "TaskState",
     "TaskStatus",
     "TaskType",
+    "LogLevel",
     "IgnoredServicesConfig",
     "CacheCleanupConfig",
     "CacheCleanupMapping",
