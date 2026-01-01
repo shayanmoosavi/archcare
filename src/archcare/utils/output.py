@@ -74,8 +74,8 @@ def print_task_result(result: TaskResult, task_name: str) -> None:
         case TaskStatus.FAILURE:
             icon = "✗"
             color = "red"
-        case TaskStatus.RUNNING:
-            icon = ""
+        case TaskStatus.PARTIAL:
+            icon = "⚠"
             color = "yellow"
         case _:  # SKIPPED
             icon = "○"
