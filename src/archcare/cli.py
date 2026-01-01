@@ -29,6 +29,7 @@ from archcare.utils.output import (
     print_task_details,
     print_task_result,
     print_warning,
+    console,
 )
 from archcare.utils.logging import setup_task_logging, setup_logging
 
@@ -257,11 +258,11 @@ def list_(
     # Display tasks
     for name, config in tasks.items():
         status_icon = "✓" if config.enabled else "✗"
-        type_badge = f"[cyan]{config.task_type}[/cyan]"
+        type_badge = f"[cyan]{config.task_type.value}[/cyan]"
         freq = f"every {config.frequency} days"
 
-        print(f"{status_icon} [bold]{name}[/bold] {type_badge} ({freq})")
-        print(f"  {config.description}")
+        console.print(f"{status_icon} [bold]{name}[/bold] {type_badge} ({freq})")
+        console.print(f"  {config.description}")
         print()
 
 
