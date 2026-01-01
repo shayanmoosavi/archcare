@@ -7,7 +7,6 @@ These models provide type-safe configuration with validation.
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -26,21 +25,14 @@ class TaskStatus(Enum):
         return self.value
 
 
-class LogLevel(Enum):
-    DEBUG = "DEBUG"
-    INFO = "INFO"
-    WARNING = "WARNING"
-    ERROR = "ERROR"
-    CRITICAL = "CRITICAL"
-
-
 class TaskConfig(BaseModel):
     """Configuration for a single maintenance task."""
 
     name: str = Field(..., description="Unique task identifier")
     task_type: TaskType = Field(
-        ..., alias="type",
-        description="Whether task runs automatically or requires manual trigger"
+        ...,
+        alias="type",
+        description="Whether task runs automatically or requires manual trigger",
     )
     frequency: int = Field(
         ..., gt=0, description="Number of days between task executions"
@@ -140,6 +132,8 @@ class CacheCleanupConfig(BaseModel):
 
 class AppSettings(BaseModel):
     """Application-wide settings."""
+
+    from archcare.utils.logging import LogLevel
 
     # Paths
     log_dir: Path = Field(
