@@ -5,6 +5,7 @@ Handles loading and parsing TOML configuration files into Pydantic models.
 """
 
 import json
+import sys
 import tomllib
 from pathlib import Path
 import tomli_w
@@ -17,6 +18,16 @@ from .models import (
     IgnoredServicesConfig,
     TaskConfig,
     TasksConfig,
+    LogLevel,
+)
+
+
+logger.remove()
+logger.add(
+    sys.stderr,
+    format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>",
+    level=LogLevel.INFO.value,
+    colorize=True,
 )
 
 
