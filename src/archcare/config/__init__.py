@@ -15,7 +15,7 @@ from .models import (
     TasksConfig,
     TaskState,
     TaskStatus,
-    TaskType
+    TaskType,
 )
 
 __all__ = [
