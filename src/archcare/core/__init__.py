@@ -8,7 +8,7 @@ from .models import (
     TaskStatus,
     TaskStep,
     failed,
-    running,
+    partial,
     skipped,
     success,
 )
@@ -25,7 +25,7 @@ __all__ = [
     "success",
     "failed",
     "skipped",
-    "running",
+    "partial",
     # Scheduler
     "TaskScheduler",
     "TaskScheduleInfo",
