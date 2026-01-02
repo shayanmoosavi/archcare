@@ -54,15 +54,29 @@ def get_executor() -> TaskExecutor:
     """
     global _loader, _settings, _executor
 
-    if _executor is None:
+    if not _executor:
+
+        # Set up default logging first
+        default_settings = AppSettings()
+        default_settings.ensure_directories()
+        setup_logging(default_settings)
+
         # Initialize configuration
-        if _loader is None:
+        if not _loader:
             _loader = ConfigLoader()
 
-        if _settings is None:
+        if not _settings:
             _settings = _loader.load_settings()
             _settings.ensure_directories()
-            setup_logging(_settings)
+
+            # Reconfigure logging with user's custom settings if they differ
+            # Check if any logging-related settings changed
+            if (
+                _settings.log_dir != default_settings.log_dir
+                or _settings.log_level != default_settings.log_level
+                or _settings.log_retention_days != default_settings.log_retention_days
+            ):
+                setup_logging(_settings, reconfigure=True)
 
         # Load state
         state = _loader.load_state()
@@ -128,8 +142,6 @@ def run(
         archcare run system-update --force
     """
     executor = get_executor()
-    if _settings:
-        setup_task_logging(task_name, _settings)
 
     print_header(f"Running Task: {task_name}")
 

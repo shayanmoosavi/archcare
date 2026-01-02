@@ -11,12 +11,13 @@ from loguru import logger
 from archcare.config import AppSettings, LogLevel
 
 
-def setup_logging(settings: AppSettings) -> None:
+def setup_logging(settings: AppSettings, reconfigure: bool = False) -> None:
     """
     Configure logging for archcare.
 
     Args:
         settings: Application settings with log configuration
+        reconfigure: If True, remove existing handlers before adding new ones
     """
     # Remove default handler (stderr)
     logger.remove()
@@ -44,7 +45,10 @@ def setup_logging(settings: AppSettings) -> None:
         compression="gz",  # Compress rotated logs
     )
 
-    logger.info(f"Logging configured: {log_file}")
+    if reconfigure:
+        logger.info(f"Logging reconfigured: {log_file}")
+    else:
+        logger.info(f"Logging configured: {log_file}")
     logger.debug(f"Log level: {settings.log_level.value}")
 
 
