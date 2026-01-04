@@ -3,8 +3,8 @@ Failed services task implementation for archcare.
 """
 
 from archcare.config import ConfigLoader
-from archcare.core.models import TaskResult, TaskStatus, failed, skipped, success
-from archcare.tasks.base import BaseTask
+from archcare.core.models import TaskResult, success, partial
+from archcare.tasks import BaseTask
 from archcare.utils import (
     check_command_exists,
     get_service_logs,
@@ -128,13 +128,11 @@ class FailedServicesTask(BaseTask):
 
         message = f"Found {len(actual_failures)} failed service(s) requiring attention"
 
-        return success(
+        return partial(
             message=message,
-            details={
-                "failed_services": failure_details,
-                "total_failed": len(failed_services),
-                "actual_failures": len(actual_failures),
-                "ignored": len(ignored_failures),
-                "ignored_services": ignored_failures,
-            },
+            failed_services=failure_details,
+            total_failed=len(failed_services),
+            actual_failures=len(actual_failures),
+            ignored=len(ignored_failures),
+            ignored_services=ignored_failures,
         )
