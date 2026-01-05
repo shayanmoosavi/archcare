@@ -4,6 +4,7 @@ System command utilities for archcare.
 Provides safe wrappers around subprocess for executing system commands.
 """
 
+from datetime import datetime
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -338,3 +339,87 @@ def get_service_logs(
         return []
 
     return result.stdout.splitlines()
+
+
+def check_filesystem_errors() -> list[str]:
+    """
+    Check for filesystem errors in dmesg/journal.
+
+    Returns:
+        List of error messages found
+    """
+    errors = []
+
+    # Check dmesg for filesystem errors
+    result = run_command(["journalctl", "-k", "-p", "err", "-n", "100", "--no-pager"])
+
+    if result.success and result.stdout:
+        # Look for common filesystem error keywords
+        keywords = ["ext4", "btrfs", "xfs", "I/O error", "filesystem", "disk"]
+
+        for line in result.stdout.splitlines():
+            if any(keyword.lower() in line.lower() for keyword in keywords):
+                errors.append(line.strip())
+
+    # Limit to last 10 errors
+    return errors[-10:] if errors else []
+
+
+def format_bytes(bytes_value: float) -> str:
+    """
+    Format bytes as human-readable string.
+
+    Args:
+        bytes_value: Size in bytes
+
+    Returns:
+        Formatted string (e.g., "1.5 GB", "500 MB")
+    """
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
+        if bytes_value < 1024.0:
+            return f"{bytes_value:.1f} {unit}"
+        bytes_value /= 1024.0
+    return f"{bytes_value:.2f} PB"
+
+
+def _get_boot_time() -> datetime:
+    """
+    Get system boot time.
+
+    Returns:
+        Datetime of when system was booted
+    """
+    import psutil
+
+    try:
+        boot_timestamp = psutil.boot_time()
+        return datetime.fromtimestamp(boot_timestamp)
+    except Exception as e:
+        logger.error(f"Failed to get boot time: {e}")
+        return datetime.now()  # Fallback
+
+
+def get_system_uptime() -> str:
+    """
+    Get system uptime as human-readable string.
+
+    Returns:
+        Uptime string (e.g., "5 days, 3 hours")
+    """
+
+    boot_time = _get_boot_time()
+    uptime = datetime.now() - boot_time
+
+    days = uptime.days
+    hours = uptime.seconds // 3600
+    minutes = (uptime.seconds % 3600) // 60
+
+    parts = []
+    if days > 0:
+        parts.append(f"{days} day{'s' if days != 1 else ''}")
+    if hours > 0:
+        parts.append(f"{hours} hour{'s' if hours != 1 else ''}")
+    if minutes > 0 and days == 0:  # Only show minutes if less than a day
+        parts.append(f"{minutes} minute{'s' if minutes != 1 else ''}")
+
+    return ", ".join(parts) if parts else "just now"
