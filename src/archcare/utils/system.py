@@ -106,6 +106,52 @@ def run_command(
         raise
 
 
+def run_command_with_sudo(
+    command: list[str] | str,
+    check: bool = False,
+    capture_output: bool = True,
+    text: bool = True,
+    timeout: int | None = None,
+) -> CommandResult:
+    """
+    Run a command with sudo if not already root.
+
+    Args:
+        command: Command to run (list of args or string)
+        check: Raise exception on non-zero exit code
+        capture_output: Capture stdout/stderr
+        text: Return output as string (vs bytes)
+        timeout: Command timeout in seconds
+
+    Returns:
+        CommandResult with execution details
+
+    Note:
+    - If already root, runs command directly
+    - If not root, prepends 'sudo' to command
+    - User must be in sudoers and may be prompted for password
+    """
+    # Convert string to list if needed
+    if isinstance(command, str):
+        command_list = command.split()
+    else:
+        command_list = list(command)
+
+    # Check if we're already root
+    if not is_root():
+        # Prepend sudo
+        command_list = ["sudo"] + command_list
+
+    # Run the command
+    return run_command(
+        command_list,
+        check=check,
+        capture_output=capture_output,
+        text=text,
+        timeout=timeout,
+    )
+
+
 def check_command_exists(command: str) -> bool:
     """
     Check if a command is available in PATH.
