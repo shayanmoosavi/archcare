@@ -12,7 +12,12 @@ from .system import (
     is_root,
     run_command,
     run_systemctl,
+    check_filesystem_errors,
+    format_bytes,
+    get_system_uptime,
 )
+from .hardware import get_disk_usage, get_cpu_info, get_memory_info
+from .pacman import check_pacman_database, check_package_files
 
 __all__ = [
     # Command execution
@@ -30,4 +35,14 @@ __all__ = [
     "setup_logging",
     "setup_task_logging",
     "get_task_logger",
+    # System information
+    "check_filesystem_errors",
+    "format_bytes",
+    "get_system_uptime",
+    "get_disk_usage",
+    "get_cpu_info",
+    "get_memory_info",
+    # Pacman helpers
+    "check_pacman_database",
+    "check_package_files",
 ]
