@@ -156,6 +156,78 @@ def print_schedule_table(schedule_info: list[TaskScheduleInfo]) -> None:
     console.print(table)
 
 
+def _format_health_check_details(lines: list[str], details: dict[str, Any]) -> None:
+    """
+    Format health check details for display.
+
+    Args:
+        lines: List to append formatted lines to
+        details: Task details dict
+    """
+    issues = details.get("issues", [])
+    warnings = details.get("warnings", [])
+    summary = details.get("summary", {})
+
+    # Show issues and warnings first
+    if issues:
+        lines.append("")
+        lines.append("[bold red]Critical Issues:[/bold red]")
+        for issue in issues:
+            lines.append(f"  • {issue}")
+
+    if warnings:
+        lines.append("")
+        lines.append("[bold yellow]Warnings:[/bold yellow]")
+        for warning in warnings:
+            lines.append(f"  • {warning}")
+
+    # Show summary statistics
+    if summary:
+        _format_health_check_summary(lines, summary)
+
+
+def _format_health_check_summary(lines: list[str], summary):
+    lines.append("")
+    lines.append("[bold]System Summary:[/bold]")
+
+    # Disk
+    disk_pct = summary.get("disk_usage_percent", 0)
+    disk_color = "red" if disk_pct > 90 else "yellow" if disk_pct > 80 else "green"
+    lines.append(f"  Disk Usage: [{disk_color}]{disk_pct:.1f}%[/{disk_color}]")
+
+    # Memory
+    mem_pct = summary.get("memory_usage_percent", 0)
+    mem_color = "red" if mem_pct > 90 else "yellow" if mem_pct > 80 else "green"
+    lines.append(f"  Memory Usage: [{mem_color}]{mem_pct:.1f}%[/{mem_color}]")
+
+    # CPU
+    cpu_pct = summary.get("cpu_usage_percent", 0)
+    cpu_color = "yellow" if cpu_pct > 90 else "green"
+    lines.append(f"  CPU Usage: [{cpu_color}]{cpu_pct:.1f}%[/{cpu_color}]")
+
+    # Filesystem errors
+    fs_errors = summary.get("filesystem_errors_count", 0)
+    if fs_errors > 0:
+        lines.append(f"  Filesystem Errors: [red]{fs_errors}[/red]")
+
+    # Pacman
+    pacman_ok = summary.get("pacman_healthy", False)
+    pacman_status = (
+        "[green]Healthy[/green]" if pacman_ok else "[red]Issues Detected[/red]"
+    )
+    lines.append(f"  Pacman Database: {pacman_status}")
+
+    packages_ok = summary.get("packages_healthy", False)
+    packages_status = (
+        "[green]Healthy[/green]" if packages_ok else "[red]Issues Detected[/red]"
+    )
+    lines.append(f"  Installed Package Files: {packages_status}")
+
+    # Uptime
+    uptime = summary.get("uptime", "unknown")
+    lines.append(f"  System Uptime: {uptime}")
+
+
 def _format_failed_services_details(lines: list[str], details: dict[str, Any]) -> None:
     """
     Format failed services details for display.
@@ -236,6 +308,8 @@ def print_task_details(
         # Format details based on task type
         if task_name == "failed-services" and "failed_services" in result.details:
             _format_failed_services_details(lines, result.details)
+        elif task_name == "health-check" and "checks" in result.details:
+            _format_health_check_details(lines, result.details)
         else:
             # Generic detail formatting
             _format_other_details(lines, result)
