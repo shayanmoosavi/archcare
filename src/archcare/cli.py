@@ -18,7 +18,7 @@ from archcare.config import (
     TaskType,
 )
 from archcare.core import TaskExecutor, TaskScheduler, TaskStatus
-from archcare.tasks import FailedServicesTask
+from archcare.tasks import FailedServicesTask, HealthCheckTask
 from archcare.utils.output import (
     print_error,
     print_header,
@@ -31,7 +31,7 @@ from archcare.utils.output import (
     print_warning,
     console,
 )
-from archcare.utils.logging import setup_task_logging, setup_logging
+from archcare.utils.logging import setup_logging
 
 # Create Typer app
 app = typer.Typer(
@@ -102,6 +102,7 @@ def _register_tasks(executor: TaskExecutor) -> None:
         executor: TaskExecutor to register tasks with
     """
     executor.register_task("failed-services", FailedServicesTask)
+    executor.register_task("check-health", HealthCheckTask)
 
 
 def _handle_due_task(executor: TaskExecutor, task_name: str, tasks_config: TasksConfig):
