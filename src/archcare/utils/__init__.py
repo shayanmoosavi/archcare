@@ -17,6 +17,13 @@ from .system import (
     get_system_uptime,
 )
 from .hardware import get_disk_usage, get_cpu_info, get_memory_info
+from .mirrorlist import (
+    backup_file,
+    restore_backup,
+    update_mirrorlist,
+    validate_mirrorlist,
+    get_mirrorlist_info,
+)
 from .pacman import check_pacman_database, check_package_files
 
 __all__ = [
@@ -42,6 +49,12 @@ __all__ = [
     "get_disk_usage",
     "get_cpu_info",
     "get_memory_info",
+    # Mirrorlist helpers
+    "backup_file",
+    "restore_backup",
+    "update_mirrorlist",
+    "validate_mirrorlist",
+    "get_mirrorlist_info",
     # Pacman helpers
     "check_pacman_database",
     "check_package_files",
