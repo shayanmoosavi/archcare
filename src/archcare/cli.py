@@ -18,7 +18,7 @@ from archcare.config import (
     TaskType,
 )
 from archcare.core import TaskExecutor, TaskScheduler, TaskStatus
-from archcare.tasks import FailedServicesTask, HealthCheckTask
+from archcare.tasks import FailedServicesTask, HealthCheckTask, MirrorlistUpdateTask
 from archcare.utils.output import (
     print_error,
     print_header,
@@ -103,6 +103,7 @@ def _register_tasks(executor: TaskExecutor) -> None:
     """
     executor.register_task("failed-services", FailedServicesTask)
     executor.register_task("check-health", HealthCheckTask)
+    executor.register_task("update-mirrorlist", MirrorlistUpdateTask)
 
 
 def _handle_due_task(executor: TaskExecutor, task_name: str, tasks_config: TasksConfig):
