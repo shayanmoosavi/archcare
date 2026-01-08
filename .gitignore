@@ -1,3 +1,15 @@
+# PyChram project settings
 .idea/
+
+# Poetry project lock file
 poetry.lock
+
+# Python bytecodes
+*__pycache__/
+
+# Mypy cache directory
 .mypy_cache/
+
+# Nuitka build directories
+*.build/
+*.dist/
