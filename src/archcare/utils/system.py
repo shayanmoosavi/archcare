@@ -94,6 +94,7 @@ def run_command(
             logger.warning(
                 f"Command failed: {command_str} " f"(exit {cmd_result.returncode})"
             )
+            logger.warning(f"ERROR: {cmd_result.stderr}")
 
         return cmd_result
 
@@ -112,6 +113,8 @@ def run_command_with_sudo(
     capture_output: bool = True,
     text: bool = True,
     timeout: int | None = None,
+    cwd: Path | None = None,
+    env: dict[str, str] | None = None,
 ) -> CommandResult:
     """
     Run a command with sudo if not already root.
@@ -122,6 +125,8 @@ def run_command_with_sudo(
         capture_output: Capture stdout/stderr
         text: Return output as string (vs bytes)
         timeout: Command timeout in seconds
+        cwd: Working directory
+        env: Environment variables
 
     Returns:
         CommandResult with execution details
@@ -149,6 +154,8 @@ def run_command_with_sudo(
         capture_output=capture_output,
         text=text,
         timeout=timeout,
+        cwd=cwd,
+        env=env,
     )
 
 
