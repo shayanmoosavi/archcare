@@ -11,6 +11,7 @@ from .system import (
     get_systemd_failed_services,
     is_root,
     run_command,
+    run_command_with_sudo,
     run_systemctl,
     check_filesystem_errors,
     format_bytes,
@@ -30,6 +31,7 @@ __all__ = [
     # Command execution
     "CommandResult",
     "run_command",
+    "run_command_with_sudo",
     "run_systemctl",
     "check_command_exists",
     # System checks
