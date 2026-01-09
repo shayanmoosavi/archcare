@@ -144,17 +144,24 @@ class CacheCleanupConfig(BaseModel):
 class AppSettings(BaseModel):
     """Application-wide settings."""
 
+    # Username
+    user: str | None = Field(default=None, description="The username of the user")
+
     # Paths
+    home_dir: Path = Field(
+        default=Path(f"/home/{user}") if user else Path.home(),
+        description="The HOME directory of the user",
+    )
     log_dir: Path = Field(
-        default=Path.home() / ".local/state/archcare/logs",
+        default=home_dir / ".local/state/archcare/logs",
         description="Directory for log files",
     )
     state_file: Path = Field(
-        default=Path.home() / ".local/state/archcare/state.json",
+        default=home_dir / ".local/state/archcare/state.json",
         description="File to track task execution state",
     )
     config_dir: Path = Field(
-        default=Path.home() / ".config/archcare", description="Configuration directory"
+        default=home_dir / ".config/archcare", description="Configuration directory"
     )
 
     # Logging
