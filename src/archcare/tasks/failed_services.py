@@ -47,7 +47,7 @@ class FailedServicesTask(BaseTask):
         failed_services = get_systemd_failed_services()
 
         # Load ignored services config
-        config_loader = ConfigLoader(self.settings.config_dir)
+        config_loader = ConfigLoader(config_dir=self.settings.config_dir)
         ignored_config = config_loader.load_ignored_services()
 
         # Filter out ignored services
@@ -77,7 +77,7 @@ class FailedServicesTask(BaseTask):
         self.logger.debug(f"Found {len(failed_services)} failed services total")
 
         # Load ignored services config
-        config_loader = ConfigLoader(self.settings.config_dir)
+        config_loader = ConfigLoader(config_dir=self.settings.config_dir)
         ignored_config = config_loader.load_ignored_services()
 
         # Filter out ignored services

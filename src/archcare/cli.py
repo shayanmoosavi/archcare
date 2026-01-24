@@ -45,7 +45,7 @@ _settings: AppSettings | None = None
 _executor: TaskExecutor | None = None
 
 
-def get_executor() -> TaskExecutor:
+def get_executor(user: str | None = None) -> TaskExecutor:
     """
     Get or create the task executor.
 
@@ -57,13 +57,13 @@ def get_executor() -> TaskExecutor:
     if not _executor:
 
         # Set up default logging first
-        default_settings = AppSettings()
+        default_settings = AppSettings(user=user)
         default_settings.ensure_directories()
         setup_logging(default_settings)
 
         # Initialize configuration
         if not _loader:
-            _loader = ConfigLoader()
+            _loader = ConfigLoader(user=user)
 
         if not _settings:
             _settings = _loader.load_settings()

@@ -23,15 +23,17 @@ from .models import (
 class ConfigLoader:
     """Loads and manages application configuration."""
 
-    def __init__(self, config_dir: Path | None = None):
+    def __init__(self, user: str | None = None, config_dir: Path | None = None):
         """
         Initialize config loader.
 
         Args:
+            user: Username of the user
             config_dir: Override default config directory
         """
         # Use default settings to get config_dir if not provided
-        default_settings = AppSettings()
+        self.user = user
+        default_settings = AppSettings(user=user)
         self.config_dir = config_dir or default_settings.config_dir
         self.config_dir.mkdir(parents=True, exist_ok=True)
 
@@ -118,7 +120,7 @@ class ConfigLoader:
 
         if not settings_path.exists():
             logger.info("Settings file not found, using defaults")
-            settings = AppSettings()
+            settings = AppSettings(user=self.user)
             settings.ensure_directories()
             return settings
 
@@ -135,7 +137,7 @@ class ConfigLoader:
         if "config_dir" in data:
             data["config_dir"] = Path(data["config_dir"])
 
-        settings = AppSettings(**data)
+        settings = AppSettings(user=self.user, **data)
         settings.ensure_directories()
 
         return settings
