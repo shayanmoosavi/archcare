@@ -19,6 +19,7 @@ from archcare.config import (
 )
 from archcare.core import TaskExecutor, TaskScheduler, TaskStatus
 from archcare.tasks import FailedServicesTask, HealthCheckTask, MirrorlistUpdateTask
+from archcare.utils import run_systemctl, is_root
 from archcare.utils.output import (
     print_error,
     print_header,
@@ -313,6 +314,246 @@ def init():
     print_success("Configuration initialized!")
     print_info(f"Edit config files in: {config_dir}")
     print_info("Run 'archcare list' to see available tasks")
+
+
+@app.command()
+def setup(
+    user: str | None = typer.Option(
+        None, "--user", "-u", help="Username ([bold red]Required[/bold red])"
+    ),
+    enable: bool = typer.Option(
+        True, "--enable/--no-enable", help="Enable timers after installation"
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Show what would be done without doing it"
+    ),
+):
+    """
+    Set up systemd timers for automated task execution.
+
+    This command:
+    - Creates systemd service and timer templates
+    - Installs them to /etc/systemd/system/
+    - Optionally enables specified timers
+
+    Example:
+        archcare setup --dry-run --user YOUR_USERNAME
+        archcare setup --user YOUR_USERNAME
+    """
+    from pathlib import Path
+
+    # Check root privilege
+    if not is_root():
+        print_error("This command needs root privilege and should be run with sudo.")
+        raise typer.Exit(1)
+
+    # Get username
+    if not user:
+        print_error(
+            "Username must be provided. Please specify with --user YOUR_USERNAME"
+        )
+        raise typer.Exit(1)
+    # Get user's home directory
+    import pwd
+
+    try:
+        user_info = pwd.getpwnam(user)
+        home_dir = user_info.pw_dir
+    except KeyError:
+        print_error(f"User '{user}' does not exist")
+        raise typer.Exit(1)
+
+    # Define systemd directory
+    systemd_dir = Path("/etc/systemd/system")
+
+    service_content, timer_content = _generate_systemd_templates(home_dir, user)
+
+    # Service and timer file paths
+    service_file = systemd_dir / f"archcare@.service"
+    timer_file = systemd_dir / f"archcare@.timer"
+
+    try:
+        # Load task configuration to show available tasks
+        executor = get_executor(user)
+        tasks_config = executor.config_loader.load_tasks()
+        automated_tasks = tasks_config.get_tasks_by_type("automated")
+
+        _install_systemd_templates(
+            dry_run, service_content, service_file, timer_content, timer_file
+        )
+
+        # Reload systemd
+        _reload_systemd(dry_run)
+
+        print_success("\n" + "=" * 60)
+        print_success("Systemd templates installed successfully!")
+        print_success("=" * 60)
+
+        if automated_tasks:
+            _setup_systemd_timer(automated_tasks, dry_run, enable)
+        else:
+            print_warning("\nNo automated tasks found in configuration")
+            print_info("Edit ~/.config/archcare/tasks.toml to configure tasks")
+
+        print("\n" + "=" * 60)
+        print("Useful Commands")
+        print("=" * 60)
+        print(f"\n# List all timers")
+        print(f"  systemctl list-timers 'archcare@*'")
+        print(f"\n# Check specific timer")
+        print(f"  systemctl status archcare@TASK.timer")
+        print(f"\n# View logs")
+        print(f"  journalctl -u archcare@TASK.service")
+        print(f"\n# Manually trigger")
+        print(f"  sudo systemctl start archcare@TASK.service")
+        print(f"\n# Disable timer")
+        print(f"  sudo systemctl disable --now archcare@TASK.timer")
+
+    except Exception as e:
+        print_error(f"Setup failed: {e}")
+        logger.exception("Setup error")
+        raise typer.Exit(1)
+
+
+def _setup_systemd_timer(
+    automated_tasks: dict[str, TaskConfig], dry_run: bool, enable: bool
+):
+    print_info("\nAvailable automated tasks:")
+    for task_name, task_config in automated_tasks.items():
+        task_status = "✓" if task_config.enabled else "✗"
+        print_info(f"  {task_status} {task_name}: {task_config.description}")
+
+    print_info("\nTo enable a timer:")
+    print_info(f"  sudo systemctl enable --now archcare@TASK.timer")
+    print_info("\nExample:")
+    first_task = next(iter(automated_tasks.keys()))
+    print_info(f"  sudo systemctl enable --now archcare@{first_task}.timer")
+
+    # Optionally enable timers
+    if enable and not dry_run:
+        _enable_systemd_timer(automated_tasks)
+
+        # Show timer status
+        print_info("\n" + "=" * 60)
+        print_info("Timer Status")
+        print_info("=" * 60)
+        result = run_systemctl(["list-timers", f"archcare@*"])
+        if result.success:
+            print(result.stdout)
+
+
+def _enable_systemd_timer(automated_tasks: dict[str, TaskConfig]):
+    print_info("\n" + "=" * 60)
+    print_info("Enabling timers for automated tasks...")
+    print_info("=" * 60)
+
+    for task_name in automated_tasks.keys():
+        timer_name = f"archcare@{task_name}.timer"
+        print_info(f"\nEnabling {timer_name}...")
+
+        result = run_systemctl(["enable", "--now", timer_name])
+        if result.success:
+            print_success(f"  ✓ {timer_name} enabled and started")
+        else:
+            print_warning(f"  ✗ Failed to enable {timer_name}")
+
+
+def _reload_systemd(dry_run: bool):
+    print_info("\nReloading systemd daemon...")
+    if not dry_run:
+        result = run_systemctl(["daemon-reload"])
+        if not result.success:
+            print_error("Failed to reload systemd")
+            raise typer.Exit(1)
+    print_success("  Systemd daemon reloaded")
+
+
+def _install_systemd_templates(
+    dry_run: bool,
+    service_content: str,
+    service_file: Path,
+    timer_content: str,
+    timer_file: Path,
+):
+    # Install service template
+    print_info(f"Installing service template: {service_file}")
+    if not dry_run:
+        service_file.write_text(service_content)
+        service_file.chmod(0o644)
+    print_success(f"  Created {service_file}")
+
+    # Install timer template
+    print_info(f"Installing timer template: {timer_file}")
+    if not dry_run:
+        timer_file.write_text(timer_content)
+        timer_file.chmod(0o644)
+    print_success(f"  Created {timer_file}")
+
+
+def _generate_systemd_templates(home_dir: str, user: str) -> tuple[str, str]:
+    # Service template content
+    service_content = f"""[Unit]
+Description=Archcare maintenance task: %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Environment="ARCHCARE_USER={user}"
+
+# Working directory
+WorkingDirectory={home_dir}
+
+# Run the task
+ExecStart={home_dir}/.local/bin/archcare run %i
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=archcare-%i
+
+# Security hardening
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+
+# Allow access to necessary paths
+ReadWritePaths={home_dir}/.config/archcare {home_dir}/.local/state/archcare /etc/pacman.d
+
+# Resource limits
+CPUQuota=50%
+MemoryMax=1G
+TimeoutStartSec=30min
+
+# Don't restart on failure
+Restart=no
+
+[Install]
+WantedBy=multi-user.target
+"""
+    # Timer template content
+    timer_content = f"""[Unit]
+Description=Archcare maintenance timer: %i
+Requires=archcare@%i.service
+
+[Timer]
+# Default schedule (override per-task with drop-ins)
+OnCalendar=daily
+
+# Run if missed while system was off
+Persistent=yes
+
+# Randomize start time to avoid load spikes
+RandomizedDelaySec=1h
+
+# Accuracy (can wake from suspend)
+AccuracySec=12h
+
+[Install]
+WantedBy=timers.target
+"""
+    return service_content, timer_content
 
 
 @app.command()
