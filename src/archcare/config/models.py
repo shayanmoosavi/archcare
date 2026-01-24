@@ -7,8 +7,9 @@ These models provide type-safe configuration with validation.
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
+from typing import Self
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, computed_field, model_validator
 
 
 class LogLevel(Enum):
@@ -145,24 +146,32 @@ class AppSettings(BaseModel):
     """Application-wide settings."""
 
     # Username
-    user: str | None = Field(default=None, description="The username of the user")
+    user: str | None = None
 
     # Paths
-    home_dir: Path = Field(
-        default=Path(f"/home/{user}") if user else Path.home(),
-        description="The HOME directory of the user",
-    )
-    log_dir: Path = Field(
-        default=home_dir / ".local/state/archcare/logs",
-        description="Directory for log files",
-    )
-    state_file: Path = Field(
-        default=home_dir / ".local/state/archcare/state.json",
-        description="File to track task execution state",
-    )
-    config_dir: Path = Field(
-        default=home_dir / ".config/archcare", description="Configuration directory"
-    )
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def home_dir(self) -> Path:
+        """Home directory of the user."""
+        return Path(f"/home/{self.user}") if self.user else Path.home()
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def log_dir(self) -> Path:
+        """Directory for log files."""
+        return self.home_dir / ".local/state/archcare/logs"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def state_file(self) -> Path:
+        """File to track task execution state."""
+        return self.home_dir / ".local/state/archcare/state.json"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def config_dir(self) -> Path:
+        """Configuration directory."""
+        return self.home_dir / ".config/archcare"
 
     # Logging
     log_retention_days: int = Field(
@@ -178,11 +187,19 @@ class AppSettings(BaseModel):
         default=False, description="Simulate operations without making changes"
     )
 
-    @field_validator("log_dir", "state_file", "config_dir")
     @classmethod
     def expand_paths(cls, v: Path) -> Path:
         """Expand user home directory in paths."""
         return v.expanduser().resolve()
+
+    @model_validator(mode="after")
+    def validate_paths(self) -> Self:
+        paths: list[Path] = [self.log_dir, self.state_file, self.config_dir]
+
+        if not all(self.expand_paths(path) for path in paths):
+            raise ValueError("All paths must be valid and accessible.")
+
+        return self
 
     def ensure_directories(self) -> None:
         """Create necessary directories if they don't exist."""
