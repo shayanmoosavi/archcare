@@ -4,6 +4,7 @@ Command-line interface for archcare.
 Provides commands for running maintenance tasks and viewing status.
 """
 
+import os
 from pathlib import Path
 
 import typer
@@ -107,7 +108,12 @@ def _register_tasks(executor: TaskExecutor) -> None:
     executor.register_task("update-mirrorlist", MirrorlistUpdateTask)
 
 
-def _handle_due_task(executor: TaskExecutor, task_name: str, tasks_config: TasksConfig):
+def _handle_due_task(
+    executor: TaskExecutor,
+    task_name: str,
+    tasks_config: TasksConfig,
+    is_systemd: bool = False,
+):
     scheduler = TaskScheduler(tasks_config, executor.state)
     task_schedule_info = scheduler.get_schedule_info(task_name)
     is_due = task_schedule_info.is_due
@@ -115,8 +121,11 @@ def _handle_due_task(executor: TaskExecutor, task_name: str, tasks_config: Tasks
 
     if not is_due:
         print_info(f"Task is not due: {reason}")
-        if not typer.confirm("Run anyway?"):
+        if is_systemd:
             raise typer.Exit(0)
+        else:
+            if not typer.confirm("Run anyway?"):
+                raise typer.Exit(0)
 
 
 def _handle_task(task_config: TaskConfig | None, task_name: str):
@@ -144,7 +153,9 @@ def run(
         archcare run failed-services
         archcare run system-update --force
     """
-    executor = get_executor()
+    user = os.environ.get("ARCHCARE_USER")
+    executor = get_executor(user)
+    is_systemd = user is not None
 
     print_header(f"Running Task: {task_name}")
 
@@ -157,7 +168,7 @@ def run(
 
         # Check if task is due (unless --force)
         if not force:
-            _handle_due_task(executor, task_name, tasks_config)
+            _handle_due_task(executor, task_name, tasks_config, is_systemd)
 
         # Execute the task
         logger.info(f"Executing task: {task_name}")
