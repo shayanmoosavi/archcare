@@ -12,4 +12,5 @@ poetry.lock
 
 # Nuitka build directories
 *.build/
+*.onefile-build/
 *.dist/
