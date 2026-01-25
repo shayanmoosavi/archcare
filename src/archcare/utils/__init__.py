@@ -16,6 +16,7 @@ from .system import (
     check_filesystem_errors,
     format_bytes,
     get_system_uptime,
+    change_ownership_to_user,
 )
 from .hardware import get_disk_usage, get_cpu_info, get_memory_info
 from .mirrorlist import (
@@ -36,6 +37,7 @@ __all__ = [
     "check_command_exists",
     # System checks
     "is_root",
+    "change_ownership_to_user",
     # Systemd helpers
     "get_systemd_failed_services",
     "get_service_status",

@@ -476,3 +476,39 @@ def get_system_uptime() -> str:
         parts.append(f"{minutes} minute{'s' if minutes != 1 else ''}")
 
     return ", ".join(parts) if parts else "just now"
+
+
+def change_ownership_to_user(path: Path, user: str) -> None:
+    """
+    Change ownership of a file/directory to the specified user.
+
+    This is needed when archcare runs as root via systemd but creates files
+    that should be owned by the actual user.
+
+    Args:
+        path: Path to file or directory to change ownership of
+        user: Username to set as owner
+
+    Note:
+        Logs a warning if ownership change fails but does not raise an exception.
+        This allows the task to continue even if ownership change fails.
+    """
+    import os
+    import pwd
+
+    try:
+        # Get user's UID and GID
+        user_info = pwd.getpwnam(user)
+        uid = user_info.pw_uid
+        gid = user_info.pw_gid
+
+        # Change ownership
+        os.chown(path, uid, gid)
+        logger.debug(f"Changed ownership of {path} to {user}:{gid}")
+
+    except KeyError:
+        logger.warning(f"User '{user}' not found - cannot change ownership of {path}")
+    except PermissionError:
+        logger.warning(f"Permission denied when changing ownership of {path} to {user}")
+    except Exception as e:
+        logger.warning(f"Failed to change ownership of {path} to {user}: {e}")
