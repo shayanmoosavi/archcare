@@ -4,11 +4,14 @@ Logging configuration for archcare.
 Sets up loguru for structured logging to files.
 """
 
+import os
 import sys
 
 from loguru import logger
 
 from archcare.config import AppSettings, LogLevel
+
+from .system import is_root, change_ownership_to_user
 
 
 def setup_logging(settings: AppSettings, reconfigure: bool = False) -> None:
@@ -51,6 +54,12 @@ def setup_logging(settings: AppSettings, reconfigure: bool = False) -> None:
         logger.info(f"Logging configured: {log_file}")
     logger.debug(f"Log level: {settings.log_level.value}")
 
+    # Change ownership if running as root via systemd
+    user = os.environ.get("ARCHCARE_USER")
+    if is_root() and user:
+        change_ownership_to_user(settings.log_dir, user)
+        change_ownership_to_user(log_file, user)
+
 
 def setup_task_logging(task_name: str, settings: AppSettings) -> None:
     """
@@ -68,13 +77,19 @@ def setup_task_logging(task_name: str, settings: AppSettings) -> None:
     logger.add(
         task_log_file,
         format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}",
-        level="DEBUG",  # Always debug level for task logs
+        level=LogLevel.DEBUG.value,  # Always debug level for task logs
         rotation="5 MB",
         retention=f"{settings.log_retention_days} days",
         filter=lambda record: record["extra"].get("task") == task_name,
     )
 
     logger.debug(f"Task logging configured: {task_log_file}")
+
+    # Change ownership if running as root via systemd
+    user = os.environ.get("ARCHCARE_USER")
+    if is_root() and user:
+        change_ownership_to_user(task_log_dir, user)
+        change_ownership_to_user(task_log_file, user)
 
 
 def get_task_logger(task_name: str):

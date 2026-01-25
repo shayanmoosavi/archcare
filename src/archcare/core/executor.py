@@ -6,10 +6,12 @@ Handles task instantiation and execution coordination.
 
 from datetime import datetime, timedelta
 from loguru import logger
+import os
 
 from archcare.config import AppSettings, AppState, ConfigLoader, TaskConfig, TaskType
 from archcare.core.models import TaskResult
 from archcare.tasks.base import BaseTask
+from archcare.utils import is_root, change_ownership_to_user
 
 
 class TaskExecutor:
@@ -202,5 +204,12 @@ class TaskExecutor:
 
         # Save state to disk
         self.config_loader.save_state(self.state)
+
+        # Change ownership if running as root via systemd
+        user = os.environ.get("ARCHCARE_USER")
+        if is_root() and user:
+            state_file = self.settings.state_file
+            change_ownership_to_user(state_file, user)
+            change_ownership_to_user(state_file.parent, user)
 
         logger.debug(f"Updated state for {task_config.name}: next due {next_due}")
