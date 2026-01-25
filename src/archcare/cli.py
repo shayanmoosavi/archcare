@@ -122,9 +122,11 @@ def _handle_due_task(
     if not is_due:
         print_info(f"Task is not due: {reason}")
         if is_systemd:
+            logger.info(f"Skipping the execution of task {task_name}")
             raise typer.Exit(0)
         else:
             if not typer.confirm("Run anyway?"):
+                logger.info(f"Skipping the execution of task {task_name}")
                 raise typer.Exit(0)
 
 
