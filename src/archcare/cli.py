@@ -19,7 +19,12 @@ from archcare.config import (
     TaskType,
 )
 from archcare.core import TaskExecutor, TaskScheduler, TaskStatus
-from archcare.tasks import FailedServicesTask, HealthCheckTask, MirrorlistUpdateTask
+from archcare.tasks import (
+    FailedServicesTask,
+    HealthCheckTask,
+    MirrorlistUpdateTask,
+    BaseTask,
+)
 from archcare.utils import run_systemctl, is_root
 from archcare.utils.output import (
     print_error,
@@ -103,9 +108,14 @@ def _register_tasks(executor: TaskExecutor) -> None:
     Args:
         executor: TaskExecutor to register tasks with
     """
-    executor.register_task("failed-services", FailedServicesTask)
-    executor.register_task("check-health", HealthCheckTask)
-    executor.register_task("update-mirrorlist", MirrorlistUpdateTask)
+    tasks_mapping: dict[str, type[BaseTask]] = {
+        "failed-services": FailedServicesTask,
+        "check-health": HealthCheckTask,
+        "update-mirrorlist": MirrorlistUpdateTask,
+    }
+
+    for command, task_class in tasks_mapping.items():
+        executor.register_task(command, task_class)
 
 
 def _handle_due_task(
