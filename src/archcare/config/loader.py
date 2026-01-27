@@ -249,3 +249,13 @@ def create_default_config_files(config_dir: Path) -> None:
         default_services = tomli_w.dumps(data)
         services_path.write_text(default_services)
         logger.info(f"Created default ignored-services.toml at {services_path}")
+
+    # Create default settings.toml
+    settings_path = config_dir / "settings.toml"
+    if not settings_path.exists():
+        with open(default_config_dir / "settings.toml", "rb") as f:
+            data = tomllib.load(f)
+
+        default_settings = tomli_w.dumps(data)
+        settings_path.write_text(default_settings)
+        logger.info(f"Created default settings.toml at {settings_path}")
