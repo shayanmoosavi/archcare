@@ -7,6 +7,8 @@ Handles loading and parsing TOML configuration files into Pydantic models.
 import json
 import tomllib
 from pathlib import Path
+from typing import Any
+
 import tomli_w
 from loguru import logger
 
@@ -15,6 +17,7 @@ from .models import (
     AppState,
     CacheCleanupConfig,
     IgnoredServicesConfig,
+    MirrorlistSettings,
     TaskConfig,
     TasksConfig,
 )
@@ -129,15 +132,23 @@ class ConfigLoader:
         with open(settings_path, "rb") as f:
             data = tomllib.load(f)
 
-        # Convert string paths to Path objects
-        if "log_dir" in data:
-            data["log_dir"] = Path(data["log_dir"])
-        if "state_file" in data:
-            data["state_file"] = Path(data["state_file"])
-        if "config_dir" in data:
-            data["config_dir"] = Path(data["config_dir"])
+        settings_data: dict[str, Any] = {"user": self.user}
 
-        settings = AppSettings(user=self.user, **data)
+        # Copy global settings
+        for key in [
+            "log_level",
+            "log_retention_days",
+            "require_confirmation",
+            "dry_run",
+        ]:
+            if key in data:
+                settings_data[key] = data[key]
+
+        # Load mirrorlist settings if present
+        if "mirrorlist" in data:
+            settings_data["mirrorlist"] = MirrorlistSettings(**data["mirrorlist"])
+
+        settings = AppSettings(**settings_data)
         settings.ensure_directories()
 
         return settings
@@ -156,9 +167,6 @@ class ConfigLoader:
 
         # Convert to dict and handle Path objects
         data = settings.model_dump()
-        data["log_dir"] = str(data["log_dir"])
-        data["state_file"] = str(data["state_file"])
-        data["config_dir"] = str(data["config_dir"])
 
         logger.info(f"Saving settings to: {settings_path}")
 
