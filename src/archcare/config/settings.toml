@@ -1,0 +1,14 @@
+# Global Settings
+log_level = "INFO"
+log_retention_days = 30
+require_confirmation = true
+dry_run = false
+
+# Mirrorlist Update Settings
+[mirrorlist]
+path = "/etc/pacman.d/mirrorlist"
+country = "Germany"
+protocol = "https"
+sort = "rate"
+latest = 20
+number_of_mirrors = 5
