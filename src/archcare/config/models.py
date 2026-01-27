@@ -189,8 +189,32 @@ class MirrorlistSettings(BaseModel):
 class AppSettings(BaseModel):
     """Application-wide settings."""
 
+    # Global settings
+    # This corresponds to the [global] section in the settings.toml file
+
     # Username
     user: str | None = None
+
+    # Logging
+    log_retention_days: int = Field(
+        default=30, ge=1, description="Number of days to keep log files"
+    )
+    log_level: LogLevel = Field(default=LogLevel.INFO, description="Logging level")
+
+    # Behavior
+    require_confirmation: bool = Field(
+        default=True, description="Require user confirmation for destructive operations"
+    )
+    dry_run: bool = Field(
+        default=False, description="Simulate operations without making changes"
+    )
+
+    # mirrorlist-specific settings
+    # This corresponds to the [mirrorlist] section in the settings.toml file
+    mirrorlist: MirrorlistSettings = Field(
+        default_factory=MirrorlistSettings,
+        description="Settings for mirrorlist update task",
+    )
 
     # Paths
     @computed_field  # type: ignore[prop-decorator]
@@ -216,26 +240,6 @@ class AppSettings(BaseModel):
     def config_dir(self) -> Path:
         """Configuration directory."""
         return self.home_dir / ".config/archcare"
-
-    # Logging
-    log_retention_days: int = Field(
-        default=30, ge=1, description="Number of days to keep log files"
-    )
-    log_level: LogLevel = Field(default=LogLevel.INFO, description="Logging level")
-
-    # Behavior
-    require_confirmation: bool = Field(
-        default=True, description="Require user confirmation for destructive operations"
-    )
-    dry_run: bool = Field(
-        default=False, description="Simulate operations without making changes"
-    )
-
-    # Task-specific settings
-    mirrorlist: MirrorlistSettings = Field(
-        default_factory=MirrorlistSettings,
-        description="Settings for mirrorlist update task",
-    )
 
     @classmethod
     def expand_paths(cls, v: Path) -> Path:
