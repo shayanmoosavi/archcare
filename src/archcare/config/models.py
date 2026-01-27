@@ -142,6 +142,50 @@ class CacheCleanupConfig(BaseModel):
     )
 
 
+class MirrorlistSettings(BaseModel):
+    """Settings for mirrorlist update task."""
+
+    path: Path = Field(
+        default=Path("/etc/pacman.d/mirrorlist"),
+        description="Path to store the mirrorlists",
+    )
+    country: str | list[str] = Field(
+        default="Germany", description="Country for mirror selection"
+    )
+    protocol: str = Field(
+        default="https", description="Protocol to use (http/https/rsync)"
+    )
+    sort: str = Field(
+        default="rate", description="The criteria to sort the mirrors with"
+    )
+    latest: int = Field(
+        default=20,
+        ge=1,
+        le=50,
+        description="The number of most recently synchronized mirrors",
+    )
+    number_of_mirrors: int = Field(
+        default=5, ge=1, le=50, description="Number of mirrors to include"
+    )
+
+    @field_validator("protocol")
+    @classmethod
+    def validate_protocol(cls, v: str) -> str:
+        """Validate protocol value."""
+        if v not in ["http", "https", "rsync"]:
+            raise ValueError("protocol must be 'http', 'https', or 'rsync'")
+        return v
+
+    @field_validator("sort")
+    @classmethod
+    def validate_sort(cls, v: str) -> str:
+        """Validate sort value."""
+        valid_sorts = ["age", "rate", "country", "score", "delay"]
+        if v not in valid_sorts:
+            raise ValueError(f"sort must be one of {valid_sorts}")
+        return v
+
+
 class AppSettings(BaseModel):
     """Application-wide settings."""
 
@@ -185,6 +229,12 @@ class AppSettings(BaseModel):
     )
     dry_run: bool = Field(
         default=False, description="Simulate operations without making changes"
+    )
+
+    # Task-specific settings
+    mirrorlist: MirrorlistSettings = Field(
+        default_factory=MirrorlistSettings,
+        description="Settings for mirrorlist update task",
     )
 
     @classmethod
