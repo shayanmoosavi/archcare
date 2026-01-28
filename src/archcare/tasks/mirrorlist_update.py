@@ -3,6 +3,7 @@ Mirrorlist update task implementation for archcare.
 """
 
 from pathlib import Path
+from typing import Any
 
 from archcare.core.models import TaskResult, failed, success
 from archcare.tasks import BaseTask
@@ -27,17 +28,10 @@ class MirrorlistUpdateTask(BaseTask):
     - Rolls back if validation fails
     """
 
-    # Default configuration (can be overridden via settings in future)
-    MIRRORLIST_PATH = Path("/etc/pacman.d/mirrorlist")
-    DEFAULT_COUNTRIES = ["DE", "NL", "SE"]  # Can be configured
-    DEFAULT_PROTOCOL = "https"
-    DEFAULT_LATEST = 20
-    DEFAULT_NUMBER = 5
-    DEFAULT_SORT = "rate"
-
     def __init__(self, backup_path: Path | None = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.backup_path: Path | None = backup_path
+        self.mirrorlist_path = self.settings.mirrorlist.path
 
     def pre_check(self) -> tuple[bool, str]:
         """
@@ -53,8 +47,8 @@ class MirrorlistUpdateTask(BaseTask):
             )
 
         # Check if mirrorlist file exists
-        if not self.MIRRORLIST_PATH.exists():
-            return False, f"Mirrorlist file not found: {self.MIRRORLIST_PATH}"
+        if not self.mirrorlist_path.exists():
+            return False, f"Mirrorlist file not found: {self.mirrorlist_path}"
 
         return True, ""
 
@@ -76,7 +70,7 @@ class MirrorlistUpdateTask(BaseTask):
 
         # Get current mirrorlist info
         self.logger.debug("Getting current mirrorlist info")
-        old_info = get_mirrorlist_info(self.MIRRORLIST_PATH)
+        old_info = get_mirrorlist_info(self.mirrorlist_path)
         self.logger.info(
             f"Current mirrorlist: {old_info['total_mirrors']} mirrors, "
             f"last modified: {old_info['last_modified']}"
@@ -85,7 +79,7 @@ class MirrorlistUpdateTask(BaseTask):
         # Create backup
         try:
             self.logger.info("Creating backup of current mirrorlist")
-            self.backup_path = backup_file(self.MIRRORLIST_PATH)
+            self.backup_path = backup_file(self.mirrorlist_path)
             self.logger.debug(f"Backup created: {self.backup_path}")
         except Exception as e:
             self.logger.error(f"Failed to create backup: {e}")
@@ -97,22 +91,21 @@ class MirrorlistUpdateTask(BaseTask):
 
         # Run reflector
         try:
-            self.logger.info("Running reflector to update mirrorlist")
-            self.logger.debug(
-                f"Parameters: countries={self.DEFAULT_COUNTRIES}, "
-                f"protocol={self.DEFAULT_PROTOCOL}, "
-                f"latest={self.DEFAULT_LATEST}, "
-                f"sort={self.DEFAULT_SORT}"
-            )
 
-            result = update_mirrorlist(
-                country=self.DEFAULT_COUNTRIES,
-                protocol=self.DEFAULT_PROTOCOL,
-                latest=self.DEFAULT_LATEST,
-                number=self.DEFAULT_NUMBER,
-                sort=self.DEFAULT_SORT,
-                save_path=self.MIRRORLIST_PATH,
-            )
+            mirrorlist_settings = self.settings.mirrorlist
+            reflector_args: dict[str, Any] = {
+                "country": mirrorlist_settings.country,
+                "protocol": mirrorlist_settings.protocol,
+                "latest": mirrorlist_settings.latest,
+                "number": mirrorlist_settings.number_of_mirrors,
+                "sort": mirrorlist_settings.sort,
+                "save_path": self.mirrorlist_path,
+            }
+
+            self.logger.info("Running reflector to update mirrorlist")
+            self.logger.debug(f"Parameters: {reflector_args}")
+
+            result = update_mirrorlist(**reflector_args)
 
             if not result.success:
                 self.logger.error(f"Reflector failed: {result.stderr}")
@@ -126,7 +119,7 @@ class MirrorlistUpdateTask(BaseTask):
 
         # Validate new mirrorlist
         self.logger.info("Validating new mirrorlist")
-        is_valid, validation_msg = validate_mirrorlist(self.MIRRORLIST_PATH)
+        is_valid, validation_msg = validate_mirrorlist(self.mirrorlist_path)
 
         if not is_valid:
             self.logger.error(f"Validation failed: {validation_msg}")
@@ -135,7 +128,7 @@ class MirrorlistUpdateTask(BaseTask):
         self.logger.info(f"Validation passed: {validation_msg}")
 
         # Get new mirrorlist info
-        new_info = get_mirrorlist_info(self.MIRRORLIST_PATH)
+        new_info = get_mirrorlist_info(self.mirrorlist_path)
         self.logger.info(f"New mirrorlist: {new_info['total_mirrors']} mirrors")
 
         return success(
@@ -175,7 +168,7 @@ class MirrorlistUpdateTask(BaseTask):
         if self.backup_path and self.backup_path.exists():
             try:
                 self.logger.warning("Rolling back to previous mirrorlist")
-                restore_backup(self.backup_path, self.MIRRORLIST_PATH)
+                restore_backup(self.backup_path, self.mirrorlist_path)
                 self.logger.info("Rollback completed successfully")
             except Exception as e:
                 self.logger.error(f"Rollback failed: {e}")
