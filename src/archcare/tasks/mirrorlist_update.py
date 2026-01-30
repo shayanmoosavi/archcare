@@ -5,6 +5,8 @@ Mirrorlist update task implementation for archcare.
 from pathlib import Path
 from typing import Any
 
+from loguru import logger
+
 from archcare.core.models import TaskResult, failed, success
 from archcare.tasks import BaseTask
 from archcare.utils import (
@@ -66,23 +68,23 @@ class MirrorlistUpdateTask(BaseTask):
         4. Validate new mirrorlist
         5. Rollback if validation fails
         """
-        self.logger.info("Starting mirrorlist update")
+        logger.info("Starting mirrorlist update")
 
         # Get current mirrorlist info
-        self.logger.debug("Getting current mirrorlist info")
+        logger.debug("Getting current mirrorlist info")
         old_info = get_mirrorlist_info(self.mirrorlist_path)
-        self.logger.info(
+        logger.info(
             f"Current mirrorlist: {old_info['total_mirrors']} mirrors, "
             f"last modified: {old_info['last_modified']}"
         )
 
         # Create backup
         try:
-            self.logger.info("Creating backup of current mirrorlist")
+            logger.info("Creating backup of current mirrorlist")
             self.backup_path = backup_file(self.mirrorlist_path)
-            self.logger.debug(f"Backup created: {self.backup_path}")
+            logger.debug(f"Backup created: {self.backup_path}")
         except Exception as e:
-            self.logger.error(f"Failed to create backup: {e}")
+            logger.error(f"Failed to create backup: {e}")
             return failed(
                 f"Failed to create mirrorlist backup: {e}",
                 error=e,
@@ -102,34 +104,34 @@ class MirrorlistUpdateTask(BaseTask):
                 "save_path": self.mirrorlist_path,
             }
 
-            self.logger.info("Running reflector to update mirrorlist")
-            self.logger.debug(f"Parameters: {reflector_args}")
+            logger.info("Running reflector to update mirrorlist")
+            logger.debug(f"Parameters: {reflector_args}")
 
             result = update_mirrorlist(**reflector_args)
 
             if not result.success:
-                self.logger.error(f"Reflector failed: {result.stderr}")
+                logger.error(f"Reflector failed: {result.stderr}")
                 raise RuntimeError(f"Reflector failed: {result.stderr}")
 
-            self.logger.info("Reflector completed successfully")
+            logger.info("Reflector completed successfully")
 
         except Exception as e:
-            self.logger.error(f"Failed to run reflector: {e}")
+            logger.error(f"Failed to run reflector: {e}")
             raise
 
         # Validate new mirrorlist
-        self.logger.info("Validating new mirrorlist")
+        logger.info("Validating new mirrorlist")
         is_valid, validation_msg = validate_mirrorlist(self.mirrorlist_path)
 
         if not is_valid:
-            self.logger.error(f"Validation failed: {validation_msg}")
+            logger.error(f"Validation failed: {validation_msg}")
             raise RuntimeError(f"New mirrorlist validation failed: {validation_msg}")
 
-        self.logger.info(f"Validation passed: {validation_msg}")
+        logger.info(f"Validation passed: {validation_msg}")
 
         # Get new mirrorlist info
         new_info = get_mirrorlist_info(self.mirrorlist_path)
-        self.logger.info(f"New mirrorlist: {new_info['total_mirrors']} mirrors")
+        logger.info(f"New mirrorlist: {new_info['total_mirrors']} mirrors")
 
         return success(
             f"Mirrorlist updated successfully with {new_info['total_mirrors']} mirrors",
@@ -144,7 +146,7 @@ class MirrorlistUpdateTask(BaseTask):
         """Cleanup 5 oldest backups after successful update."""
         if result.is_success() and self.backup_path:
             try:
-                self.logger.info("Cleaning up old mirrorlist backups")
+                logger.info("Cleaning up old mirrorlist backups")
                 backup_dir = self.backup_path.parent
                 backups = sorted(
                     backup_dir.glob("mirrorlist.*.backup"),
@@ -153,13 +155,13 @@ class MirrorlistUpdateTask(BaseTask):
                 # Keep only the 5 most recent backups
                 if len(backups) >= 5:
                     for old_backup in backups[:-5]:
-                        self.logger.debug(f"Removing old backup: {old_backup}")
+                        logger.debug(f"Removing old backup: {old_backup}")
                         old_backup.unlink()
-                    self.logger.info("Old backups cleanup completed")
+                    logger.info("Old backups cleanup completed")
                 else:
-                    self.logger.info("Less than 5 backups present, no cleanup needed")
+                    logger.info("Less than 5 backups present, no cleanup needed")
             except Exception as e:
-                self.logger.error(f"Failed to cleanup old backups: {e}")
+                logger.error(f"Failed to cleanup old backups: {e}")
 
     def rollback(self):
         """
@@ -167,14 +169,14 @@ class MirrorlistUpdateTask(BaseTask):
         """
         if self.backup_path and self.backup_path.exists():
             try:
-                self.logger.warning("Rolling back to previous mirrorlist")
+                logger.warning("Rolling back to previous mirrorlist")
                 restore_backup(self.backup_path, self.mirrorlist_path)
-                self.logger.info("Rollback completed successfully")
+                logger.info("Rollback completed successfully")
             except Exception as e:
-                self.logger.error(f"Rollback failed: {e}")
-                self.logger.critical(
+                logger.error(f"Rollback failed: {e}")
+                logger.critical(
                     f"Mirrorlist may be broken! "
                     f"Manually restore from: {self.backup_path}"
                 )
         else:
-            self.logger.warning("No backup available for rollback")
+            logger.warning("No backup available for rollback")

@@ -2,6 +2,8 @@
 Failed services task implementation for archcare.
 """
 
+from loguru import logger
+
 from archcare.config import ConfigLoader
 from archcare.core.models import TaskResult, success, partial
 from archcare.tasks import BaseTask
@@ -70,11 +72,11 @@ class FailedServicesTask(BaseTask):
             - Status and description for each
             - Recent logs for diagnostics
         """
-        self.logger.info("Checking for failed systemd services")
+        logger.info("Checking for failed systemd services")
 
         # Get all failed services
         failed_services = get_systemd_failed_services()
-        self.logger.debug(f"Found {len(failed_services)} failed services total")
+        logger.debug(f"Found {len(failed_services)} failed services total")
 
         # Load ignored services config
         config_loader = ConfigLoader(config_dir=self.settings.config_dir)
@@ -90,7 +92,7 @@ class FailedServicesTask(BaseTask):
         ]
 
         if ignored_failures:
-            self.logger.info(
+            logger.info(
                 f"Ignored {len(ignored_failures)} known failures: "
                 f"{', '.join(ignored_failures)}"
             )
@@ -108,7 +110,7 @@ class FailedServicesTask(BaseTask):
         failure_details = []
 
         for service_name in actual_failures:
-            self.logger.debug(f"Getting details for {service_name}")
+            logger.debug(f"Getting details for {service_name}")
 
             # Get service status
             status = get_service_status(service_name)

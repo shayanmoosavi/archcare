@@ -4,6 +4,8 @@ Health check task implementation for archcare.
 
 from typing import Any
 
+from loguru import logger
+
 from archcare.core.models import TaskResult, partial, success, failed
 from archcare.tasks.base import BaseTask
 from archcare.utils import (
@@ -39,7 +41,7 @@ class HealthCheckTask(BaseTask):
         Returns:
             TaskResult with health check details
         """
-        self.logger.info("Starting system health checks")
+        logger.info("Starting system health checks")
 
         issues: list[str] = []
         warnings: list[str] = []
@@ -77,7 +79,7 @@ class HealthCheckTask(BaseTask):
 
         if issues:
             message = f"Health check found {len(issues)} critical issue(s)"
-            self.logger.info(f"Health check complete: {message}")
+            logger.info(f"Health check complete: {message}")
             return failed(
                 message=message,
                 error=None,
@@ -97,7 +99,7 @@ class HealthCheckTask(BaseTask):
             )
         elif warnings:
             message = f"Health check found {len(warnings)} warning(s)"
-            self.logger.info(f"Health check complete: {message}")
+            logger.info(f"Health check complete: {message}")
             return partial(
                 message=message,
                 warnings=warnings,
@@ -115,7 +117,7 @@ class HealthCheckTask(BaseTask):
             )
         else:
             message = "All health checks passed"
-            self.logger.info(f"Health check complete: {message}")
+            logger.info(f"Health check complete: {message}")
             return success(
                 message=message,
                 checks=checks,
@@ -131,58 +133,63 @@ class HealthCheckTask(BaseTask):
                 },
             )
 
-    def _check_system_uptime(self, checks: dict[str, Any]) -> str:
-        self.logger.debug("Getting system uptime")
+    @staticmethod
+    def _check_system_uptime(checks: dict[str, Any]) -> str:
+        logger.debug("Getting system uptime")
         uptime = get_system_uptime()
         checks["uptime"] = uptime
-        self.logger.info(f"System uptime: {uptime}")
+        logger.info(f"System uptime: {uptime}")
 
         return uptime
 
+    @staticmethod
     def _check_installed_package_files(
-        self, checks: dict[str, Any], issues: list[str]
+        checks: dict[str, Any], issues: list[str]
     ) -> bool:
-        self.logger.debug("Checking installed package files integrity")
+        logger.debug("Checking installed package files integrity")
         packages_ok, packages_msg = check_package_files()
         checks["package_files"] = {"healthy": packages_ok, "message": packages_msg}
 
         if not packages_ok:
             issues.append(f"Critical: {packages_msg}")
         else:
-            self.logger.debug(packages_msg)
+            logger.debug(packages_msg)
 
         return packages_ok
 
+    @staticmethod
     def _check_pacman_database_health(
-        self, checks: dict[str, Any], issues: list[str]
+        checks: dict[str, Any], issues: list[str]
     ) -> bool:
-        self.logger.debug("Checking pacman database")
+        logger.debug("Checking pacman database")
         pacman_ok, pacman_msg = check_pacman_database()
         checks["pacman"] = {"healthy": pacman_ok, "message": pacman_msg}
 
         if not pacman_ok:
             issues.append(f"Critical: {pacman_msg}")
         else:
-            self.logger.debug(pacman_msg)
+            logger.debug(pacman_msg)
 
         return pacman_ok
 
+    @staticmethod
     def _check_filesystem_errors(
-        self, checks: dict[str, Any], issues: list[str]
+        checks: dict[str, Any], issues: list[str]
     ) -> list[str]:
-        self.logger.debug("Checking for filesystem errors")
+        logger.debug("Checking for filesystem errors")
         fs_errors = check_filesystem_errors()
         checks["filesystem_errors"] = fs_errors
 
         if fs_errors:
             issues.append(f"Critical: {len(fs_errors)} filesystem error(s) detected")
             for error in fs_errors[:3]:  # Show first 3
-                self.logger.warning(f"Filesystem error: {error}")
+                logger.warning(f"Filesystem error: {error}")
 
         return fs_errors
 
-    def _check_cpu_load(self, checks: dict[str, Any], warnings: list[str]) -> float:
-        self.logger.debug("Checking CPU load")
+    @staticmethod
+    def _check_cpu_load(checks: dict[str, Any], warnings: list[str]) -> float:
+        logger.debug("Checking CPU load")
         cpu = get_cpu_info()
         checks["cpu"] = cpu
 
@@ -203,10 +210,11 @@ class HealthCheckTask(BaseTask):
 
         return cpu_percent
 
+    @staticmethod
     def _check_memory_usage(
-        self, checks: dict[str, Any], issues: list[str], warnings: list[str]
+        checks: dict[str, Any], issues: list[str], warnings: list[str]
     ) -> float:
-        self.logger.debug("Checking memory usage")
+        logger.debug("Checking memory usage")
         memory = get_memory_info()
         checks["memory"] = memory
 
@@ -227,10 +235,11 @@ class HealthCheckTask(BaseTask):
 
         return mem_percent
 
+    @staticmethod
     def _check_disk_space(
-        self, checks: dict[str, Any], issues: list[str], warnings: list[str]
+        checks: dict[str, Any], issues: list[str], warnings: list[str]
     ) -> float:
-        self.logger.debug("Checking disk space")
+        logger.debug("Checking disk space")
         disk = get_disk_usage("/")
         checks["disk"] = disk
 
@@ -244,7 +253,7 @@ class HealthCheckTask(BaseTask):
                 f"Warning: Disk usage at {disk_percent}% ({format_bytes(disk['free'])} free)"
             )
         else:
-            self.logger.debug(
+            logger.debug(
                 f"Disk usage: {disk_percent}% ({format_bytes(disk['free'])} free)"
             )
 
