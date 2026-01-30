@@ -18,7 +18,7 @@ from archcare.config import (
     TaskConfig,
     TaskType,
 )
-from archcare.core import TaskExecutor, TaskScheduler, TaskStatus
+from archcare.core import TaskExecutor, TaskScheduler
 from archcare.tasks import (
     FailedServicesTask,
     HealthCheckTask,
@@ -194,12 +194,12 @@ def run(
             print_task_result(result, task_name)
 
         # Exit code based on result
-        if result.status == TaskStatus.SUCCESS:
+        if result.is_success():
             raise typer.Exit(0)
-        elif result.status == TaskStatus.PARTIAL:
+        elif result.is_partial():
             # Partial success - found issues but task completed
             raise typer.Exit(0)
-        elif result.status == TaskStatus.SKIPPED:
+        elif result.is_skipped():
             raise typer.Exit(0)
         else:  # FAILED
             raise typer.Exit(1)
