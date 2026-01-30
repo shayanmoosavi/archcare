@@ -61,7 +61,7 @@ class TaskExecutor:
         self.task_registry[command] = task_class
         logger.debug(f"Registered task: {command} -> {task_class.__name__}")
 
-    def create_task(self, task_config: TaskConfig) -> BaseTask:
+    def _create_task(self, task_config: TaskConfig) -> BaseTask:
         """
         Create a task instance from its configuration.
 
@@ -108,7 +108,7 @@ class TaskExecutor:
             raise ValueError(f"Task is disabled: {task_name}")
 
         # Create and run task
-        task = self.create_task(task_config)
+        task = self._create_task(task_config)
         result = task.run()
 
         # Update state
