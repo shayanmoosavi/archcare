@@ -7,9 +7,11 @@ All maintenance tasks inherit from BaseTask.
 import time
 from abc import ABC, abstractmethod
 
+from loguru import logger
+
 from archcare.config import AppSettings, TaskConfig
 from archcare.core.models import TaskResult, TaskStep, failed, skipped
-from archcare.utils import setup_task_logging, get_task_logger
+from archcare.utils import setup_task_logging
 
 
 class BaseTask(ABC):
@@ -38,15 +40,6 @@ class BaseTask(ABC):
         self.settings = settings
         self.name = config.name
         self._start_time: float = 0.0
-
-        # Setup task-specific logging
-        setup_task_logging(self.name, settings)
-
-        # Get logger bound to this task
-        # All logs from this logger will go to both:
-        # - Main log (archcare.log)
-        # - Task-specific log (tasks/<task-name>.log)
-        self.logger = get_task_logger(self.name)
 
     @abstractmethod
     def execute(self) -> TaskResult:
@@ -149,7 +142,7 @@ class BaseTask(ABC):
                 message="Fetched 10 mirrors"
             ))
         """
-        self.logger.info(f"[{self.name}] {step}")
+        logger.info(f"[{self.name}] {step}")
 
     def run(self) -> TaskResult:
         """
@@ -167,53 +160,58 @@ class BaseTask(ABC):
         """
         self._start_time = time.time()
 
-        self.logger.info(f"Starting task: {self.name}")
-        self.logger.debug(f"Task config: {self.config}")
+        logger.info(f"Starting task: {self.name}")
+        logger.debug(f"Task config: {self.config}")
 
+        handler_id = setup_task_logging(self.name, self.settings)
         try:
-            # Check prerequisites
-            can_run, reason = self.pre_check()
-            if not can_run:
-                self.logger.warning(f"Pre-check failed for {self.name}: {reason}")
-                return self._create_result(skipped(f"Pre-check failed: {reason}"))
+            with logger.contextualize(task=self.name):
+                # Check prerequisites
+                can_run, reason = self.pre_check()
+                if not can_run:
+                    logger.warning(f"Pre-check failed for {self.name}: {reason}")
+                    return self._create_result(skipped(f"Pre-check failed: {reason}"))
 
-            # Check if task should run
-            should_run, reason = self.should_run()
-            if not should_run:
-                self.logger.info(f"Task {self.name} skipped: {reason}")
-                return self._create_result(skipped(reason))
+                # Check if task should run
+                should_run, reason = self.should_run()
+                if not should_run:
+                    logger.info(f"Task {self.name} skipped: {reason}")
+                    return self._create_result(skipped(reason))
 
-            # Execute main task logic
-            self.logger.info(f"Executing {self.name}")
-            result = self.execute()
+                # Execute main task logic
+                logger.info(f"Executing {self.name}")
+                result = self.execute()
 
-            # Post-execution cleanup
-            self.post_execute(result)
+                # Post-execution cleanup
+                self.post_execute(result)
 
-            # Log result
-            if result.is_success():
-                self.logger.success(f"Task {self.name} completed successfully")
-            elif result.is_failed():
-                self.logger.error(f"Task {self.name} failed: {result.message}")
-            else:
-                self.logger.info(f"Task {self.name} finished: {result.status}")
+                # Log result
+                if result.is_success():
+                    logger.success(f"Task {self.name} completed successfully")
+                elif result.is_failed():
+                    logger.error(f"Task {self.name} failed: {result.message}")
+                else:
+                    logger.info(f"Task {self.name} finished: {result.status}")
 
-            return self._create_result(result)
+                return self._create_result(result)
 
         except Exception as e:
-            self.logger.exception(f"Unhandled exception in task {self.name}")
+            logger.exception(f"Unhandled exception in task {self.name}")
 
             # Attempt rollback
             try:
-                self.logger.info(f"Attempting rollback for {self.name}")
+                logger.info(f"Attempting rollback for {self.name}")
                 self.rollback()
-                self.logger.info(f"Rollback completed for {self.name}")
+                logger.info(f"Rollback completed for {self.name}")
             except Exception as rollback_error:
-                self.logger.error(f"Rollback failed for {self.name}: {rollback_error}")
+                logger.error(f"Rollback failed for {self.name}: {rollback_error}")
 
             return self._create_result(
                 failed(message=f"Task execution failed: {str(e)}", error=e)
             )
+        finally:
+            # Remove task-specific log handler
+            logger.remove(handler_id)
 
     def _create_result(self, result: TaskResult) -> TaskResult:
         """

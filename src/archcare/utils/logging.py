@@ -46,6 +46,7 @@ def setup_logging(settings: AppSettings, reconfigure: bool = False) -> None:
         rotation="10 MB",  # Rotate when file reaches 10MB
         retention=f"{settings.log_retention_days} days",
         compression="gz",  # Compress rotated logs
+        enqueue=True,  # Thread-safe
     )
 
     if reconfigure:
@@ -61,7 +62,7 @@ def setup_logging(settings: AppSettings, reconfigure: bool = False) -> None:
         change_ownership_to_user(log_file, user)
 
 
-def setup_task_logging(task_name: str, settings: AppSettings) -> None:
+def setup_task_logging(task_name: str, settings: AppSettings) -> int:
     """
     Set up a separate log file for a specific task.
 
@@ -74,16 +75,18 @@ def setup_task_logging(task_name: str, settings: AppSettings) -> None:
 
     task_log_file = task_log_dir / f"{task_name}.log"
 
-    logger.add(
+    handler_id = logger.add(
         task_log_file,
         format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}",
         level=LogLevel.DEBUG.value,  # Always debug level for task logs
         rotation="5 MB",
         retention=f"{settings.log_retention_days} days",
+        compression="gz",
+        enqueue=True,
         filter=lambda record: record["extra"].get("task") == task_name,
     )
 
-    logger.debug(f"Task logging configured: {task_log_file}")
+    logger.info(f"Task logging configured: {task_log_file}")
 
     # Change ownership if running as root via systemd
     user = os.environ.get("ARCHCARE_USER")
@@ -91,19 +94,4 @@ def setup_task_logging(task_name: str, settings: AppSettings) -> None:
         change_ownership_to_user(task_log_dir, user)
         change_ownership_to_user(task_log_file, user)
 
-
-def get_task_logger(task_name: str):
-    """
-    Get a logger bound to a specific task.
-
-    Args:
-        task_name: Name of the task
-
-    Returns:
-        Logger instance bound to the task
-
-    Example:
-        task_logger = get_task_logger("system-update")
-        task_logger.info("Starting system update...")
-    """
-    return logger.bind(task=task_name)
+    return handler_id

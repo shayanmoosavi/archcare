@@ -2,7 +2,7 @@
 Utility functions for archcare.
 """
 
-from .logging import get_task_logger, setup_logging, setup_task_logging
+from .logging import setup_logging, setup_task_logging
 from .system import (
     CommandResult,
     check_command_exists,
@@ -45,7 +45,6 @@ __all__ = [
     # Logging
     "setup_logging",
     "setup_task_logging",
-    "get_task_logger",
     # System information
     "check_filesystem_errors",
     "format_bytes",
