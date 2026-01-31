@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from archcare.config.models import TaskStatus
+from archcare.config.models import SkipReason, TaskStatus
 
 
 @dataclass
@@ -26,6 +26,8 @@ class TaskResult:
     error: Exception | None = None
     timestamp: datetime = field(default_factory=datetime.now)
     duration_seconds: float = 0.0
+    skip_reason: SkipReason | None = None
+    skip_message: str | None = None
 
     def is_success(self) -> bool:
         """Check if task succeeded."""

@@ -35,6 +35,22 @@ class TaskStatus(Enum):
         return self.value
 
 
+class SkipReason(Enum):
+    """Reasons why a task was skipped."""
+
+    NO_WORK_NEEDED = (
+        "no_work_needed"  # Task found nothing to do (e.g., no failed services)
+    )
+    DISABLED = "disabled"  # Task is disabled in configuration
+    DEPENDENCY_FAILED = "dependency_failed"  # Required dependency not available
+    USER_CANCELLED = "user_cancelled"  # User chose not to run the task
+    NOT_DUE = "not_due"  # Task executed but not due yet
+    OTHER = "other"  # Other reason (with custom message)
+
+    def __str__(self) -> str:
+        return self.value
+
+
 class TaskConfig(BaseModel):
     """Configuration for a single maintenance task."""
 
@@ -274,6 +290,12 @@ class TaskState(BaseModel):
     last_error: str | None = Field(
         None, description="Error message from last failed run"
     )
+    skip_reason: SkipReason | None = Field(
+        None, description="Reason why task was skipped"
+    )
+    skip_message: str | None = Field(
+        None, description="Additional context for skip reason"
+    )
 
 
 class AppState(BaseModel):
@@ -298,6 +320,8 @@ class AppState(BaseModel):
         status: TaskStatus,
         next_due: datetime | None = None,
         error: str | None = None,
+        skip_reason: SkipReason | None = None,
+        skip_message: str | None = None,
     ) -> None:
         """Update state after task execution."""
         state = self.get_task_state(task_name)
@@ -306,4 +330,6 @@ class AppState(BaseModel):
         state.next_due = next_due
         state.run_count += 1
         state.last_error = error
+        state.skip_reason = skip_reason
+        state.skip_message = skip_message
         self.last_updated = datetime.now()
