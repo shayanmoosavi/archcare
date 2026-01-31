@@ -4,7 +4,7 @@ Failed services task implementation for archcare.
 
 from loguru import logger
 
-from archcare.config import ConfigLoader
+from archcare.config import ConfigLoader, SkipReason
 from archcare.core.models import TaskResult, success, partial
 from archcare.tasks import BaseTask
 from archcare.utils import (
@@ -38,12 +38,12 @@ class FailedServicesTask(BaseTask):
 
         return True, ""
 
-    def should_run(self) -> tuple[bool, str]:
+    def should_run(self) -> tuple[bool, str, SkipReason | None]:
         """
         Check if there are any failed services to report.
 
         Returns:
-            (should_run, reason) tuple
+            (should_run, reason, skip_reason) tuple
         """
         # Get all failed services
         failed_services = get_systemd_failed_services()
@@ -58,9 +58,9 @@ class FailedServicesTask(BaseTask):
         ]
 
         if not actual_failures:
-            return False, "No failed services found"
+            return False, "No failed services found", SkipReason.NO_WORK_NEEDED
 
-        return True, f"Found {len(actual_failures)} failed service(s)"
+        return True, f"Found {len(actual_failures)} failed service(s)", None
 
     def execute(self) -> TaskResult:
         """
