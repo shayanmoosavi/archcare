@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 
 from loguru import logger
 
-from archcare.config import AppSettings, TaskConfig
+from archcare.config import AppSettings, TaskConfig, SkipReason
 from archcare.core.models import TaskResult, TaskStep, failed, skipped
 from archcare.utils import setup_task_logging
 
@@ -75,7 +75,7 @@ class BaseTask(ABC):
         """
         return True, ""
 
-    def should_run(self) -> tuple[bool, str]:
+    def should_run(self) -> tuple[bool, str, SkipReason | None]:
         """
         Additional logic to determine if task should run.
 
@@ -84,16 +84,16 @@ class BaseTask(ABC):
         actually work to do.
 
         Returns:
-            Tuple of (should_run: bool, reason: str)
+            Tuple of (should_run: bool, reason: str, skip_reason: SkipReason)
             If should_run is False, task is skipped with the given reason.
 
         Example:
             def should_run(self) -> tuple[bool, str]:
                 if no_failed_services():
-                    return False, "No failed services found"
+                    return False, "No failed services found", SkipReason.NO_WORK_NEEDED
                 return True, ""
         """
-        return True, ""
+        return True, "", None
 
     def post_execute(self, result: TaskResult) -> None:
         """
@@ -170,13 +170,18 @@ class BaseTask(ABC):
                 can_run, reason = self.pre_check()
                 if not can_run:
                     logger.warning(f"Pre-check failed for {self.name}: {reason}")
-                    return self._create_result(skipped(f"Pre-check failed: {reason}"))
+                    return self._create_result(
+                        skipped(
+                            f"Pre-check failed: {reason}",
+                            skip_reason=SkipReason.DEPENDENCY_FAILED,
+                        )
+                    )
 
                 # Check if task should run
-                should_run, reason = self.should_run()
+                should_run, reason, skip_reason = self.should_run()
                 if not should_run:
                     logger.info(f"Task {self.name} skipped: {reason}")
-                    return self._create_result(skipped(reason))
+                    return self._create_result(skipped(reason, skip_reason))
 
                 # Execute main task logic
                 logger.info(f"Executing {self.name}")

@@ -110,18 +110,25 @@ def failed(message: str, error: Exception | None = None, **details) -> TaskResul
     )
 
 
-def skipped(message: str, **details) -> TaskResult:
+def skipped(message: str, skip_reason: SkipReason | None, **details) -> TaskResult:
     """
     Create a skipped result.
 
     Args:
-        message: Reason for skipping
+        message: Message for skipping
+        skip_reason: SkipReason enum for skipping
         **details: Additional details to include
 
     Returns:
         TaskResult with SKIPPED status
     """
-    return TaskResult(status=TaskStatus.SKIPPED, message=message, details=details)
+    return TaskResult(
+        status=TaskStatus.SKIPPED,
+        message=message,
+        skip_reason=skip_reason,
+        skip_message=message,
+        details=details,
+    )
 
 
 def partial(message: str, **details) -> TaskResult:
