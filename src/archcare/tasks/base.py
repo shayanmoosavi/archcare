@@ -170,7 +170,7 @@ class BaseTask(ABC):
                 can_run, reason = self.pre_check()
                 if not can_run:
                     logger.warning(f"Pre-check failed for {self.name}: {reason}")
-                    return self._create_result(
+                    return self.create_result(
                         skipped(
                             f"Pre-check failed: {reason}",
                             skip_reason=SkipReason.DEPENDENCY_FAILED,
@@ -181,7 +181,7 @@ class BaseTask(ABC):
                 should_run, reason, skip_reason = self.should_run()
                 if not should_run:
                     logger.info(f"Task {self.name} skipped: {reason}")
-                    return self._create_result(skipped(reason, skip_reason))
+                    return self.create_result(skipped(reason, skip_reason))
 
                 # Execute main task logic
                 logger.info(f"Executing {self.name}")
@@ -198,7 +198,7 @@ class BaseTask(ABC):
                 else:
                     logger.info(f"Task {self.name} finished: {result.status}")
 
-                return self._create_result(result)
+                return self.create_result(result)
 
         except Exception as e:
             logger.exception(f"Unhandled exception in task {self.name}")
@@ -211,14 +211,14 @@ class BaseTask(ABC):
             except Exception as rollback_error:
                 logger.error(f"Rollback failed for {self.name}: {rollback_error}")
 
-            return self._create_result(
+            return self.create_result(
                 failed(message=f"Task execution failed: {str(e)}", error=e)
             )
         finally:
             # Remove task-specific log handler
             logger.remove(handler_id)
 
-    def _create_result(self, result: TaskResult) -> TaskResult:
+    def create_result(self, result: TaskResult) -> TaskResult:
         """
         Add timing information to result.
 
