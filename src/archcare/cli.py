@@ -73,8 +73,7 @@ def get_executor(user: str | None = None) -> TaskExecutor:
             _loader = ConfigLoader(user=user)
 
         if not _settings:
-            _settings = _loader.load_settings()
-            _settings.ensure_directories()
+            _settings = _loader.load_default_settings()
 
             # Reconfigure logging with user's custom settings if they differ
             # Check if any logging-related settings changed

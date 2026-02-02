@@ -126,9 +126,7 @@ class ConfigLoader:
 
         if not settings_path.exists():
             logger.info("Settings file not found, using defaults")
-            settings = AppSettings(user=self.user)
-            settings.ensure_directories()
-            return settings
+            return self.load_default_settings()
 
         logger.info(f"Loading settings from: {settings_path}")
 
@@ -160,10 +158,19 @@ class ConfigLoader:
             logger.error("Invalid settings.toml")
             print_error(f"{e}")
             logger.warning("Using default settings")
-            settings = AppSettings(user=self.user)
-            settings.ensure_directories()
-            return settings
+            return self.load_default_settings()
 
+        return settings
+
+    def load_default_settings(self) -> AppSettings:
+        """
+        Load the default settings
+
+        Returns:
+            settings: The AppSettings object with default values
+        """
+        settings = AppSettings(user=self.user)
+        settings.ensure_directories()
         return settings
 
     def save_settings(
