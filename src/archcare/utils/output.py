@@ -12,7 +12,7 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich import box
 
-from archcare.core import TaskResult, TaskStatus
+from archcare.core.models import TaskResult, TaskStatus
 from archcare.core.scheduler import TaskScheduleInfo
 
 

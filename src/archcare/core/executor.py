@@ -5,13 +5,26 @@ Handles task instantiation and execution coordination.
 """
 
 from datetime import datetime, timedelta
+
+import typer
 from loguru import logger
 import os
 
-from archcare.config import AppSettings, AppState, ConfigLoader, TaskConfig, TaskType
-from archcare.core.models import TaskResult
+from archcare.config import (
+    AppSettings,
+    AppState,
+    ConfigLoader,
+    TaskConfig,
+    TaskType,
+    SkipReason,
+    TasksConfig,
+)
+from archcare.core.scheduler import TaskScheduler
 from archcare.tasks.base import BaseTask
 from archcare.utils import is_root, change_ownership_to_user
+from archcare.utils.output import print_info, print_warning
+
+from .models import TaskResult, skipped
 
 
 class TaskExecutor:
@@ -84,28 +97,43 @@ class TaskExecutor:
 
         return task_class(config=task_config, settings=self.settings)
 
-    def execute_task(self, task_name: str) -> TaskResult:
+    def execute_task(self, task_name: str, force: bool = False) -> TaskResult:
         """
         Execute a single task by name.
 
         Args:
             task_name: Name of the task to execute
+            force: Whether to force running the task. It skips
 
         Returns:
             TaskResult from task execution
 
         Raises:
-            ValueError: If task not found or not enabled
+            ValueError: If task is not found
         """
         # Load task configuration
         tasks_config = self.config_loader.load_tasks()
         task_config = tasks_config.get_task(task_name)
 
+        # Won't happen due to _handle_task function in cli.py, but being defensive
         if not task_config:
             raise ValueError(f"Task not found: {task_name}")
 
-        if not task_config.enabled:
-            raise ValueError(f"Task is disabled: {task_name}")
+        is_systemd = self.settings.user is not None
+        if not force:
+            handle_disabled_result = self._handle_disabled_task(
+                task_name, task_config, is_systemd
+            )
+            if handle_disabled_result:
+                self._update_state(task_config, handle_disabled_result)
+                return handle_disabled_result
+
+            handle_due_result = self._handle_due_task(
+                task_name, tasks_config, is_systemd
+            )
+            if handle_due_result:
+                self._update_state(task_config, handle_due_result)
+                return handle_due_result
 
         # Create and run task
         task = self._create_task(task_config)
@@ -115,6 +143,67 @@ class TaskExecutor:
         self._update_state(task_config, result)
 
         return result
+
+    def _handle_disabled_task(
+        self, task_name: str, task_config: TaskConfig, is_systemd: bool = False
+    ) -> TaskResult | None:
+        if not task_config.enabled:
+            print_warning(f"Task '{task_name}' is disabled in configuration")
+            task = self._create_task(task_config)
+            task.set_start_time()
+            if is_systemd:
+                return task.create_result(
+                    skipped(
+                        "Task run from systemd timer will not be interactive",
+                        SkipReason.DISABLED,
+                    )
+                )
+            else:
+                return (
+                    task.create_result(
+                        skipped("Cancelled by user", SkipReason.USER_CANCELLED)
+                    )
+                    if not typer.confirm("Run anyway?")
+                    else None
+                )
+        else:
+            return None
+
+    def _handle_due_task(
+        self, task_name: str, tasks_config: TasksConfig, is_systemd: bool = False
+    ) -> TaskResult | None:
+        scheduler = TaskScheduler(tasks_config, self.state)
+        task_schedule_info = scheduler.get_schedule_info(task_name)
+        is_due = task_schedule_info.is_due
+        reason = task_schedule_info.reason
+        task_config = tasks_config.get_task(task_name)
+
+        if not is_due:
+            print_info(f"Task is not due: {reason}")
+            task = self._create_task(task_config)
+            task.set_start_time()
+            if is_systemd:
+                logger.info(f"Skipping the execution of task {task_name}")
+                return task.create_result(
+                    skipped(
+                        "Task run from systemd timer will not be interactive",
+                        SkipReason.NOT_DUE,
+                    )
+                )
+            else:
+                logger.info(f"Skipping the execution of task {task_name}")
+                return (
+                    task.create_result(
+                        skipped(
+                            "Cancelling task execution as requested by user",
+                            SkipReason.USER_CANCELLED,
+                        )
+                    )
+                    if not typer.confirm("Run anyway?")
+                    else None
+                )
+        else:
+            return None
 
     def execute_all(self, task_type: TaskType | None = None) -> dict[str, TaskResult]:
         """
