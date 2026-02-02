@@ -19,6 +19,7 @@ from .models import (
     CacheCleanupConfig,
     IgnoredServicesConfig,
     MirrorlistSettings,
+    MaintenanceCheckSettings,
     TaskConfig,
     TasksConfig,
 )
@@ -149,6 +150,12 @@ class ConfigLoader:
             # Load mirrorlist settings if present
             if "mirrorlist" in data:
                 settings_data["mirrorlist"] = MirrorlistSettings(**data["mirrorlist"])
+
+            # Load maintenance check settings if present
+            if "maintenance_check" in data:
+                settings_data["maintenance_check"] = MaintenanceCheckSettings(
+                    **data["maintenance_check"]
+                )
 
             settings = AppSettings(**settings_data)
             settings.ensure_directories()
