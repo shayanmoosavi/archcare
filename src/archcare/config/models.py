@@ -109,9 +109,12 @@ class TasksConfig(BaseModel):
             if task.task_type.value == task_type and task.enabled
         }
 
-    def get_task(self, name: str) -> TaskConfig | None:
+    def get_task(self, name: str) -> TaskConfig:
         """Get a specific task by name."""
-        return self.tasks.get(name)
+        task_name = self.tasks.get(name)
+        if not task_name:
+            raise ValueError(f"Task not found: {task_name}")
+        return task_name
 
 
 class IgnoredServicesConfig(BaseModel):
