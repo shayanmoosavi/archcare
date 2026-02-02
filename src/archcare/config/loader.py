@@ -11,6 +11,7 @@ from typing import Any
 
 import tomli_w
 from loguru import logger
+from pydantic import ValidationError
 
 from .models import (
     AppSettings,
@@ -119,6 +120,8 @@ class ConfigLoader:
         Returns:
             AppSettings object
         """
+        from archcare.utils.output import print_error
+
         settings_path = settings_file or self.config_dir / "settings.toml"
 
         if not settings_path.exists():
@@ -132,24 +135,34 @@ class ConfigLoader:
         with open(settings_path, "rb") as f:
             data = tomllib.load(f)
 
-        settings_data: dict[str, Any] = {"user": self.user}
+        try:
+            settings_data: dict[str, Any] = {"user": self.user}
 
-        # Copy global settings
-        for key in [
-            "log_level",
-            "log_retention_days",
-            "require_confirmation",
-            "dry_run",
-        ]:
-            if key in data:
-                settings_data[key] = data[key]
+            # Copy global settings
+            for key in [
+                "log_level",
+                "log_retention_days",
+                "require_confirmation",
+                "dry_run",
+            ]:
+                if key in data:
+                    settings_data[key] = data[key]
 
-        # Load mirrorlist settings if present
-        if "mirrorlist" in data:
-            settings_data["mirrorlist"] = MirrorlistSettings(**data["mirrorlist"])
+            # Load mirrorlist settings if present
+            if "mirrorlist" in data:
+                settings_data["mirrorlist"] = MirrorlistSettings(**data["mirrorlist"])
 
-        settings = AppSettings(**settings_data)
-        settings.ensure_directories()
+            settings = AppSettings(**settings_data)
+            settings.ensure_directories()
+
+        # Load default settings if settings.toml is invalid
+        except ValidationError as e:
+            logger.error("Invalid settings.toml")
+            print_error(f"{e}")
+            logger.warning("Using default settings")
+            settings = AppSettings(user=self.user)
+            settings.ensure_directories()
+            return settings
 
         return settings
 
