@@ -205,6 +205,53 @@ class MirrorlistSettings(BaseModel):
         return v
 
 
+class MaintenanceCheckSettings(BaseModel):
+    """Settings for maintenance check task."""
+
+    critical_threshold_days: int = Field(
+        default=7, ge=0, description="Days overdue before task is considered critical"
+    )
+    warning_threshold_days: int = Field(
+        default=0, ge=0, description="Days overdue before task is considered warning"
+    )
+    output_mode: str = Field(
+        default="terminal", description="Output mode: 'terminal', 'file', or 'both'"
+    )
+    show_notifications: bool = Field(
+        default=True, description="Show desktop notifications"
+    )
+    notification_level: str = Field(
+        default="warning",
+        description="Minimum severity for notifications: 'critical', 'warning', 'info'",
+    )
+    report_retention_days: int = Field(
+        default=30, ge=1, description="Days to keep maintenance check reports"
+    )
+    require_acknowledgment: bool = Field(
+        default=True, description="Require user acknowledgment for critical issues"
+    )
+
+    @field_validator("output_mode")
+    @classmethod
+    def validate_output_mode(cls, v: str) -> str:
+        """Validate output mode value."""
+        valid_modes = ["terminal", "file", "both"]
+        if v not in valid_modes:
+            raise ValueError(f"output_mode must be one of: {', '.join(valid_modes)}")
+        return v
+
+    @field_validator("notification_level")
+    @classmethod
+    def validate_notification_level(cls, v: str) -> str:
+        """Validate notification level value."""
+        valid_levels = ["critical", "warning", "info"]
+        if v not in valid_levels:
+            raise ValueError(
+                f"notification_level must be one of: {', '.join(valid_levels)}"
+            )
+        return v
+
+
 class AppSettings(BaseModel):
     """Application-wide settings."""
 
@@ -235,6 +282,13 @@ class AppSettings(BaseModel):
         description="Settings for mirrorlist update task",
     )
 
+    # maintenance check specific settings
+    # This corresponds to the [maintenance_check] section in the settings.toml file
+    maintenance_check: MaintenanceCheckSettings = Field(
+        default_factory=MaintenanceCheckSettings,
+        description="Settings for maintenance check task",
+    )
+
     # Paths
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -260,6 +314,12 @@ class AppSettings(BaseModel):
         """Configuration directory."""
         return self.home_dir / ".config/archcare"
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def report_dir(self) -> Path:
+        """Directory for maintenance check reports."""
+        return self.home_dir / ".local/state/archcare/reports"
+
     @classmethod
     def expand_paths(cls, v: Path) -> Path:
         """Expand user home directory in paths."""
@@ -279,6 +339,7 @@ class AppSettings(BaseModel):
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
         self.config_dir.mkdir(parents=True, exist_ok=True)
+        self.report_dir.mkdir(parents=True, exist_ok=True)
 
 
 class TaskState(BaseModel):
