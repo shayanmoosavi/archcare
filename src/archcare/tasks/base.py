@@ -41,6 +41,9 @@ class BaseTask(ABC):
         self.name = config.name
         self._start_time: float = 0.0
 
+    def set_start_time(self, start_time: float = time.time()):
+        self._start_time = start_time
+
     @abstractmethod
     def execute(self) -> TaskResult:
         """
@@ -158,7 +161,7 @@ class BaseTask(ABC):
         Returns:
             TaskResult with execution details and timing
         """
-        self._start_time = time.time()
+        self.set_start_time()
 
         logger.info(f"Starting task: {self.name}")
         logger.debug(f"Task config: {self.config}")
