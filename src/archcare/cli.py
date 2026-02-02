@@ -118,38 +118,13 @@ def _register_tasks(executor: TaskExecutor) -> None:
         executor.register_task(command, task_class)
 
 
-def _handle_due_task(
-    executor: TaskExecutor,
-    task_name: str,
-    tasks_config: TasksConfig,
-    is_systemd: bool = False,
-):
-    scheduler = TaskScheduler(tasks_config, executor.state)
-    task_schedule_info = scheduler.get_schedule_info(task_name)
-    is_due = task_schedule_info.is_due
-    reason = task_schedule_info.reason
-
-    if not is_due:
-        print_info(f"Task is not due: {reason}")
-        if is_systemd:
-            logger.info(f"Skipping the execution of task {task_name}")
-            raise typer.Exit(0)
-        else:
-            if not typer.confirm("Run anyway?"):
-                logger.info(f"Skipping the execution of task {task_name}")
-                raise typer.Exit(0)
-
-
-def _handle_task(task_config: TaskConfig | None, task_name: str):
-    if not task_config:
+def _validate_task_name(task_name: str, tasks_config: TasksConfig):
+    try:
+        tasks_config.get_task(task_name)
+    except ValueError:
         print_error(f"Task not found: {task_name}")
         print_info("Use 'archcare list' to see available tasks")
         raise typer.Exit(1)
-
-    if not task_config.enabled:
-        print_warning(f"Task '{task_name}' is disabled in configuration")
-        if not typer.confirm("Run anyway?"):
-            raise typer.Exit(0)
 
 
 @app.command()
@@ -167,24 +142,18 @@ def run(
     """
     user = os.environ.get("ARCHCARE_USER")
     executor = get_executor(user)
-    is_systemd = user is not None
 
     print_header(f"Running Task: {task_name}")
 
     try:
         # Check if task exists in configuration
         tasks_config = executor.config_loader.load_tasks()
-        task_config = tasks_config.get_task(task_name)
 
-        _handle_task(task_config, task_name)
-
-        # Check if task is due (unless --force)
-        if not force:
-            _handle_due_task(executor, task_name, tasks_config, is_systemd)
+        _validate_task_name(task_name, tasks_config)
 
         # Execute the task
         logger.info(f"Executing task: {task_name}")
-        result = executor.execute_task(task_name)
+        result = executor.execute_task(task_name, force)
 
         # Display result
         print()
