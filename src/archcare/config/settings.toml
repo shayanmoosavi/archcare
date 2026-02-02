@@ -12,3 +12,13 @@ protocol = "https"
 sort = "rate"
 latest = 20
 number_of_mirrors = 5
+
+# Maintenance Check Settings
+[maintenance_check]
+critical_threshold_days = 7
+warning_threshold_days = 0
+output_mode = "terminal"  # "terminal", "file", "both"
+show_notifications = true
+notification_level = "warning"  # "critical", "warning", "info"
+report_retention_days = 30
+require_acknowledgment = true  # For critical issues
