@@ -6,7 +6,10 @@ Defines the return types and status tracking for task execution.
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from enum import Enum
 from typing import Any
+
+from pydantic import BaseModel, Field
 
 from archcare.config.models import SkipReason, TaskStatus
 
@@ -28,6 +31,7 @@ class TaskResult:
     duration_seconds: float = 0.0
     skip_reason: SkipReason | None = None
     skip_message: str | None = None
+    error_message: str | None = None
 
     def is_success(self) -> bool:
         """Check if task succeeded."""
@@ -77,6 +81,150 @@ class TaskStep:
         if self.message:
             return f"{self.name}: {self.message}"
         return self.name
+
+
+class IssueSeverity(Enum):
+    """Severity levels for maintenance issues."""
+
+    CRITICAL = "critical"  # Requires immediate attention
+    WARNING = "warning"  # Should be addressed soon
+    INFO = "info"  # Informational, no action needed immediately
+    NOTICE = "notice"  # General notice, FYI
+
+    def __str__(self) -> str:
+        return self.value
+
+
+class MaintenanceIssue(BaseModel):
+    """Represents a single maintenance issue found during check."""
+
+    task_name: str = Field(..., description="Name of the task with issue")
+    severity: IssueSeverity = Field(..., description="Severity of the issue")
+    description: str = Field(..., description="Human-readable description")
+    days_overdue: int | None = Field(
+        None, description="Days overdue (negative if not yet due)"
+    )
+    last_run: datetime | None = Field(None, description="Last execution time")
+    last_status: TaskStatus | None = Field(None, description="Last execution status")
+    recommendation: str = Field(..., description="Actionable recommendation")
+
+    @property
+    def is_overdue(self) -> bool:
+        """Check if task is overdue."""
+        return self.days_overdue is not None and self.days_overdue > 0
+
+    @property
+    def severity_emoji(self) -> str:
+        """Get emoji for severity level."""
+        return {
+            IssueSeverity.CRITICAL: "🟥",
+            IssueSeverity.WARNING: "🟨",
+            IssueSeverity.INFO: "🟦",
+            IssueSeverity.NOTICE: "⬜",
+        }[self.severity]
+
+
+class MaintenanceCheckResult(BaseModel):
+    """Result of maintenance check task execution."""
+
+    task_name: str = Field(default="maintenance-check", description="Task name")
+    status: TaskStatus = Field(..., description="Overall check status")
+    timestamp: datetime = Field(
+        default_factory=datetime.now, description="When check was performed"
+    )
+
+    # Issues categorized by severity
+    critical_issues: list[MaintenanceIssue] = Field(
+        default_factory=list,
+        description="Critical issues requiring immediate attention",
+    )
+    warning_issues: list[MaintenanceIssue] = Field(
+        default_factory=list, description="Warning issues that should be addressed"
+    )
+    info_issues: list[MaintenanceIssue] = Field(
+        default_factory=list, description="Informational issues"
+    )
+    notice_issues: list[MaintenanceIssue] = Field(
+        default_factory=list, description="General notices"
+    )
+
+    # Summary statistics
+    total_tasks_monitored: int = Field(
+        default=0, description="Total number of tasks checked"
+    )
+    tasks_needing_attention: int = Field(
+        default=0, description="Tasks that need user action"
+    )
+    next_task_due: datetime | None = Field(None, description="When next task is due")
+
+    # Execution metadata
+    duration_seconds: float = Field(
+        0.0, description="Check execution time in seconds"
+    )
+    error_message: str | None = Field(None, description="Error message if check failed")
+
+    @property
+    def all_issues(self) -> list[MaintenanceIssue]:
+        """Get all issues sorted by severity."""
+        return (
+            self.critical_issues
+            + self.warning_issues
+            + self.info_issues
+            + self.notice_issues
+        )
+
+    @property
+    def has_critical_issues(self) -> bool:
+        """Check if there are any critical issues."""
+        return len(self.critical_issues) > 0
+
+    @property
+    def has_issues(self) -> bool:
+        """Check if there are any issues at all."""
+        return self.tasks_needing_attention > 0
+
+    @property
+    def summary_message(self) -> str:
+        """Generate a summary message."""
+        if not self.has_issues:
+            return "✓ All maintenance tasks are up to date!"
+
+        parts = []
+        if self.critical_issues:
+            parts.append(f"{len(self.critical_issues)} critical")
+        if self.warning_issues:
+            parts.append(f"{len(self.warning_issues)} warning")
+        if self.info_issues:
+            parts.append(f"{len(self.info_issues)} info")
+
+        return f"Found {', '.join(parts)} issue(s) requiring attention"
+
+    def get_issues_by_severity(self, severity: IssueSeverity) -> list[MaintenanceIssue]:
+        """Get issues filtered by severity level."""
+        severity_map = {
+            IssueSeverity.CRITICAL: self.critical_issues,
+            IssueSeverity.WARNING: self.warning_issues,
+            IssueSeverity.INFO: self.info_issues,
+            IssueSeverity.NOTICE: self.notice_issues,
+        }
+        return severity_map[severity]
+
+    def to_task_result(self) -> TaskResult:
+        """Convert to standard TaskResult format."""
+        return TaskResult(
+            status=self.status,
+            message=self.summary_message,
+            details={
+                "total_tasks_monitored": self.total_tasks_monitored,
+                "tasks_needing_attention": self.tasks_needing_attention,
+                "critical_count": len(self.critical_issues),
+                "warning_count": len(self.warning_issues),
+                "info_count": len(self.info_issues),
+                "notice_count": len(self.notice_issues),
+            },
+            duration_seconds=self.duration_seconds,
+            error_message=self.error_message,
+        )
 
 
 def success(message: str, **details) -> TaskResult:
