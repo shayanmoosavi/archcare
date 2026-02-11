@@ -89,7 +89,6 @@ class IssueSeverity(Enum):
     CRITICAL = "critical"  # Requires immediate attention
     WARNING = "warning"  # Should be addressed soon
     INFO = "info"  # Informational, no action needed immediately
-    NOTICE = "notice"  # General notice, FYI
 
     def __str__(self) -> str:
         return self.value
@@ -120,7 +119,6 @@ class MaintenanceIssue(BaseModel):
             IssueSeverity.CRITICAL: "🟥",
             IssueSeverity.WARNING: "🟨",
             IssueSeverity.INFO: "🟦",
-            IssueSeverity.NOTICE: "⬜",
         }[self.severity]
 
 
@@ -158,9 +156,7 @@ class MaintenanceCheckResult(BaseModel):
     next_task_due: datetime | None = Field(None, description="When next task is due")
 
     # Execution metadata
-    duration_seconds: float = Field(
-        0.0, description="Check execution time in seconds"
-    )
+    duration_seconds: float = Field(0.0, description="Check execution time in seconds")
     error_message: str | None = Field(None, description="Error message if check failed")
 
     @property
@@ -205,7 +201,6 @@ class MaintenanceCheckResult(BaseModel):
             IssueSeverity.CRITICAL: self.critical_issues,
             IssueSeverity.WARNING: self.warning_issues,
             IssueSeverity.INFO: self.info_issues,
-            IssueSeverity.NOTICE: self.notice_issues,
         }
         return severity_map[severity]
 
