@@ -10,7 +10,8 @@ from typing import Any
 
 from loguru import logger
 
-from archcare.core.models import MaintenanceIssue
+from archcare.core.models import IssueSeverity
+
 from .system import check_command_exists, run_command
 
 
@@ -129,7 +130,7 @@ class NotificationManager:
 
     def send_maintenance_notification(
         self,
-        maintenance_issue: MaintenanceIssue,
+        severity: IssueSeverity,
         tasks_count: int,
         summary: str,
         timeout: int = 10000,
@@ -138,7 +139,7 @@ class NotificationManager:
         Send a maintenance-specific notification.
 
         Args:
-            maintenance_issue: The MaintenanceIssue instance for the checked task
+            severity: The issue severity for the checked task
             tasks_count: Number of tasks needing attention
             summary: Brief summary of issues
             timeout: Timeout in milliseconds
@@ -151,32 +152,29 @@ class NotificationManager:
             "critical": {
                 "urgency": NotificationUrgency.CRITICAL,
                 "icon": NotificationIcon.ERROR,
-                "title": "Critical Maintenance Required",
+                "title": "🟥 Critical Maintenance Required",
             },
             "warning": {
                 "urgency": NotificationUrgency.NORMAL,
                 "icon": NotificationIcon.WARNING,
-                "title": "Maintenance Tasks Due",
+                "title": "🟨 Maintenance Tasks Due",
             },
             "info": {
                 "urgency": NotificationUrgency.LOW,
                 "icon": NotificationIcon.INFO,
-                "title": "Maintenance Information",
+                "title": "🟦 Maintenance Information",
             },
         }
 
         # Get severity config value from the value of maintenance_issue
-        config = severity_config.get(
-            str(maintenance_issue.severity), severity_config["info"]
-        )
+        config = severity_config.get(severity.value, severity_config["info"])
 
         # Build title and message
-        title = maintenance_issue.severity_emoji + config["title"]
         task_word = "task" if tasks_count == 1 else "tasks"
         message = f"{tasks_count} {task_word} need attention.\n{summary}"
 
         return self.send_notification(
-            title=title,
+            title=config["title"],
             message=message,
             urgency=config["urgency"],
             icon=config["icon"],

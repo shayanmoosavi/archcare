@@ -112,15 +112,6 @@ class MaintenanceIssue(BaseModel):
         """Check if task is overdue."""
         return self.days_overdue is not None and self.days_overdue > 0
 
-    @property
-    def severity_emoji(self) -> str:
-        """Get emoji for severity level."""
-        return {
-            IssueSeverity.CRITICAL: "🟥",
-            IssueSeverity.WARNING: "🟨",
-            IssueSeverity.INFO: "🟦",
-        }[self.severity]
-
 
 class MaintenanceCheckResult(BaseModel):
     """Result of maintenance check task execution."""
