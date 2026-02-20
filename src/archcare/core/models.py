@@ -142,9 +142,6 @@ class MaintenanceCheckResult(BaseModel):
     info_issues: list[MaintenanceIssue] = Field(
         default_factory=list, description="Informational issues"
     )
-    notice_issues: list[MaintenanceIssue] = Field(
-        default_factory=list, description="General notices"
-    )
 
     # Summary statistics
     total_tasks_monitored: int = Field(
@@ -162,12 +159,7 @@ class MaintenanceCheckResult(BaseModel):
     @property
     def all_issues(self) -> list[MaintenanceIssue]:
         """Get all issues sorted by severity."""
-        return (
-            self.critical_issues
-            + self.warning_issues
-            + self.info_issues
-            + self.notice_issues
-        )
+        return self.critical_issues + self.warning_issues + self.info_issues
 
     @property
     def has_critical_issues(self) -> bool:
@@ -215,7 +207,6 @@ class MaintenanceCheckResult(BaseModel):
                 "critical_count": len(self.critical_issues),
                 "warning_count": len(self.warning_issues),
                 "info_count": len(self.info_issues),
-                "notice_count": len(self.notice_issues),
             },
             duration_seconds=self.duration_seconds,
             error_message=self.error_message,
