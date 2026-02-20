@@ -147,10 +147,6 @@ class MaintenanceCheckResult(BaseModel):
     total_tasks_monitored: int = Field(
         default=0, description="Total number of tasks checked"
     )
-    next_task_due: datetime | None = Field(None, description="When next task is due")
-
-    # Execution metadata
-    duration_seconds: float = Field(0.0, description="Check execution time in seconds")
     error_message: str | None = Field(None, description="Error message if check failed")
 
     @property
@@ -162,11 +158,6 @@ class MaintenanceCheckResult(BaseModel):
     def tasks_needing_attention(self) -> list[MaintenanceIssue]:
         """Get all important issues sorted by severity"""
         return self.critical_issues + self.warning_issues
-
-    @property
-    def has_critical_issues(self) -> bool:
-        """Check if there are any critical issues."""
-        return len(self.critical_issues) > 0
 
     @property
     def has_issues(self) -> bool:
@@ -210,7 +201,6 @@ class MaintenanceCheckResult(BaseModel):
                 "warning_count": len(self.warning_issues),
                 "info_count": len(self.info_issues),
             },
-            duration_seconds=self.duration_seconds,
             error_message=self.error_message,
         )
 
