@@ -151,7 +151,7 @@ class NotificationManager:
             "critical": {
                 "urgency": NotificationUrgency.CRITICAL,
                 "icon": NotificationIcon.ERROR,
-                "title": f"Critical Maintenance Required",
+                "title": "Critical Maintenance Required",
             },
             "warning": {
                 "urgency": NotificationUrgency.NORMAL,
