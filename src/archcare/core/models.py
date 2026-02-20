@@ -153,7 +153,7 @@ class MaintenanceCheckResult(BaseModel):
     @property
     def has_issues(self) -> bool:
         """Check if there are any issues at all."""
-        return len(self.tasks_needing_attention) > 0
+        return len(self.all_issues) > 0
 
     @property
     def summary_message(self) -> str:
