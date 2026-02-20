@@ -409,3 +409,271 @@ class MaintenanceCheckTask(BaseTask):
 
         return "just now"
 
+    def post_execute(self, result: TaskResult) -> None:
+        """
+        Post-execution actions: send notifications and show terminal output.
+
+        Args:
+            result: The result from execute()
+        """
+        check_result = self.maintenance_check_result
+        if not check_result:
+            # Shouldn't happen, but being defensive
+            raise ValueError("`maintenance_check_result` should not be `None`")
+
+        # Send notification if enabled
+        if self.settings.maintenance_check.show_notifications:
+            self._send_notification(check_result)
+
+        # Show terminal output based on output_mode
+        output_mode = self.settings.maintenance_check.output_mode
+
+        match output_mode:
+            case "terminal":
+                self._show_terminal_output(check_result)
+            case "file":
+                self._save_report(check_result)
+
+    def _send_notification(self, check_result: MaintenanceCheckResult):
+        """
+        Send desktop notification based on check results.
+
+        Args:
+            check_result: Maintenance check result
+        """
+        notification_level = self.settings.maintenance_check.notification_level
+
+        # Severity threshold map to check against
+        severity_map = {"info": 0, "warning": 1, "critical": 2}
+        severity = IssueSeverity.INFO  # Default severity
+
+        critical_issues = check_result.get_issues_by_severity(IssueSeverity.CRITICAL)
+        warning_issues = check_result.get_issues_by_severity(IssueSeverity.WARNING)
+        info_issues = check_result.get_issues_by_severity(IssueSeverity.INFO)
+
+        if check_result.has_issues:
+            if critical_issues:
+                severity = IssueSeverity.CRITICAL
+            elif warning_issues:
+                severity = IssueSeverity.WARNING
+            elif info_issues:
+                severity = IssueSeverity.INFO
+            else:
+                # This should never happen
+                raise ValueError(
+                    "result cannot have issues and empty issues at the same time"
+                )
+
+            should_notify = severity_map.get(str(severity), -1) >= severity_map.get(
+                notification_level, -1
+            )
+        else:
+            should_notify = False
+
+        if not should_notify:
+            logger.debug("No notification sent (below threshold)")
+            return
+
+        # Send notification
+        manager = get_notification_manager()
+        manager.send_maintenance_notification(
+            severity=severity,
+            tasks_count=len(check_result.all_issues),
+            summary=check_result.summary_message,
+        )
+
+    def _show_terminal_output(self, result: MaintenanceCheckResult):
+        """
+        Show maintenance check results in terminal.
+
+        Args:
+            result: Maintenance check result
+        """
+        if not result.has_issues:
+            # No issues - simple success message
+            self.console.print()
+            self.console.print(
+                Panel(
+                    "✓ All maintenance tasks are up to date!",
+                    style="green",
+                    border_style="green",
+                )
+            )
+            return
+
+        # Show issues by severity
+        self.console.print()
+
+        if result.critical_issues:
+            self._show_issues_table(
+                title="🟥 Critical Issues",
+                issues=result.critical_issues,
+                style="red",
+            )
+
+        if result.warning_issues:
+            self._show_issues_table(
+                "🟨 Warning Issues",
+                result.warning_issues,
+                style="yellow",
+            )
+
+        if result.info_issues:
+            self._show_issues_table(
+                "🟦 Information",
+                result.info_issues,
+                style="blue",
+            )
+
+        # Show acknowledgment prompt for critical issues
+        require_acknowledgment = self.settings.maintenance_check.require_acknowledgment
+        if result.critical_issues and require_acknowledgment:
+            self.console.print()
+            self.console.print(
+                "[bold red]Critical issues require your attention![/bold red]"
+            )
+            self.console.input("Press Enter to acknowledge... ")
+
+    def _show_issues_table(
+        self, title: str, issues: list[MaintenanceIssue], style: str
+    ):
+        """
+        Show a table of issues.
+
+        Args:
+            title: Table title
+            issues: List of issues to display
+            style: Color style for the table
+        """
+        table = Table(title=title, show_header=True, border_style=style)
+        table.add_column("Task", style="cyan", no_wrap=True)
+        table.add_column("Issue", style="white")
+        table.add_column("Recommendation", style="green")
+
+        for issue in issues:
+            table.add_row(
+                issue.task_name,
+                issue.description,
+                issue.recommendation,
+            )
+
+        self.console.print(table)
+        self.console.print()
+
+    def _save_report(self, result: MaintenanceCheckResult):
+        """
+        Save maintenance check report to file.
+
+        Args:
+            result: Maintenance check result
+        """
+        # Generate report filename with timestamp
+        timestamp = result.timestamp.strftime("%Y%m%d_%H%M%S")
+        report_file = self.settings.report_dir / f"maintenance-check_{timestamp}.txt"
+
+        # Build report content
+        lines = [
+            "=" * 80,
+            f"Archcare Maintenance Check Report",
+            f"Generated: {result.timestamp.strftime('%Y-%m-%d %H:%M:%S')}",
+            "=" * 80,
+            "\n",
+            f"Status: {result.status.value.upper()}",
+            f"Tasks Monitored: {result.total_tasks_monitored}",
+            f"Tasks Needing Attention: {result.tasks_needing_attention}",
+            "\n",
+        ]
+
+        if not result.has_issues:
+            lines.append("✓ All maintenance tasks are up to date!")
+        else:
+            # Add issues by severity
+            if result.critical_issues:
+                self._add_issues_section(
+                    lines, "🟥 CRITICAL ISSUES", result.critical_issues
+                )
+
+            if result.warning_issues:
+                self._add_issues_section(
+                    lines, "🟨 WARNING ISSUES", result.warning_issues
+                )
+
+            if result.info_issues:
+                self._add_issues_section(
+                    lines, "🟦 INFORMATION", result.critical_issues
+                )
+
+        lines.append("=" * 80)
+
+        # Write report
+        report_file.write_text("\n".join(lines))
+        logger.info(f"Maintenance report saved to: {report_file}")
+
+        # Clean up old reports based on retention
+        self._cleanup_old_reports()
+
+    def _add_issues_section(
+        self, lines: list[str], header_title: str, issues: list[MaintenanceIssue]
+    ):
+        """
+        Adds the issues section to the report file
+
+        Args:
+            lines: Previously built text lines to append to
+            header_title: The title of the header
+            issues: The list of maintenance issues
+        """
+        lines.append(header_title)
+        lines.append("-" * 80)
+        for issue in issues:
+            lines.extend(self._format_issue_text(issue))
+        lines.append("\n")
+
+    @staticmethod
+    def _format_issue_text(issue: MaintenanceIssue) -> list[str]:
+        """
+        Format an issue as text lines.
+
+        Args:
+            issue: Issue to format
+
+        Returns:
+            List of text lines
+        """
+        lines = [f"Task: {issue.task_name}", f"Issue: {issue.description}"]
+        if issue.days_overdue is not None:
+            lines.append(f"Days Overdue: {issue.days_overdue}")
+        if issue.last_run:
+            lines.append(f"Last Run: {issue.last_run.strftime('%Y-%m-%d %H:%M:%S')}")
+        if issue.last_status:
+            lines.append(f"Last Status: {issue.last_status.value}")
+        lines.append(f"Recommendation: {issue.recommendation}")
+        lines.append("\n")
+        return lines
+
+    def _cleanup_old_reports(self):
+        """Clean up old maintenance check reports based on retention setting."""
+        retention_days = self.settings.maintenance_check.report_retention_days
+        cutoff_date = datetime.now() - timedelta(days=retention_days)
+
+        if not self.settings.report_dir.exists():
+            return
+
+        deleted_count = 0
+        for report_file in self.settings.report_dir.glob("maintenance-check_*.txt"):
+            try:
+                # Get file modification time
+                mtime = datetime.fromtimestamp(report_file.stat().st_mtime)
+
+                if mtime < cutoff_date:
+                    report_file.unlink()
+                    deleted_count += 1
+                    logger.debug(f"Deleted old report: {report_file.name}")
+            except Exception as e:
+                logger.warning(f"Failed to delete report {report_file.name}: {e}")
+
+        if deleted_count > 0:
+            logger.info(
+                f"Cleaned up {deleted_count} old maintenance report(s) "
+                f"(retention: {retention_days} days)"
+            )
