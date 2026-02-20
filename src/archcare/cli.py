@@ -21,10 +21,11 @@ from archcare.config import (
 )
 from archcare.core import TaskExecutor, TaskScheduler
 from archcare.tasks import (
+    BaseTask,
     FailedServicesTask,
     HealthCheckTask,
+    MaintenanceCheckTask,
     MirrorlistUpdateTask,
-    BaseTask,
 )
 from archcare.utils import run_systemctl, is_root, NotificationUrgency, NotificationIcon
 from archcare.utils.output import (
@@ -112,6 +113,7 @@ def _register_tasks(executor: TaskExecutor) -> None:
         "failed-services": FailedServicesTask,
         "check-health": HealthCheckTask,
         "update-mirrorlist": MirrorlistUpdateTask,
+        "check-maintenance": MaintenanceCheckTask,
     }
 
     for command, task_class in tasks_mapping.items():
