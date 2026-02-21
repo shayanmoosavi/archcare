@@ -12,7 +12,7 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich import box
 
-from archcare.core.models import TaskResult, TaskStatus
+from archcare.core.models import TaskResult, TaskStatus, MaintenanceIssue
 from archcare.core.scheduler import TaskScheduleInfo
 
 # Global console instance
@@ -201,6 +201,11 @@ def print_task_details(
             _format_failed_services_details(lines, result.details)
         elif task_name == "health-check" and "checks" in result.details:
             _format_health_check_details(lines, result.details)
+        elif (
+            task_name == "maintenance-check"
+            and "total_tasks_monitored" in result.details
+        ):
+            _format_maintenance_check_details(lines, result.details)
         else:
             # Generic detail formatting
             _format_other_details(lines, result)
@@ -341,6 +346,43 @@ def _format_health_check_summary(lines: list[str], summary: dict[str, Any]):
 
 
 # ---------------------------------------------------------------------------------------------------
+
+
+def _format_maintenance_check_details(lines: list[str], details: dict[str, Any]):
+    """
+    Format maintenance check details for display
+
+    Args:
+        lines: List to append formatted lines to
+        details: Task details dict
+    """
+    lines.append("")
+    lines.append("[bold]Summary: [/bold]")
+
+    # Summary statistics
+    total_tasks_monitored = details.get("total_tasks_monitored", -1)
+    critical_count = details.get("critical_count", -1)
+    warning_count = details.get("warning_count", -1)
+    info_count = details.get("info_count", -1)
+
+    lines.append(f"  Total tasks monitored: {total_tasks_monitored}")
+    lines.append(f"  Critical issues: {critical_count}")
+    lines.append(f"  Warning issues: {warning_count}")
+    lines.append(f"  Informational issues: {info_count}")
+    lines.append("")
+
+    severity_mapping = {
+        "critical": "[red]❗ CRITICAL[/red]",
+        "warning": "[yellow]⚠ WARNING[/yellow]",
+        "info": "[blue]ℹ INFO[/blue]",
+    }
+
+    tasks_needing_attention: list[MaintenanceIssue] = details["tasks_needing_attention"]
+    if tasks_needing_attention:
+        lines.append("[bold]Tasks needing attention: [/bold]")
+        for maintenance_issue in tasks_needing_attention:
+            lines.append(f"[blue]  • {maintenance_issue.task_name}[/blue]")
+            lines.append(f"    ‒ {severity_mapping[str(maintenance_issue.severity)]}")
 
 
 def print_summary_panel(title: str, stats: dict[str, Any]) -> None:
