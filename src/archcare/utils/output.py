@@ -15,7 +15,6 @@ from rich import box
 from archcare.core.models import TaskResult, TaskStatus
 from archcare.core.scheduler import TaskScheduleInfo
 
-
 # Global console instance
 console = Console()
 
@@ -241,9 +240,9 @@ def _format_failed_services_details(lines: list[str], details: dict[str, Any]) -
     actual = details.get("actual_failures", 0)
     ignored = details.get("ignored", 0)
 
-    lines.append(f"  Total failed: {total}")
-    lines.append(f"  Requiring attention: {actual}")
-    lines.append(f"  Ignored: {ignored}")
+    lines.append(f"[blue]  Total failed: {total}[/blue]")
+    lines.append(f"[red]  ⚠ Requiring attention: {actual}[/red]")
+    lines.append(f"[dim]  Ignored: {ignored}[/dim]")
 
     if failed_services:
         lines.append("")
@@ -269,7 +268,7 @@ def _add_failure_details(failed_services: list[dict[str, Any]], lines: list[str]
         if logs:
             lines.append("    Recent logs:")
             for log in logs[-3:]:  # Last 3 lines
-                lines.append(f"      {log[:80]}")  # Truncate long lines
+                lines.append(f"      {log[:160]}")  # Truncate long lines
 
 
 def _format_other_details(lines: list[str], result: TaskResult):
