@@ -584,12 +584,19 @@ class MaintenanceCheckTask(BaseTask):
             "\n",
             f"Status: {result.status.value.upper()}",
             f"Tasks Monitored: {result.total_tasks_monitored}",
-            f"Tasks Needing Attention: {result.tasks_needing_attention}",
-            "\n",
         ]
+
+        if result.tasks_needing_attention:
+            lines.append("Tasks needing attention:")
+            for maintenance_issue in result.tasks_needing_attention:
+                lines.append(
+                    f"  - {maintenance_issue.task_name} ({str(maintenance_issue.severity).upper()})"
+                )
+            lines.append("\n")
 
         if not result.has_issues:
             lines.append("✓ All maintenance tasks are up to date!")
+            lines.append("\n")
         else:
             # Add issues by severity
             if result.critical_issues:
@@ -607,6 +614,7 @@ class MaintenanceCheckTask(BaseTask):
                     lines, "🟦 INFORMATION", result.critical_issues
                 )
 
+        lines.append("End of report")
         lines.append("=" * 80)
 
         # Write report
@@ -631,7 +639,6 @@ class MaintenanceCheckTask(BaseTask):
         lines.append("-" * 80)
         for issue in issues:
             lines.extend(self._format_issue_text(issue))
-        lines.append("\n")
 
     @staticmethod
     def _format_issue_text(issue: MaintenanceIssue) -> list[str]:
