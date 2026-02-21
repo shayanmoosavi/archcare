@@ -295,11 +295,10 @@ def _format_health_check_details(lines: list[str], details: dict[str, Any]) -> N
             lines.append(f"  • {warning}")
 
     # Show summary statistics
-    if summary:
-        _format_health_check_summary(lines, summary)
+    _format_health_check_summary(lines, summary)
 
 
-def _format_health_check_summary(lines: list[str], summary):
+def _format_health_check_summary(lines: list[str], summary: dict[str, Any]):
     lines.append("")
     lines.append("[bold]System Summary:[/bold]")
 
