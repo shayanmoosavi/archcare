@@ -94,26 +94,6 @@ def print_task_result(result: TaskResult, task_name: str) -> None:
         console.print(f"  [red]Error: {result.error}[/red]")
 
 
-def _colorize_cell(info: TaskScheduleInfo, is_status_col: bool) -> str:
-    """Colorize a table cell based on due status."""
-    if is_status_col:
-        if info.days_overdue > 0:
-            colorized_cell = "[red]✗ DUE[/red]"
-        elif info.is_due:
-            colorized_cell = "[yellow]⚠ DUE[/yellow]"
-        else:
-            colorized_cell = "[green]✓ OK[/green]"
-    else:
-        if info.days_overdue > 0:
-            colorized_cell = f"[red]{info.reason}[/red]"
-        elif info.is_due:
-            colorized_cell = f"[yellow]{info.reason}[/yellow]"
-        else:
-            colorized_cell = f"[green]{info.reason}[/green]"
-
-    return colorized_cell
-
-
 def print_schedule_table(schedule_info: list[TaskScheduleInfo]) -> None:
     """
     Print a table of task schedules.
@@ -153,6 +133,140 @@ def print_schedule_table(schedule_info: list[TaskScheduleInfo]) -> None:
         table.add_row(status, info.task_name, last_run, due_text)
 
     console.print(table)
+
+
+def _colorize_cell(info: TaskScheduleInfo, is_status_col: bool) -> str:
+    """Colorize a table cell based on due status."""
+    if is_status_col:
+        if info.days_overdue > 0:
+            colorized_cell = "[red]✗ DUE[/red]"
+        elif info.is_due:
+            colorized_cell = "[yellow]⚠ DUE[/yellow]"
+        else:
+            colorized_cell = "[green]✓ OK[/green]"
+    else:
+        if info.days_overdue > 0:
+            colorized_cell = f"[red]{info.reason}[/red]"
+        elif info.is_due:
+            colorized_cell = f"[yellow]{info.reason}[/yellow]"
+        else:
+            colorized_cell = f"[green]{info.reason}[/green]"
+
+    return colorized_cell
+
+
+def _format_other_details(lines: list[str], result: TaskResult):
+    """Format generic task details for display."""
+    for key, value in result.details.items():
+        if not key.startswith("_"):  # Skip internal keys
+            lines.append(f"  {key}: {value}")
+
+
+def print_task_details(
+    task_name: str, result: TaskResult, show_details: bool = True
+) -> None:
+    """
+    Print detailed task result information.
+
+    Args:
+        task_name: Name of the task
+        result: TaskResult with details
+        show_details: Whether to show the details dict
+    """
+    # Map status to Rich styled text
+    status_mapping = {
+        "success": "[green]✓ SUCCESS[/green]",
+        "failure": "[red]⨯ FAILURE[/red]",
+        "skipped": "[blue]⤳ SKIPPED[/blue]",
+        "partial": "[yellow]⚠ PARTIAL[/yellow]",
+    }
+
+    # Create panel content
+    lines = [
+        f"[bold]Status:[/bold] {status_mapping[str(result.status)]}",
+        f"[bold]Message:[/bold] {result.message}",
+        f"[bold]Duration:[/bold] {result.duration_seconds:.2f}s",
+    ]
+
+    if result.error:
+        lines.append(f"[bold red]Error:[/bold red] {result.error}")
+
+    # Add details if requested and present
+    if show_details and result.details:
+        lines.append("")
+        lines.append("[bold]Details:[/bold]")
+
+        # Format details based on task type
+        if task_name == "failed-services" and "failed_services" in result.details:
+            _format_failed_services_details(lines, result.details)
+        elif task_name == "health-check" and "checks" in result.details:
+            _format_health_check_details(lines, result.details)
+        else:
+            # Generic detail formatting
+            _format_other_details(lines, result)
+
+    # Print in a panel
+    panel = Panel(
+        "\n".join(lines),
+        title=f"[bold cyan]{task_name}[/bold cyan]",
+        border_style="cyan",
+        width=200,
+    )
+    console.print(panel)
+
+
+# Failed services task related helpers
+# ---------------------------------------------------------------------------------------------------
+
+
+def _format_failed_services_details(lines: list[str], details: dict[str, Any]) -> None:
+    """
+    Format failed services details for display.
+
+    Args:
+        lines: List to append formatted lines to
+        details: Task details dict
+    """
+    failed_services = details.get("failed_services", [])
+    total = details.get("total_failed", 0)
+    actual = details.get("actual_failures", 0)
+    ignored = details.get("ignored", 0)
+
+    lines.append(f"[blue]  Total failed: {total}[/blue]")
+    lines.append(f"[red]  ⚠ Requiring attention: {actual}[/red]")
+    lines.append(f"[dim]  Ignored: {ignored}[/dim]")
+
+    if failed_services:
+        lines.append("")
+        lines.append("[bold]Failed Services:[/bold]")
+
+        _add_failure_details(failed_services, lines)
+
+
+def _add_failure_details(failed_services: list[dict[str, Any]], lines: list[str]):
+    """Add detailed failed services information to lines."""
+    for failure in failed_services:
+        service = failure.get("service", "unknown")
+        desc = failure.get("description", "")
+        active = failure.get("active", "unknown")
+
+        lines.append(f"  • [red]{service}[/red]")
+        if desc:
+            lines.append(f"    {desc}")
+        lines.append(f"    Status: {active}")
+
+        # Show a few log lines
+        logs = failure.get("logs", [])
+        if logs:
+            lines.append("    Recent logs:")
+            for log in logs[-3:]:  # Last 3 lines
+                lines.append(f"      {log[:160]}")  # Truncate long lines
+
+
+# ---------------------------------------------------------------------------------------------------
+
+# Failed services task related helpers
+# ---------------------------------------------------------------------------------------------------
 
 
 def _format_health_check_details(lines: list[str], details: dict[str, Any]) -> None:
@@ -227,108 +341,7 @@ def _format_health_check_summary(lines: list[str], summary):
     lines.append(f"  System Uptime: {uptime}")
 
 
-def _format_failed_services_details(lines: list[str], details: dict[str, Any]) -> None:
-    """
-    Format failed services details for display.
-
-    Args:
-        lines: List to append formatted lines to
-        details: Task details dict
-    """
-    failed_services = details.get("failed_services", [])
-    total = details.get("total_failed", 0)
-    actual = details.get("actual_failures", 0)
-    ignored = details.get("ignored", 0)
-
-    lines.append(f"[blue]  Total failed: {total}[/blue]")
-    lines.append(f"[red]  ⚠ Requiring attention: {actual}[/red]")
-    lines.append(f"[dim]  Ignored: {ignored}[/dim]")
-
-    if failed_services:
-        lines.append("")
-        lines.append("[bold]Failed Services:[/bold]")
-
-        _add_failure_details(failed_services, lines)
-
-
-def _add_failure_details(failed_services: list[dict[str, Any]], lines: list[str]):
-    """Add detailed failed services information to lines."""
-    for failure in failed_services:
-        service = failure.get("service", "unknown")
-        desc = failure.get("description", "")
-        active = failure.get("active", "unknown")
-
-        lines.append(f"  • [red]{service}[/red]")
-        if desc:
-            lines.append(f"    {desc}")
-        lines.append(f"    Status: {active}")
-
-        # Show a few log lines
-        logs = failure.get("logs", [])
-        if logs:
-            lines.append("    Recent logs:")
-            for log in logs[-3:]:  # Last 3 lines
-                lines.append(f"      {log[:160]}")  # Truncate long lines
-
-
-def _format_other_details(lines: list[str], result: TaskResult):
-    """Format generic task details for display."""
-    for key, value in result.details.items():
-        if not key.startswith("_"):  # Skip internal keys
-            lines.append(f"  {key}: {value}")
-
-
-def print_task_details(
-    task_name: str, result: TaskResult, show_details: bool = True
-) -> None:
-    """
-    Print detailed task result information.
-
-    Args:
-        task_name: Name of the task
-        result: TaskResult with details
-        show_details: Whether to show the details dict
-    """
-    # Map status to Rich styled text
-    status_mapping = {
-        "success": "[green]✓ SUCCESS[/green]",
-        "failure": "[red]⨯ FAILURE[/red]",
-        "skipped": "[blue]⤳ SKIPPED[/blue]",
-        "partial": "[yellow]⚠ PARTIAL[/yellow]",
-    }
-
-    # Create panel content
-    lines = [
-        f"[bold]Status:[/bold] {status_mapping[str(result.status)]}",
-        f"[bold]Message:[/bold] {result.message}",
-        f"[bold]Duration:[/bold] {result.duration_seconds:.2f}s",
-    ]
-
-    if result.error:
-        lines.append(f"[bold red]Error:[/bold red] {result.error}")
-
-    # Add details if requested and present
-    if show_details and result.details:
-        lines.append("")
-        lines.append("[bold]Details:[/bold]")
-
-        # Format details based on task type
-        if task_name == "failed-services" and "failed_services" in result.details:
-            _format_failed_services_details(lines, result.details)
-        elif task_name == "health-check" and "checks" in result.details:
-            _format_health_check_details(lines, result.details)
-        else:
-            # Generic detail formatting
-            _format_other_details(lines, result)
-
-    # Print in a panel
-    panel = Panel(
-        "\n".join(lines),
-        title=f"[bold cyan]{task_name}[/bold cyan]",
-        border_style="cyan",
-        width=200,
-    )
-    console.print(panel)
+# ---------------------------------------------------------------------------------------------------
 
 
 def print_summary_panel(title: str, stats: dict[str, Any]) -> None:
