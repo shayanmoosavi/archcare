@@ -290,9 +290,17 @@ def print_task_details(
         result: TaskResult with details
         show_details: Whether to show the details dict
     """
+    # Map status to Rich styled text
+    status_mapping = {
+        "success": "[green]✓ SUCCESS[/green]",
+        "failure": "[red]⨯ FAILURE[/red]",
+        "skipped": "[blue]⤳ SKIPPED[/blue]",
+        "partial": "[yellow]⚠ PARTIAL[/yellow]",
+    }
+
     # Create panel content
     lines = [
-        f"[bold]Status:[/bold] {result.status.value}",
+        f"[bold]Status:[/bold] {status_mapping[str(result.status)]}",
         f"[bold]Message:[/bold] {result.message}",
         f"[bold]Duration:[/bold] {result.duration_seconds:.2f}s",
     ]
@@ -319,6 +327,7 @@ def print_task_details(
         "\n".join(lines),
         title=f"[bold cyan]{task_name}[/bold cyan]",
         border_style="cyan",
+        width=200,
     )
     console.print(panel)
 
