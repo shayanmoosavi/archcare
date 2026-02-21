@@ -159,7 +159,7 @@ class MaintenanceCheckResult(BaseModel):
     def summary_message(self) -> str:
         """Generate a summary message."""
         if not self.has_issues:
-            return "✓ All maintenance tasks are up to date!"
+            return "All maintenance tasks are up to date!"
 
         parts = []
         if self.critical_issues:

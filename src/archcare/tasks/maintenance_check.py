@@ -118,7 +118,6 @@ class MaintenanceCheckTask(BaseTask):
             logger.success("No issues found")
 
         logger.info("Maintenance check complete")
-        print_info(result.summary_message)
 
         self.maintenance_check_result = result
         return result.to_task_result()
@@ -494,12 +493,14 @@ class MaintenanceCheckTask(BaseTask):
         """
         if not result.has_issues:
             # No issues - simple success message
+            success_message = "✓ All maintenance tasks are up to date!"
             self.console.print()
             self.console.print(
                 Panel(
-                    "✓ All maintenance tasks are up to date!",
+                    success_message,
                     style="green",
                     border_style="green",
+                    width=len(success_message) + 4,
                 )
             )
             return
