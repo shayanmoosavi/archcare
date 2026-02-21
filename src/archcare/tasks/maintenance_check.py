@@ -433,6 +433,9 @@ class MaintenanceCheckTask(BaseTask):
                 self._show_terminal_output(check_result)
             case "file":
                 self._save_report(check_result)
+            case "both":
+                self._show_terminal_output(check_result)
+                self._save_report(check_result)
 
     def _send_notification(self, check_result: MaintenanceCheckResult):
         """
