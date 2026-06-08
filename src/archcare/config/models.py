@@ -106,7 +106,7 @@ class TasksConfig(BaseModel):
         return {
             name: task
             for name, task in self.tasks.items()
-            if task.task_type.value == task_type and task.enabled
+            if task.task_type == task_type and task.enabled
         }
 
     def get_task(self, name: str) -> TaskConfig:

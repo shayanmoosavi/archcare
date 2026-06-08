@@ -162,7 +162,7 @@ class TaskScheduler:
         Returns:
             List of TaskScheduleInfo for matching tasks
         """
-        type_tasks = self.tasks_config.get_tasks_by_type(task_type)
+        type_tasks = self.tasks_config.get_tasks_by_type(task_type.value)
 
         schedule_info = []
         for task_name in type_tasks.keys():
