@@ -155,9 +155,9 @@ def _colorize_cell(info: TaskScheduleInfo, is_status_col: bool) -> str:
     return colorized_cell
 
 
-def _format_other_details(lines: list[str], result: TaskResult):
+def _format_other_details(lines: list[str], details: dict[str, Any]):
     """Format generic task details for display."""
-    for key, value in result.details.items():
+    for key, value in details.items():
         if not key.startswith("_"):  # Skip internal keys
             lines.append(f"  {key}: {value}")
 
@@ -193,22 +193,16 @@ def print_task_details(
 
     # Add details if requested and present
     if show_details and result.details:
-        lines.append("")
-        lines.append("[bold]Details:[/bold]")
+        lines.append("\n[bold]Details:[/bold]")
 
         # Format details based on task type
-        if task_name == "failed-services" and "failed_services" in result.details:
-            _format_failed_services_details(lines, result.details)
-        elif task_name == "health-check" and "checks" in result.details:
-            _format_health_check_details(lines, result.details)
-        elif (
-            task_name == "maintenance-check"
-            and "total_tasks_monitored" in result.details
-        ):
-            _format_maintenance_check_details(lines, result.details)
-        else:
-            # Generic detail formatting
-            _format_other_details(lines, result)
+        formatters = {
+            "failed-services": _format_failed_services_details,
+            "health-check": _format_health_check_details,
+            "maintenance-check": _format_maintenance_check_details,
+        }
+        formatter = formatters.get(task_name, _format_other_details)
+        formatter(lines, result.details)
 
     # Print in a panel
     panel = Panel(
@@ -242,8 +236,7 @@ def _format_failed_services_details(lines: list[str], details: dict[str, Any]) -
     lines.append(f"[dim]  Ignored: {ignored}[/dim]")
 
     if failed_services:
-        lines.append("")
-        lines.append("[bold]Failed Services:[/bold]")
+        lines.append("\n[bold]Failed Services:[/bold]")
 
         _add_failure_details(failed_services, lines)
 
@@ -288,14 +281,12 @@ def _format_health_check_details(lines: list[str], details: dict[str, Any]) -> N
 
     # Show issues and warnings first
     if issues:
-        lines.append("")
-        lines.append("[bold red]Critical Issues:[/bold red]")
+        lines.append("\n[bold red]Critical Issues:[/bold red]")
         for issue in issues:
             lines.append(f"  • {issue}")
 
     if warnings:
-        lines.append("")
-        lines.append("[bold yellow]Warnings:[/bold yellow]")
+        lines.append("\n[bold yellow]Warnings:[/bold yellow]")
         for warning in warnings:
             lines.append(f"  • {warning}")
 
@@ -304,8 +295,7 @@ def _format_health_check_details(lines: list[str], details: dict[str, Any]) -> N
 
 
 def _format_health_check_summary(lines: list[str], summary: dict[str, Any]):
-    lines.append("")
-    lines.append("[bold]System Summary:[/bold]")
+    lines.append("\n[bold]System Summary:[/bold]")
 
     # Disk
     disk_pct = summary.get("disk_usage_percent", 0)
@@ -356,8 +346,7 @@ def _format_maintenance_check_details(lines: list[str], details: dict[str, Any])
         lines: List to append formatted lines to
         details: Task details dict
     """
-    lines.append("")
-    lines.append("[bold]Summary: [/bold]")
+    lines.append("\n[bold]Summary: [/bold]")
 
     # Summary statistics
     total_tasks_monitored = details.get("total_tasks_monitored", -1)
