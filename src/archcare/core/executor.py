@@ -147,8 +147,10 @@ class TaskExecutor:
     def _handle_disabled_task(
         self, task_name: str, task_config: TaskConfig, is_systemd: bool = False
     ) -> TaskResult | None:
+        is_interactive = not is_systemd
+
         if not task_config.enabled:
-            print_warning(f"Task '{task_name}' is disabled in configuration")
+            print_warning(f"Task '{task_name}' is disabled in configuration", is_interactive)
             task = self._create_task(task_config)
             task.set_start_time()
             if is_systemd:
@@ -177,9 +179,10 @@ class TaskExecutor:
         is_due = task_schedule_info.is_due
         reason = task_schedule_info.reason
         task_config = tasks_config.get_task(task_name)
+        is_interactive = not is_systemd
 
         if not is_due:
-            print_info(f"Task is not due: {reason}")
+            print_info(f"Task is not due: {reason}", is_interactive)
             task = self._create_task(task_config)
             task.set_start_time()
             if is_systemd:

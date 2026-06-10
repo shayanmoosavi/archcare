@@ -142,10 +142,15 @@ def run(
         archcare run failed-services
         archcare run system-update --force
     """
+    # Getting the user from environment variable set by systemd service (if running as root) or default to current user
     user = os.environ.get("ARCHCARE_USER")
+
+    # Determine if running from systemd (root) or interactively (normal user)
+    is_interactive = user is None
+
     executor = get_executor(user)
 
-    print_header(f"Running Task: {task_name}")
+    print_header(f"Running Task: {task_name}", is_interactive)
 
     try:
         # Check if task exists in configuration
@@ -160,9 +165,9 @@ def run(
         # Display result
         print()
         if verbose:
-            print_task_details(task_name, result, show_details=True)
+            print_task_details(task_name, result, show_details=True, is_interactive=is_interactive)
         else:
-            print_task_result(result, task_name)
+            print_task_result(result, task_name, is_interactive)
 
         # Exit code based on result
         if result.is_success():
@@ -180,7 +185,7 @@ def run(
             raise
 
     except Exception as e:
-        print_error(f"Failed to run task: {e}")
+        print_error(f"Failed to run task: {e}", is_interactive)
         logger.exception(f"Error running task {task_name}")
         raise typer.Exit(1)
 

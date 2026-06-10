@@ -19,79 +19,107 @@ from archcare.core.scheduler import TaskScheduleInfo
 console = Console()
 
 
-def print_success(message: str) -> None:
-    """Print success message in green."""
-    console.print(f"✓ {message}", style="bold green")
+def print_success(message: str, is_interactive: bool = True) -> None:
+    """Print success message in green.
+
+    Args:
+        message: Message to print
+        is_interactive: Whether to print the output (run explicitly by user) or not (run from systemd service).
+    """
+    if is_interactive:
+        console.print(f"✓ {message}", style="bold green")
 
 
-def print_error(message: str) -> None:
-    """Print error message in red."""
-    console.print(f"✗ {message}", style="bold red")
+def print_error(message: str, is_interactive: bool = True) -> None:
+    """Print error message in red.
+
+    Args:
+        message: Message to print
+        is_interactive: Whether to print the output (run explicitly by user) or not (run from systemd service).
+    """
+    if is_interactive:
+        console.print(f"✗ {message}", style="bold red")
 
 
-def print_warning(message: str) -> None:
-    """Print warning message in yellow."""
-    console.print(f"⚠ {message}", style="bold yellow")
+def print_warning(message: str, is_interactive: bool = True) -> None:
+    """Print warning message in yellow.
+
+    Args:
+        message: Message to print
+        is_interactive: Whether to print the output (run explicitly by user) or not (run from systemd service).
+    """
+    if is_interactive:
+        console.print(f"⚠ {message}", style="bold yellow")
 
 
-def print_info(message: str) -> None:
-    """Print info message in blue."""
-    console.print(f"ℹ {message}", style="bold blue")
+def print_info(message: str, is_interactive: bool = True) -> None:
+    """Print info message in blue.
+
+    Args:
+        message: Message to print
+        is_interactive: Whether to print the output (run explicitly by user) or not (run from systemd service).
+    """
+    if is_interactive:
+        console.print(f"ℹ {message}", style="bold blue")
 
 
-def print_header(title: str) -> None:
+def print_header(title: str, is_interactive: bool = True) -> None:
     """
     Print a section header.
 
     Args:
         title: Header title
+        is_interactive: Whether to print the output (run explicitly by user) or not (run from systemd service).
     """
-    console.print(f"\n[bold cyan]{title}[/bold cyan]")
-    console.print("─" * len(title))
+    if is_interactive:
+        console.print(f"\n[bold cyan]{title}[/bold cyan]")
+        console.print("─" * len(title))
 
 
-def print_task_result(result: TaskResult, task_name: str) -> None:
+def print_task_result(result: TaskResult, task_name: str, is_interactive: bool = True) -> None:
     """
     Print task execution result with appropriate styling.
 
     Args:
         result: TaskResult from execution
         task_name: Name of the task
+        is_interactive: Whether to print the output (run explicitly by user) or not (run from systemd service).
 
     Reason:
     - Consistent formatting across all task outputs
     - Color-coded status for quick scanning
     - Shows key information at a glance
     """
-    # Status icon and color
-    icon = ""
-    color = ""
-    match result.status:
-        case TaskStatus.SUCCESS:
-            icon = "✓"
-            color = "green"
-        case TaskStatus.FAILURE:
-            icon = "✗"
-            color = "red"
-        case TaskStatus.PARTIAL:
-            icon = "⚠"
-            color = "yellow"
-        case _:  # SKIPPED
-            icon = "○"
-            color = "blue"
+    if is_interactive:
+        # Status icon and color
+        icon = ""
+        color = ""
+        match result.status:
+            case TaskStatus.SUCCESS:
+                icon = "✓"
+                color = "green"
+            case TaskStatus.FAILURE:
+                icon = "✗"
+                color = "red"
+            case TaskStatus.PARTIAL:
+                icon = "⚠"
+                color = "yellow"
+            case _:  # SKIPPED
+                icon = "○"
+                color = "blue"
 
-    # Print status line
-    console.print(
-        f"[bold {color}]{icon} {task_name}[/bold {color}] "
-        f"({result.duration_seconds:.2f}s)"
-    )
+        # Print status line
+        console.print(
+            f"[bold {color}]{icon} {task_name}[/bold {color}] "
+            f"({result.duration_seconds:.2f}s)"
+        )
 
-    # Print message
-    console.print(f"  {result.message}")
+        # Print message
+        console.print(f"  {result.message}")
 
-    # Print error if present
-    if result.error:
-        console.print(f"  [red]Error: {result.error}[/red]")
+        # Print error if present
+        if result.error:
+            console.print(f"  [red]Error: {result.error}[/red]")
 
 
 def print_schedule_table(schedule_info: list[TaskScheduleInfo]) -> None:
@@ -163,7 +191,7 @@ def _format_other_details(lines: list[str], details: dict[str, Any]):
 
 
 def print_task_details(
-    task_name: str, result: TaskResult, show_details: bool = True
+    task_name: str, result: TaskResult, show_details: bool = True, is_interactive: bool = True
 ) -> None:
     """
     Print detailed task result information.
@@ -172,46 +200,48 @@ def print_task_details(
         task_name: Name of the task
         result: TaskResult with details
         show_details: Whether to show the details dict
+        is_interactive: Whether to print the output (run explicitly by user) or not (run from systemd service).
     """
-    # Map status to Rich styled text
-    status_mapping = {
-        "success": "[green]✓ SUCCESS[/green]",
-        "failure": "[red]⨯ FAILURE[/red]",
-        "skipped": "[blue]⤳ SKIPPED[/blue]",
-        "partial": "[yellow]⚠ PARTIAL[/yellow]",
-    }
-
-    # Create panel content
-    lines = [
-        f"[bold]Status:[/bold] {status_mapping[str(result.status)]}",
-        f"[bold]Message:[/bold] {result.message}",
-        f"[bold]Duration:[/bold] {result.duration_seconds:.2f}s",
-    ]
-
-    if result.error:
-        lines.append(f"[bold red]Error:[/bold red] {result.error}")
-
-    # Add details if requested and present
-    if show_details and result.details:
-        lines.append("\n[bold]Details:[/bold]")
-
-        # Format details based on task type
-        formatters = {
-            "failed-services": _format_failed_services_details,
-            "health-check": _format_health_check_details,
-            "maintenance-check": _format_maintenance_check_details,
+    if is_interactive:
+        # Map status to Rich styled text
+        status_mapping = {
+            "success": "[green]✓ SUCCESS[/green]",
+            "failure": "[red]⨯ FAILURE[/red]",
+            "skipped": "[blue]⤳ SKIPPED[/blue]",
+            "partial": "[yellow]⚠ PARTIAL[/yellow]",
         }
-        formatter = formatters.get(task_name, _format_other_details)
-        formatter(lines, result.details)
 
-    # Print in a panel
-    panel = Panel(
-        "\n".join(lines),
-        title=f"[bold cyan]{task_name}[/bold cyan]",
-        border_style="cyan",
-        width=200,
-    )
-    console.print(panel)
+        # Create panel content
+        lines = [
+            f"[bold]Status:[/bold] {status_mapping[str(result.status)]}",
+            f"[bold]Message:[/bold] {result.message}",
+            f"[bold]Duration:[/bold] {result.duration_seconds:.2f}s",
+        ]
+
+        if result.error:
+            lines.append(f"[bold red]Error:[/bold red] {result.error}")
+
+        # Add details if requested and present
+        if show_details and result.details:
+            lines.append("\n[bold]Details:[/bold]")
+
+            # Format details based on task type
+            formatters = {
+                "failed-services": _format_failed_services_details,
+                "health-check": _format_health_check_details,
+                "maintenance-check": _format_maintenance_check_details,
+            }
+            formatter = formatters.get(task_name, _format_other_details)
+            formatter(lines, result.details)
+
+        # Print in a panel
+        panel = Panel(
+            "\n".join(lines),
+            title=f"[bold cyan]{task_name}[/bold cyan]",
+            border_style="cyan",
+            width=200,
+        )
+        console.print(panel)
 
 
 # Failed services task related helpers
