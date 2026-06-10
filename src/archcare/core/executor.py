@@ -283,11 +283,15 @@ class TaskExecutor:
         # Calculate next due date
         next_due = datetime.now() + timedelta(days=task_config.frequency)
 
+        # Storing the current next due for skipped task
+        next_due_skipped = self.state.get_task_state(task_config.name).next_due
+        result_skipped = result.is_skipped()
+
         # Update state
         self.state.update_task_state(
             task_name=task_config.name,
             status=result.status,
-            next_due=next_due,
+            next_due=next_due if not result_skipped else next_due_skipped,
             error=str(result.error) if result.error else None,
             skip_reason=result.skip_reason,
             skip_message=result.skip_message,
