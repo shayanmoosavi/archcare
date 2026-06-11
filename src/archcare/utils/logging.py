@@ -14,25 +14,29 @@ from archcare.config import AppSettings, LogLevel
 from .system import is_root, change_ownership_to_user
 
 
-def setup_logging(settings: AppSettings, reconfigure: bool = False) -> None:
+def setup_logging(
+    settings: AppSettings, reconfigure: bool = False, devel_mode: bool = False
+) -> None:
     """
     Configure logging for archcare.
 
     Args:
         settings: Application settings with log configuration
         reconfigure: If True, remove existing handlers before adding new ones
+        devel_mode: If True, mirror the logs to the console for development
     """
     # Remove default handler (stderr)
     logger.remove()
 
     # Add console handler (for CLI output)
     # Only show INFO and above in console
-    logger.add(
-        sys.stderr,
-        format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>",
-        level=LogLevel.INFO.value,
-        colorize=True,
-    )
+    if devel_mode:
+        logger.add(
+            sys.stderr,
+            format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>",
+            level=LogLevel.INFO.value,
+            colorize=True,
+        )
 
     # Ensure log directory exists
     settings.log_dir.mkdir(parents=True, exist_ok=True)

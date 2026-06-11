@@ -49,9 +49,23 @@ app = typer.Typer(
 )
 
 # Global state (initialized in main)
+_devel: bool = False
 _loader: ConfigLoader | None = None
 _settings: AppSettings | None = None
 _executor: TaskExecutor | None = None
+
+
+@app.callback()
+def devel_mode(
+    devel: bool = typer.Option(
+        False,
+        "--devel",
+        help="Enable verbose console output (development mode)",
+        is_eager=True,
+    ),
+) -> None:
+    global _devel
+    _devel = devel
 
 
 def get_executor(user: str | None = None) -> TaskExecutor:
@@ -68,7 +82,7 @@ def get_executor(user: str | None = None) -> TaskExecutor:
         # Set up default logging first
         default_settings = AppSettings(user=user)
         default_settings.ensure_directories()
-        setup_logging(default_settings)
+        setup_logging(default_settings, devel_mode=_devel)
 
         # Initialize configuration
         if not _loader:
@@ -84,7 +98,7 @@ def get_executor(user: str | None = None) -> TaskExecutor:
                 or _settings.log_level != default_settings.log_level
                 or _settings.log_retention_days != default_settings.log_retention_days
             ):
-                setup_logging(_settings, reconfigure=True)
+                setup_logging(_settings, reconfigure=True, devel_mode=_devel)
 
         # Load state
         state = _loader.load_state()
@@ -165,7 +179,9 @@ def run(
         # Display result
         print()
         if verbose:
-            print_task_details(task_name, result, show_details=True, is_interactive=is_interactive)
+            print_task_details(
+                task_name, result, show_details=True, is_interactive=is_interactive
+            )
         else:
             print_task_result(result, task_name, is_interactive)
 
@@ -642,7 +658,7 @@ def test_notification(
     # Setup default logging
     default_settings = AppSettings()
     default_settings.ensure_directories()
-    setup_logging(default_settings)
+    setup_logging(default_settings, devel_mode=_devel)
 
     print_header("Testing Desktop Notifications")
 
