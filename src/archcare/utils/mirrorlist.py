@@ -124,7 +124,12 @@ def update_mirrorlist(
 
     logger.debug(f"Running reflector: {' '.join(reflector_cmd)}")
 
-    return run_command_with_sudo(reflector_cmd, timeout=120)
+    # Total timeout for reflector command
+    # Worst case scenario: all mirrors timeout (number_of_mirrors * download_timeout) plus some padding
+    # Default reflector timeout: 5 sec
+    cmd_timeout = latest * 5 + 30  # Add 30 seconds padding
+
+    return run_command_with_sudo(reflector_cmd, timeout=cmd_timeout)
 
 
 def validate_mirrorlist(mirrorlist_path: Path) -> tuple[bool, str]:
