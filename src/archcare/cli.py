@@ -317,9 +317,6 @@ def init():
 
 @app.command()
 def setup(
-    user: str | None = typer.Option(
-        None, "--user", "-u", help="Username ([bold red]Required[/bold red])"
-    ),
     enable: bool = typer.Option(
         True, "--enable/--no-enable", help="Enable timers after installation"
     ),
@@ -346,12 +343,13 @@ def setup(
         print_error("This command needs root privilege and should be run with sudo.")
         raise typer.Exit(1)
 
-    # Get username
+    # Get username (sudo command sets SUDO_USER env variable)
+    user = os.getenv("SUDO_USER")
     if not user:
-        print_error(
-            "Username must be provided. Please specify with --user YOUR_USERNAME"
-        )
+        # Technically shouldn't happen since we check for root, but just in case
+        print_error("Could not determine the user. Make sure to run with sudo.")
         raise typer.Exit(1)
+
     # Get user's home directory
     import pwd
 

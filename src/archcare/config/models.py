@@ -3,7 +3,7 @@ Configuration models for archcare using Pydantic.
 
 These models provide type-safe configuration with validation.
 """
-
+from os import getenv
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -294,6 +294,10 @@ class AppSettings(BaseModel):
     @property
     def home_dir(self) -> Path:
         """Home directory of the user."""
+        # Handle sudo case: if running with sudo, use SUDO_USER's home instead of root's
+        sudo_user = getenv("SUDO_USER")
+        if sudo_user:
+            return Path(f"/home/{sudo_user}")
         return Path(f"/home/{self.user}") if self.user else Path.home()
 
     @computed_field  # type: ignore[prop-decorator]
