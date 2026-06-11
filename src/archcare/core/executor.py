@@ -150,7 +150,9 @@ class TaskExecutor:
         is_interactive = not is_systemd
 
         if not task_config.enabled:
-            print_warning(f"Task '{task_name}' is disabled in configuration", is_interactive)
+            print_warning(
+                f"Task '{task_name}' is disabled in configuration", is_interactive
+            )
             task = self._create_task(task_config)
             task.set_start_time()
             if is_systemd:

@@ -3,6 +3,7 @@ Configuration models for archcare using Pydantic.
 
 These models provide type-safe configuration with validation.
 """
+
 from os import getenv
 from datetime import datetime
 from enum import Enum
@@ -331,7 +332,12 @@ class AppSettings(BaseModel):
 
     @model_validator(mode="after")
     def validate_paths(self) -> Self:
-        paths: list[Path] = [self.log_dir, self.state_file, self.config_dir, self.report_dir]
+        paths: list[Path] = [
+            self.log_dir,
+            self.state_file,
+            self.config_dir,
+            self.report_dir,
+        ]
 
         if not all(self.expand_paths(path) for path in paths):
             raise ValueError("All paths must be valid and accessible.")

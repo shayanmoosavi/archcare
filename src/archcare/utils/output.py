@@ -76,7 +76,9 @@ def print_header(title: str, is_interactive: bool = True) -> None:
         console.print("─" * len(title))
 
 
-def print_task_result(result: TaskResult, task_name: str, is_interactive: bool = True) -> None:
+def print_task_result(
+    result: TaskResult, task_name: str, is_interactive: bool = True
+) -> None:
     """
     Print task execution result with appropriate styling.
 
@@ -191,7 +193,10 @@ def _format_other_details(lines: list[str], details: dict[str, Any]):
 
 
 def print_task_details(
-    task_name: str, result: TaskResult, show_details: bool = True, is_interactive: bool = True
+    task_name: str,
+    result: TaskResult,
+    show_details: bool = True,
+    is_interactive: bool = True,
 ) -> None:
     """
     Print detailed task result information.
