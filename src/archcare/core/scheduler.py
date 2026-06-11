@@ -76,7 +76,7 @@ class TaskScheduler:
 
         # Calculate schedule info
         frequency_delta = timedelta(days=task_config.frequency)
-        next_due = task_state.last_run + frequency_delta
+        next_due = task_state.next_due if task_state.next_due else task_state.last_run + frequency_delta
         time_until_due = next_due - datetime.now()
 
         is_due = time_until_due.total_seconds() <= 0
