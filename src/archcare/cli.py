@@ -396,16 +396,18 @@ def setup(
         )
 
         # Reload systemd
+        print()
         _reload_systemd(dry_run)
 
-        print_success("\n" + "=" * 60)
+        console.print("\n" + "=" * 60, style="bold green")
         print_success("Systemd templates installed successfully!")
-        print_success("=" * 60)
+        console.print("=" * 60, style="bold green")
 
         if automated_tasks:
             _setup_systemd_timer(automated_tasks, dry_run, enable)
         else:
-            print_warning("\nNo automated tasks found in configuration")
+            print()
+            print_warning("No automated tasks found in configuration")
             print_info("Edit ~/.config/archcare/tasks.toml to configure tasks")
 
         print("\n" + "=" * 60)
@@ -431,48 +433,51 @@ def setup(
 def _setup_systemd_timer(
     automated_tasks: dict[str, TaskConfig], dry_run: bool, enable: bool
 ):
-    print_info("\nAvailable automated tasks:")
+    print()
+    print_info("Available automated tasks:")
     for task_name, task_config in automated_tasks.items():
         task_status = "✓" if task_config.enabled else "✗"
-        print_info(f"  {task_status} {task_name}: {task_config.description}")
+        print(f"  {task_status} {task_name}: {task_config.description}")
 
-    print_info("\nTo enable a timer:")
-    print_info(f"  sudo systemctl enable --now archcare@TASK.timer")
-    print_info("\nExample:")
+    print()
+    print_info("To enable a timer:")
+    print(f"  sudo systemctl enable --now archcare@TASK.timer\n")
+    print_info("Example:")
     first_task = next(iter(automated_tasks.keys()))
-    print_info(f"  sudo systemctl enable --now archcare@{first_task}.timer")
+    print(f"  sudo systemctl enable --now archcare@{first_task}.timer\n")
 
     # Optionally enable timers
     if enable and not dry_run:
         _enable_systemd_timer(automated_tasks)
 
         # Show timer status
-        print_info("\n" + "=" * 60)
+        console.print("=" * 60, style="bold blue")
         print_info("Timer Status")
-        print_info("=" * 60)
+        console.print("=" * 60, style="bold blue")
         result = run_systemctl(["list-timers", f"archcare@*"])
         if result.success:
-            print(result.stdout)
+            print(f"\n{result.stdout}")
 
 
 def _enable_systemd_timer(automated_tasks: dict[str, TaskConfig]):
-    print_info("\n" + "=" * 60)
+    console.print("\n" + "=" * 60, style="bold blue")
     print_info("Enabling timers for automated tasks...")
-    print_info("=" * 60)
+    console.print("=" * 60, style="bold blue")
 
+    print()
     for task_name in automated_tasks.keys():
         timer_name = f"archcare@{task_name}.timer"
-        print_info(f"\nEnabling {timer_name}...")
+        print_info(f"Enabling {timer_name}...")
 
         result = run_systemctl(["enable", "--now", timer_name])
         if result.success:
-            print_success(f"  ✓ {timer_name} enabled and started")
+            print_success(f"{timer_name} enabled and started\n")
         else:
-            print_warning(f"  ✗ Failed to enable {timer_name}")
+            print_warning(f"Failed to enable {timer_name}\n")
 
 
 def _reload_systemd(dry_run: bool):
-    print_info("\nReloading systemd daemon...")
+    print_info("Reloading systemd daemon...")
     if not dry_run:
         result = run_systemctl(["daemon-reload"])
         if not result.success:
