@@ -18,6 +18,7 @@ from archcare.config import (
     TaskType,
     SkipReason,
     TasksConfig,
+    TaskStatus,
 )
 from archcare.core.scheduler import TaskScheduler
 from archcare.tasks.base import BaseTask
@@ -285,18 +286,14 @@ class TaskExecutor:
         - Automatically calculates next due date
         - Ensures state is always updated after execution
         """
-        # Calculate next due date
-        next_due = datetime.now() + timedelta(days=task_config.frequency)
 
-        # Storing the current next due for skipped task
-        next_due_skipped = self.state.get_task_state(task_config.name).next_due
-        result_skipped = result.is_skipped()
+        next_due = self._calculate_next_due(result, task_config)
 
         # Update state
         self.state.update_task_state(
             task_name=task_config.name,
             status=result.status,
-            next_due=next_due if not result_skipped else next_due_skipped,
+            next_due=next_due,
             error=str(result.error) if result.error else None,
             skip_reason=result.skip_reason,
             skip_message=result.skip_message,
@@ -313,3 +310,28 @@ class TaskExecutor:
             change_ownership_to_user(state_file.parent, user)
 
         logger.debug(f"Updated state for {task_config.name}: next due {next_due}")
+
+    def _calculate_next_due(
+        self, result: TaskResult, task_config: TaskConfig
+    ) -> datetime | None:
+        """Calculate the next due date based on the result and task configuration.
+
+        Args:
+            result: The result of the task execution, which includes status and skip reason.
+            task_config: The configuration of the task, which includes frequency.
+        """
+        # Skipped or failed tasks should not update next due date
+        match result.status:
+            # Storing the current next due for skipped or failed task
+            case TaskStatus.SKIPPED:
+                # Disabled tasks have no next due date
+                if result.skip_reason == SkipReason.DISABLED:
+                    next_due = None
+                else:
+                    next_due = self.state.get_task_state(task_config.name).next_due
+            case TaskStatus.FAILURE:
+                next_due = self.state.get_task_state(task_config.name).next_due
+            case _:
+                # Calculating next due date for successful execution
+                next_due = datetime.now() + timedelta(days=task_config.frequency)
+        return next_due

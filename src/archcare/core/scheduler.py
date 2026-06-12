@@ -76,11 +76,7 @@ class TaskScheduler:
 
         # Calculate schedule info
         frequency_delta = timedelta(days=task_config.frequency)
-        next_due = (
-            task_state.next_due
-            if task_state.next_due
-            else task_state.last_run + frequency_delta
-        )
+        next_due = task_state.next_due or (task_state.last_run + frequency_delta)
         time_until_due = next_due - datetime.now()
 
         is_due = time_until_due.total_seconds() <= 0
@@ -88,18 +84,12 @@ class TaskScheduler:
 
         # Generate reason message
         if is_due:
-            if days_overdue == 0:
-                reason = "Due now"
-            elif days_overdue == 1:
-                reason = "Overdue by 1 day"
-            else:
-                reason = f"Overdue by {days_overdue} days"
+            reason = (
+                "Due now" if days_overdue == 0 else f"Overdue by {days_overdue} day(s)"
+            )
         else:
             days_until = time_until_due.days + 1
-            if days_until == 1:
-                reason = "Due tomorrow"
-            else:
-                reason = f"Due in {days_until} days"
+            reason = "Due tomorrow" if days_until == 1 else f"Due in {days_until} days"
 
         return TaskScheduleInfo(
             task_name=task_name,
