@@ -109,7 +109,7 @@ Environment="ARCHCARE_USER={user}"
 WorkingDirectory={home_dir}
 
 # Run the task
-ExecStart={home_dir}/.local/bin/archcare run %i
+ExecStart={home_dir}/.local/bin/archcare task run %i
 
 # Logging
 StandardOutput=journal

@@ -116,7 +116,6 @@ class TaskExecutor:
         tasks_config = self.config_loader.load_tasks()
         task_config = tasks_config.get_task(task_name)
 
-        # Won't happen due to _handle_task function in cli.py, but being defensive
         if not task_config:
             raise ValueError(f"Task not found: {task_name}")
 
