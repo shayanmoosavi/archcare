@@ -2,7 +2,7 @@
 
 import typer
 
-from archcare.cli.commands import task_app, setup_app
+from archcare.cli.commands import task_app, setup_app, logs_app
 from archcare.cli import _state
 
 app = typer.Typer(
@@ -12,6 +12,7 @@ app = typer.Typer(
 
 app.add_typer(task_app, name="task")
 app.add_typer(setup_app, name="setup")
+app.add_typer(logs_app)
 
 
 @app.callback()
@@ -23,7 +24,6 @@ def devel_mode(
         is_eager=True,
     ),
 ) -> None:
-    """Arch Linux maintenance task manager."""
     _state._devel = devel
 
 
