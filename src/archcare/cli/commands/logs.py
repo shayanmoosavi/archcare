@@ -8,8 +8,9 @@ from archcare.utils.output import print_error, print_header
 logs_app = typer.Typer()
 
 
-@logs_app.command()
+@logs_app.callback(invoke_without_command=True)
 def logs(
+    ctx: typer.Context,
     task_name: str | None = typer.Argument(None, help="Task to show logs for"),
     lines: int = typer.Option(50, "--lines", "-n", help="Number of lines to show"),
 ):
@@ -20,6 +21,8 @@ def logs(
         archcare logs                    # Main logs
         archcare logs failed-services    # Task-specific logs
     """
+    if ctx.invoked_subcommand is not None:
+        return  # a subcommand was given, let it handle things
     executor = get_executor()
 
     if task_name:

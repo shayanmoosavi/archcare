@@ -12,7 +12,7 @@ app = typer.Typer(
 
 app.add_typer(task_app, name="task")
 app.add_typer(setup_app, name="setup")
-app.add_typer(logs_app)
+app.add_typer(logs_app, name="logs")
 app.add_typer(debug_app, name="debug")
 
 
