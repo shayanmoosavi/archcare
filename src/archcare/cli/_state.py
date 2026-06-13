@@ -94,5 +94,5 @@ def validate_task_name(task_name: str, tasks_config: TasksConfig):
         tasks_config.get_task(task_name)
     except ValueError:
         print_error(f"Task not found: {task_name}")
-        print_info("Use 'archcare list' to see available tasks")
+        print_info("Use 'archcare task list' to see available tasks")
         raise typer.Exit(1)
