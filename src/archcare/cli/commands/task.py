@@ -141,7 +141,7 @@ def list_tasks(
     ),
 ):
     """
-    List all available tasks.
+    List all available and enabled tasks.
 
     Example:
         archcare task list
@@ -160,7 +160,7 @@ def list_tasks(
         case TaskType.MANUAL.value:
             tasks = tasks_config.get_tasks_by_type("manual")
         case None:
-            tasks = tasks_config.tasks
+            tasks = tasks_config.get_enabled_tasks()
         case _:
             print_error("Type must be 'automated' or 'manual'")
             raise typer.Exit(1)
