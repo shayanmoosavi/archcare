@@ -19,6 +19,7 @@ from archcare.utils.output import (
     print_summary_panel,
     print_task_details,
     print_task_result,
+    print_warning,
 )
 
 
@@ -90,3 +91,8 @@ class TaskPresenter:
     @staticmethod
     def error(message: str, is_interactive: bool = True) -> None:
         print_error(message, is_interactive)
+
+    @staticmethod
+    def aborted(task_name: str) -> None:
+        print()
+        print_warning(f"Task '{task_name}' execution aborted")
