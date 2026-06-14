@@ -6,12 +6,12 @@ import typer
 
 from archcare.config import AppSettings
 from archcare.cli import _state
-from archcare.utils import (
+from archcare.utils import setup_logging
+from archcare.utils.notifications import (
     send_notification,
     is_notification_available,
     NotificationUrgency,
     NotificationIcon,
-    setup_logging,
 )
 from archcare.utils.output import print_header, print_info, print_success, print_error
 

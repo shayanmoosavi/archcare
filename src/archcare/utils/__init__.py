@@ -26,14 +26,6 @@ from .mirrorlist import (
     validate_mirrorlist,
     get_mirrorlist_info,
 )
-from .notifications import (
-    get_notification_manager,
-    is_notification_available,
-    NotificationIcon,
-    NotificationManager,
-    NotificationUrgency,
-    send_notification,
-)
 from .pacman import check_pacman_database, check_package_files
 
 __all__ = [
@@ -60,13 +52,6 @@ __all__ = [
     "get_disk_usage",
     "get_cpu_info",
     "get_memory_info",
-    # Notifications
-    "get_notification_manager",
-    "is_notification_available",
-    "NotificationIcon",
-    "NotificationManager",
-    "NotificationUrgency",
-    "send_notification",
     # Mirrorlist helpers
     "backup_file",
     "restore_backup",

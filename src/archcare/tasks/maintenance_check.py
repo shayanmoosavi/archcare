@@ -28,8 +28,7 @@ from archcare.core.models import (
 )
 from archcare.core.scheduler import TaskScheduler
 from archcare.tasks.base import BaseTask
-from archcare.utils import get_notification_manager
-from archcare.utils.output import print_info
+from archcare.utils.notifications import get_notification_manager
 
 
 class MaintenanceCheckTask(BaseTask):
