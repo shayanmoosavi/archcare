@@ -5,7 +5,7 @@ from typing import Any
 import typer
 
 from archcare.config import AppSettings
-from archcare.cli._state import _devel
+from archcare.cli import _state
 from archcare.utils import (
     send_notification,
     is_notification_available,
@@ -67,7 +67,7 @@ def test_notification(
     # Setup default logging
     default_settings = AppSettings()
     default_settings.ensure_directories()
-    setup_logging(default_settings, devel_mode=_devel)
+    setup_logging(default_settings, devel_mode=_state._devel)
 
     print_header("Testing Desktop Notifications")
 
