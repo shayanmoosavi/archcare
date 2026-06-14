@@ -1,26 +1,21 @@
 """Task related Typer commands for Archcare."""
 
-import os
+from os import getenv
 
 from loguru import logger
 import typer
 
-from archcare.cli._state import get_executor, validate_task_name
-from archcare.config import TaskType
-from archcare.core import TaskScheduler
-from archcare.utils.output import (
-    print_header,
-    print_error,
-    print_task_details,
-    print_task_result,
-    print_schedule_table,
-    print_success,
-    print_summary_panel,
-    print_info,
-    console,
-)
+from archcare.cli._state import get_executor
+
+from archcare.cli.presenters.task_presenter import TaskPresenter
+from archcare.services.exceptions import InvalidTaskTypeError, TaskNotFoundError
+from archcare.services.task_service import TaskService
 
 task_app = typer.Typer(help="Run and manage maintenance tasks.")
+
+
+def _service() -> TaskService:
+    return TaskService(get_executor(getenv("ARCHCARE_USER")))
 
 
 @task_app.command()
@@ -36,54 +31,28 @@ def run(
         archcare task run failed-services
         archcare task run system-update --forcetask
     """
-    # Getting the user from environment variable set by systemd service (if running as root) or default to current user
-    user = os.getenv("ARCHCARE_USER")
-
-    # Determine if running from systemd (root) or interactively (normal user)
-    is_interactive = user is None
-
-    executor = get_executor(user)
-
-    print_header(f"Running Task: {task_name}", is_interactive)
-
     try:
-        # Check if task exists in configuration
-        tasks_config = executor.config_loader.load_tasks()
-
-        validate_task_name(task_name, tasks_config)
-
-        # Execute the task
-        logger.info(f"Executing task: {task_name}")
-        result = executor.execute_task(task_name, force)
-
-        # Display result
-        print()
-        if verbose:
-            print_task_details(
-                task_name, result, show_details=True, is_interactive=is_interactive
-            )
-        else:
-            print_task_result(result, task_name, is_interactive)
-
-        # Exit code based on result
-        if result.is_success():
-            raise typer.Exit(0)
-        elif result.is_partial():
-            # Partial success - found issues but task completed
-            raise typer.Exit(0)
-        elif result.is_skipped():
-            raise typer.Exit(0)
-        else:  # FAILED
-            raise typer.Exit(1)
-
-    except typer.Exit as e:
-        if e.exit_code != 0:
-            raise
-
+        response = _service().run_task(task_name, force)
+    except TaskNotFoundError:
+        TaskPresenter.not_found(task_name)
+        raise typer.Exit(1)
+    except typer.Abort:
+        TaskPresenter.aborted(task_name)
+        raise typer.Exit(1)
     except Exception as e:
-        print_error(f"Failed to run task: {e}", is_interactive)
+        # is_interactive isn't known here since the error happened before
+        # the service could compute it - default to interactive formatting.
+        TaskPresenter.error(f"Failed to run task: {e}")
         logger.exception(f"Error running task {task_name}")
         raise typer.Exit(1)
+
+    TaskPresenter.render_run(response, verbose=verbose)
+
+    outcome = response.outcome
+    if outcome.is_success() or outcome.is_partial() or outcome.is_skipped():
+        raise typer.Exit(0)
+    # Task failed if we got here
+    raise typer.Exit(1)
 
 
 @task_app.command()
@@ -99,39 +68,13 @@ def status(
         archcare task status failed-services    # Specific task
         archcare task status --due              # Only due tasks
     """
-    executor = get_executor()
-    tasks_config = executor.config_loader.load_tasks()
-    scheduler = TaskScheduler(tasks_config, executor.state)
+    try:
+        response = _service().get_task_status(task_name, due_only)
+    except TaskNotFoundError as e:
+        TaskPresenter.error(str(e))
+        raise typer.Exit(1)
 
-    if task_name:
-        # Show specific task
-        print_header(f"Task Status: {task_name}")
-
-        try:
-            info = scheduler.get_schedule_info(task_name)
-            print_schedule_table([info])
-        except ValueError as e:
-            print_error(str(e))
-            raise typer.Exit(1)
-
-    else:
-        # Show all tasks or just due tasks
-        print_header("Task Status")
-
-        if due_only:
-            schedule_info = scheduler.get_due_tasks()
-            if not schedule_info:
-                print_success("No tasks currently due!")
-                raise typer.Exit(0)
-        else:
-            schedule_info = scheduler.get_all_schedule_info()
-
-        print_schedule_table(schedule_info)
-
-        # Show summary
-        summary = scheduler.get_maintenance_summary()
-        print()
-        print_summary_panel("Summary", summary)
+    TaskPresenter.render_status(response)
 
 
 @task_app.command("list")
@@ -147,34 +90,10 @@ def list_tasks(
         archcare task list
         archcare task list --type manual
     """
-    executor = get_executor()
-    tasks_config = executor.config_loader.load_tasks()
+    try:
+        response = _service().list_tasks(task_type)
+    except InvalidTaskTypeError:
+        TaskPresenter.invalid_task_type()
+        raise typer.Exit(1)
 
-    print_header("Available Tasks")
-
-    # Get tasks
-    tasks = {}
-    match task_type:
-        case TaskType.AUTOMATED.value:
-            tasks = tasks_config.get_tasks_by_type("automated")
-        case TaskType.MANUAL.value:
-            tasks = tasks_config.get_tasks_by_type("manual")
-        case None:
-            tasks = tasks_config.get_enabled_tasks()
-        case _:
-            print_error("Type must be 'automated' or 'manual'")
-            raise typer.Exit(1)
-
-    if not tasks:
-        print_info("No tasks found")
-        raise typer.Exit(0)
-
-    # Display tasks
-    for name, config in tasks.items():
-        status_icon = "✓" if config.enabled else "✗"
-        type_badge = f"[cyan]{config.task_type.value}[/cyan]"
-        freq = f"every {config.frequency} days"
-
-        console.print(f"{status_icon} [bold]{name}[/bold] {type_badge} ({freq})")
-        console.print(f"  {config.description}")
-        print()
+    TaskPresenter.render_list(response)
