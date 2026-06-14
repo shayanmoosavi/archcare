@@ -26,47 +26,50 @@ class TaskPresenter:
     """Renders TaskService results and errors to the terminal."""
 
     @staticmethod
-    def render_run(result: TaskRunResponse, verbose: bool = False) -> None:
-        print_header(f"Running Task: {result.task_name}", result.is_interactive)
+    def render_run(response: TaskRunResponse, verbose: bool = False) -> None:
+        if not response.outcome.is_skipped():
+            print_header(f"Running Task: {response.task_name}", response.is_interactive)
         print()
         if verbose:
             print_task_details(
-                result.task_name,
-                result.outcome,
+                response.task_name,
+                response.outcome,
                 show_details=True,
-                is_interactive=result.is_interactive,
+                is_interactive=response.is_interactive,
             )
         else:
-            print_task_result(result.outcome, result.task_name, result.is_interactive)
+            print_task_result(
+                response.outcome, response.task_name, response.is_interactive
+            )
 
     @staticmethod
-    def render_status(result: TaskStatusResponse, task_name: str | None) -> None:
+    def render_status(response: TaskStatusResponse, task_name: str | None) -> None:
         if task_name:
             print_header(f"Task Status: {task_name}")
-            print_schedule_table(result.schedule_info)
+            print_schedule_table(response.schedule_info)
             return
 
         print_header("Task Status")
 
-        if result.due_only and not result.schedule_info:
+        if response.due_only and not response.schedule_info:
             print_success("No tasks currently due!")
             return
 
-        print_schedule_table(result.schedule_info)
+        print_schedule_table(response.schedule_info)
 
-        if result.summary:
+        if response.summary:
             print()
-            print_summary_panel("Summary", result.summary)
+            print_summary_panel("Summary", response.summary)
 
     @staticmethod
-    def render_list(result: TaskListResponse) -> None:
+    def render_list(response: TaskListResponse) -> None:
         print_header("Available Tasks")
 
-        if not result.tasks:
+        if not response.tasks:
             print_info("No tasks found")
             return
 
-        for name, config in result.tasks.items():
+        for name, config in response.tasks.items():
             status_icon = "✓" if config.enabled else "✗"
             type_badge = f"[cyan]{config.task_type.value}[/cyan]"
             freq = f"every {config.frequency} days"
