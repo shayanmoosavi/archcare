@@ -255,7 +255,6 @@ class TaskExecutor:
         Returns:
             Dictionary of task names to their configurations
         """
-        from archcare.core.scheduler import TaskScheduler
 
         tasks_config = self.config_loader.load_tasks()
         scheduler = TaskScheduler(tasks_config, self.state)
