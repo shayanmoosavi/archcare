@@ -33,7 +33,9 @@ class TaskService:
         """
         tasks_config = self._executor.config_loader.load_tasks()
 
-        if not tasks_config.get_task(task_name):
+        try:
+            tasks_config.get_task(task_name)
+        except ValueError:
             raise TaskNotFoundError(task_name)
 
         # ARCHCARE_USER is set by the systemd unit; its absence means the user is
