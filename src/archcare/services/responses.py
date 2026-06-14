@@ -26,13 +26,8 @@ class TaskListResponse:
 
 @dataclass
 class TaskStatusResponse:
-    """
-    Schedule information for one or all tasks.
-
-    `summary` is None when a single task was requested (the original CLI
-    never showed the maintenance summary in that case).
-    """
+    """Schedule information for one or all tasks."""
 
     schedule_info: list[TaskScheduleInfo]
-    summary: dict | None
-    due_only: bool
+    summary: dict | None = None
+    due_only: bool = False
