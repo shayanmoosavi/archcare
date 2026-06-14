@@ -44,18 +44,13 @@ class TaskPresenter:
             )
 
     @staticmethod
-    def render_status(response: TaskStatusResponse, task_name: str | None) -> None:
-        if task_name:
-            print_header(f"Task Status: {task_name}")
-            print_schedule_table(response.schedule_info)
-            return
-
-        print_header("Task Status")
+    def render_status(response: TaskStatusResponse) -> None:
 
         if response.due_only and not response.schedule_info:
             print_success("No tasks currently due!")
             return
 
+        print()
         print_schedule_table(response.schedule_info)
 
         if response.summary:
