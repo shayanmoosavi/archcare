@@ -6,9 +6,8 @@ Handles task instantiation and execution coordination.
 
 from datetime import datetime, timedelta
 
-import typer
 from loguru import logger
-import os
+from os import getenv
 
 from archcare.config import (
     AppSettings,
@@ -20,10 +19,10 @@ from archcare.config import (
     TasksConfig,
     TaskStatus,
 )
+from archcare.core.interaction import NonInteractive, TaskInteraction
 from archcare.core.scheduler import TaskScheduler
 from archcare.tasks.base import BaseTask
 from archcare.utils import is_root, change_ownership_to_user
-from archcare.utils.output import print_info, print_warning
 
 from .models import TaskResult, skipped
 
@@ -45,6 +44,7 @@ class TaskExecutor:
         settings: AppSettings,
         state: AppState,
         task_registry: dict[str, type[BaseTask]] | None = None,
+        interaction: TaskInteraction | None = None,
     ):
         """
         Initialize task executor.
@@ -54,12 +54,15 @@ class TaskExecutor:
             settings: Application settings
             state: Application state (for tracking runs)
             task_registry: Map of command name to task class
-                          This will be populated as we implement tasks
+            interaction: Port for user notifications/confirmations during execution
+             (e.g. "task is disabled, run anyway?"). Defaults to NonInteractive,
+            which never confirms - safe for systemd and tests.
         """
         self.config_loader = config_loader
         self.settings = settings
         self.state = state
         self.task_registry = task_registry or {}
+        self.interaction = interaction or NonInteractive()
 
     def register_task(self, command: str, task_class: type[BaseTask]) -> None:
         """
@@ -147,11 +150,10 @@ class TaskExecutor:
     def _handle_disabled_task(
         self, task_name: str, task_config: TaskConfig, is_systemd: bool = False
     ) -> TaskResult | None:
-        is_interactive = not is_systemd
 
         if not task_config.enabled:
-            print_warning(
-                f"Task '{task_name}' is disabled in configuration", is_interactive
+            self.interaction.notify(
+                f"Task '{task_name}' is disabled in configuration", level="warning"
             )
             task = self._create_task(task_config)
             task.set_start_time()
@@ -167,7 +169,7 @@ class TaskExecutor:
                     task.create_result(
                         skipped("Cancelled by user", SkipReason.USER_CANCELLED)
                     )
-                    if not typer.confirm("Run anyway?")
+                    if not self.interaction.confirm("Run anyway?")
                     else None
                 )
         else:
@@ -181,10 +183,9 @@ class TaskExecutor:
         is_due = task_schedule_info.is_due
         reason = task_schedule_info.reason
         task_config = tasks_config.get_task(task_name)
-        is_interactive = not is_systemd
 
         if not is_due:
-            print_info(f"Task is not due: {reason}", is_interactive)
+            self.interaction.notify(f"Task is not due: {reason}")
             task = self._create_task(task_config)
             task.set_start_time()
             if is_systemd:
@@ -204,7 +205,7 @@ class TaskExecutor:
                             SkipReason.USER_CANCELLED,
                         )
                     )
-                    if not typer.confirm("Run anyway?")
+                    if not self.interaction.confirm("Run anyway?")
                     else None
                 )
         else:
@@ -301,7 +302,7 @@ class TaskExecutor:
         self.config_loader.save_state(self.state)
 
         # Change ownership if running as root via systemd
-        user = os.environ.get("ARCHCARE_USER")
+        user = getenv("ARCHCARE_USER")
         if is_root() and user:
             state_file = self.settings.state_file
             change_ownership_to_user(state_file, user)

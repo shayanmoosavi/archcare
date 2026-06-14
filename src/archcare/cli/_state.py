@@ -5,6 +5,7 @@ Holds the global executor singleton and the helpers that depend on it.
 
 import typer
 
+from archcare.cli.interaction import CliInteraction
 from archcare.config import AppSettings, ConfigLoader, TasksConfig
 from archcare.core import TaskExecutor
 from archcare.tasks import (
@@ -58,11 +59,15 @@ def get_executor(user: str | None = None) -> TaskExecutor:
         # Load state
         state = _loader.load_state()
 
+        # User is none when run interactively, (No ARCHCARE_USER env var)
+        is_interactive = user is None
+
         # Create executor
         _executor = TaskExecutor(
             config_loader=_loader,
             settings=_settings,
             state=state,
+            interaction=CliInteraction(is_interactive=is_interactive),
         )
 
         # Register all available tasks
