@@ -75,16 +75,21 @@ def setup_timers(
         executor = get_executor(user)
         service = TimerService(executor, user, home_dir)
 
-        service.install_templates(dry_run)
+        install_response = service.install_templates(dry_run)
+        SetupPresenter.render_template_installation(install_response, dry_run)
 
         print()
-        service.reload(dry_run)
+        reload_response = service.reload(dry_run)
+        SetupPresenter.render_systemd_reload(reload_response, dry_run)
 
         SetupPresenter.templates_installed()
 
         automated_tasks = service.get_automated_tasks()
         if automated_tasks:
-            service.setup_timers(automated_tasks, dry_run, enable)
+            setup_response = service.setup_timers(automated_tasks, dry_run, enable)
+            SetupPresenter.render_timer_setup(
+                automated_tasks, setup_response, dry_run, enable
+            )
         else:
             SetupPresenter.no_automated_tasks()
 

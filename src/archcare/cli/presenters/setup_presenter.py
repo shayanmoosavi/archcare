@@ -10,7 +10,13 @@ the CLI commands themselves: headers, banners, and the final summary.
 
 from pathlib import Path
 
-from archcare.services.responses import ConfigInitResponse
+from archcare.config import TaskConfig
+from archcare.services.responses import (
+    ConfigInitResponse,
+    InstallTimersResponse,
+    ReloadSystemdResponse,
+    EnableTimersResponse,
+)
 from archcare.utils.output import (
     console,
     print_error,
@@ -50,10 +56,67 @@ class SetupPresenter:
     # -- setup timers -------------------------------------------------------
 
     @staticmethod
+    def render_template_installation(
+        response: InstallTimersResponse, dry_run: bool
+    ) -> None:
+        print_info(f"Installing service template: {response.service_file}")
+        if not dry_run:
+            print_success(f"  Created {response.service_file}")
+
+        print_info(f"Installing timer template: {response.timer_file}")
+        if not dry_run:
+            print_success(f"  Created {response.timer_file}")
+
+    @staticmethod
+    def render_systemd_reload(response: ReloadSystemdResponse, dry_run: bool) -> None:
+        print_info("Reloading systemd daemon...")
+        if not dry_run:
+            if not response.success:
+                print_error("Failed to reload systemd")
+                return
+        print_success("  Systemd daemon reloaded")
+
+    @staticmethod
     def templates_installed() -> None:
         console.print("\n" + "=" * 60, style="bold green")
         print_success("Systemd templates installed successfully!")
         console.print("=" * 60, style="bold green")
+
+    @staticmethod
+    def render_timer_setup(
+        automated_tasks: dict[str, TaskConfig],
+        response: EnableTimersResponse,
+        dry_run: bool,
+        enable: bool,
+    ) -> None:
+        print()
+        print_info("Available automated tasks:")
+        for task_name, task_config in automated_tasks.items():
+            task_status = "✓" if task_config.enabled else "✗"
+            print(f"  {task_status} {task_name}: {task_config.description}")
+
+        print()
+        print_info("To enable a timer:")
+        print("  sudo systemctl enable --now archcare@TASK.timer\n")
+
+        if automated_tasks:
+            first_task = next(iter(automated_tasks.keys()))
+            print_info("Example:")
+            print(f"  sudo systemctl enable --now archcare@{first_task}.timer\n")
+
+        if enable and not dry_run:
+            console.print("\n" + "=" * 60, style="bold blue")
+            print_info("Enabling timers for automated tasks...")
+            console.print("=" * 60, style="bold blue")
+            print()
+
+            _list_timers(response)
+
+            if response.timer_status_output:
+                console.print("=" * 60, style="bold blue")
+                print_info("Timer Status")
+                console.print("=" * 60, style="bold blue")
+                print(f"\n{response.timer_status_output}")
 
     @staticmethod
     def no_automated_tasks() -> None:
@@ -93,3 +156,13 @@ class SetupPresenter:
     @staticmethod
     def error(message: str) -> None:
         print_error(message)
+
+
+def _list_timers(response: EnableTimersResponse):
+    for timer_name in response.enabled_timers:
+        print_info(f"Enabling {timer_name}...")
+        print_success(f"{timer_name} enabled and started\n")
+
+    for timer_name in response.failed_timers:
+        print_info(f"Enabling {timer_name}...")
+        print_warning(f"Failed to enable {timer_name}\n")
