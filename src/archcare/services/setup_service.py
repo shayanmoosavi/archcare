@@ -15,7 +15,8 @@ from archcare.services.responses import (
     ConfigInitResponse,
     InstallTemplatesResponse,
     ReloadSystemdResponse,
-    EnableTimersResponse,
+    TimerEnableResponse,
+    TimerSetupResponse,
 )
 from archcare.utils import is_root, run_systemctl
 
@@ -107,31 +108,29 @@ class TimerService:
     @staticmethod
     def setup_timers(
         automated_tasks: dict[str, TaskConfig], dry_run: bool, enable: bool
-    ) -> EnableTimersResponse:
-        """Enables the timers and retrieves the current timer status."""
+    ) -> TimerSetupResponse:
+        """
+        Optionally enable+start a timer for each automated task.
 
-        enabled = []
-        failed = []
-        status_output = None
+        `enabled_timers` and `timer_status` stay empty/None unless
+        `enable=True` and `dry_run=False`.
+        """
+        enabled_timers: list[TimerEnableResponse] = []
+        timer_status: str | None = None
 
         if enable and not dry_run:
-            for task_name in automated_tasks.keys():
+            for task_name in automated_tasks:
                 timer_name = f"archcare@{task_name}.timer"
                 result = run_systemctl(["enable", "--now", timer_name])
-                if result.success:
-                    enabled.append(timer_name)
-                else:
-                    failed.append(timer_name)
+                enabled_timers.append(
+                    TimerEnableResponse(timer_name=timer_name, enabled=result.success)
+                )
 
             status_result = run_systemctl(["list-timers", "archcare@*"])
             if status_result.success:
-                status_output = status_result.stdout
+                timer_status = status_result.stdout
 
-        return EnableTimersResponse(
-            enabled_timers=enabled,
-            failed_timers=failed,
-            timer_status_output=status_output,
-        )
+        return TimerSetupResponse(automated_tasks, enabled_timers, timer_status)
 
 
 def _generate_systemd_templates(home_dir: str, user: str) -> tuple[str, str]:

@@ -58,12 +58,25 @@ class ReloadSystemdResponse:
 
 
 @dataclass
-class EnableTimersResponse:
-    """Outcome of enabling systemd timers for automated tasks."""
+class TimerEnableResponse:
+    """Outcome of `systemctl enable --now` for a single timer."""
 
-    enabled_timers: list[str]
-    failed_timers: list[str]
-    timer_status_output: str | None
+    timer_name: str
+    enabled: bool
+
+
+@dataclass
+class TimerSetupResponse:
+    """
+    Outcome of the timer-enabling step of `setup timers`.
+
+    `enabled_timers` and `timer_status` are empty/None unless timers were
+    actually enabled (i.e. `enable=True` and `dry_run=False`).
+    """
+
+    automated_tasks: dict[str, TaskConfig]
+    enabled_timers: list[TimerEnableResponse]
+    timer_status: str | None
 
 
 @dataclass

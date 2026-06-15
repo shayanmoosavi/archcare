@@ -87,9 +87,7 @@ def setup_timers(
         automated_tasks = service.get_automated_tasks()
         if automated_tasks:
             setup_response = service.setup_timers(automated_tasks, dry_run, enable)
-            SetupPresenter.render_timer_setup(
-                automated_tasks, setup_response, dry_run, enable
-            )
+            SetupPresenter.render_timer_setup(setup_response)
         else:
             SetupPresenter.no_automated_tasks()
 

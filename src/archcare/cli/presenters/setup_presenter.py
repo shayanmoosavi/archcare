@@ -2,12 +2,11 @@
 
 from pathlib import Path
 
-from archcare.config import TaskConfig
 from archcare.services.responses import (
     ConfigInitResponse,
     InstallTemplatesResponse,
     ReloadSystemdResponse,
-    EnableTimersResponse,
+    TimerSetupResponse,
 )
 from archcare.utils.output import (
     console,
@@ -73,40 +72,31 @@ class SetupPresenter:
         console.print("=" * 60, style="bold green")
 
     @staticmethod
-    def render_timer_setup(
-        automated_tasks: dict[str, TaskConfig],
-        response: EnableTimersResponse,
-        dry_run: bool,
-        enable: bool,
-    ) -> None:
+    def render_timer_setup(response: TimerSetupResponse) -> None:
         print()
         print_info("Available automated tasks:")
-        for task_name, task_config in automated_tasks.items():
-            task_status = "✓" if task_config.enabled else "✗"
-            print(f"  {task_status} {task_name}: {task_config.description}")
+        for task_name, task_config in response.automated_tasks.items():
+            status_icon = "✓" if task_config.enabled else "✗"
+            print(f"  {status_icon} {task_name}: {task_config.description}")
 
         print()
         print_info("To enable a timer:")
         print("  sudo systemctl enable --now archcare@TASK.timer\n")
+        print_info("Example:")
+        first_task = next(iter(response.automated_tasks.keys()))
+        print(f"  sudo systemctl enable --now archcare@{first_task}.timer\n")
 
-        if automated_tasks:
-            first_task = next(iter(automated_tasks.keys()))
-            print_info("Example:")
-            print(f"  sudo systemctl enable --now archcare@{first_task}.timer\n")
-
-        if enable and not dry_run:
+        if response.enabled_timers:
             console.print("\n" + "=" * 60, style="bold blue")
             print_info("Enabling timers for automated tasks...")
             console.print("=" * 60, style="bold blue")
-            print()
-
             _list_timers(response)
 
-            if response.timer_status_output:
-                console.print("=" * 60, style="bold blue")
-                print_info("Timer Status")
-                console.print("=" * 60, style="bold blue")
-                print(f"\n{response.timer_status_output}")
+        if response.timer_status:
+            console.print("=" * 60, style="bold blue")
+            print_info("Timer Status")
+            console.print("=" * 60, style="bold blue")
+            print(f"\n{response.timer_status}")
 
     @staticmethod
     def no_automated_tasks() -> None:
@@ -148,11 +138,11 @@ class SetupPresenter:
         print_error(message)
 
 
-def _list_timers(response: EnableTimersResponse):
-    for timer_name in response.enabled_timers:
-        print_info(f"Enabling {timer_name}...")
-        print_success(f"{timer_name} enabled and started\n")
-
-    for timer_name in response.failed_timers:
-        print_info(f"Enabling {timer_name}...")
-        print_warning(f"Failed to enable {timer_name}\n")
+def _list_timers(response: TimerSetupResponse):
+    print()
+    for timer in response.enabled_timers:
+        print_info(f"Enabling {timer.timer_name}...")
+        if timer.enabled:
+            print_success(f"{timer.timer_name} enabled and started\n")
+        else:
+            print_warning(f"Failed to enable {timer.timer_name}\n")
