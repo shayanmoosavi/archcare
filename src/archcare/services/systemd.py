@@ -2,9 +2,8 @@
 
 from pathlib import Path
 
-import typer
-
 from archcare.config import TaskConfig
+from archcare.services.exceptions import SystemdReloadError
 from archcare.utils import run_systemctl
 from archcare.utils.output import (
     console,
@@ -67,7 +66,7 @@ def reload_systemd(dry_run: bool):
         result = run_systemctl(["daemon-reload"])
         if not result.success:
             print_error("Failed to reload systemd")
-            raise typer.Exit(1)
+            raise SystemdReloadError()
     print_success("  Systemd daemon reloaded")
 
 
