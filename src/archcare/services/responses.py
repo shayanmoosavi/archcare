@@ -42,6 +42,30 @@ class ConfigInitResponse:
 
 
 @dataclass
+class InstallTimersResponse:
+    """Outcome of installing systemd timer templates."""
+
+    service_file: Path
+    timer_file: Path
+
+
+@dataclass
+class ReloadSystemdResponse:
+    """Outcome of reloading the systemd daemon."""
+
+    success: bool
+
+
+@dataclass
+class EnableTimersResponse:
+    """Outcome of enabling systemd timers for automated tasks."""
+
+    enabled_timers: list[str]
+    failed_timers: list[str]
+    timer_status_output: str | None
+
+
+@dataclass
 class NotificationTestResponse:
     """Outcome of sending a test desktop notification."""
 
