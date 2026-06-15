@@ -8,8 +8,8 @@ import typer
 from archcare.cli._state import get_executor
 
 from archcare.cli.presenters.task_presenter import TaskPresenter
+from archcare.services import TaskService
 from archcare.services.exceptions import InvalidTaskTypeError, TaskNotFoundError
-from archcare.services.task_service import TaskService
 
 task_app = typer.Typer(help="Run and manage maintenance tasks.")
 

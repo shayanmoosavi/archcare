@@ -10,7 +10,7 @@ from archcare.services.exceptions import (
     SystemdReloadError,
     UserDetectionError,
 )
-from archcare.services.setup_service import (
+from archcare.services import (
     ConfigService,
     TimerService,
     resolve_systemd_target_user,
