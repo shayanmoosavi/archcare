@@ -1,6 +1,7 @@
 """Response data transfer objects (DTOs) returned by the Archcare service layer."""
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from archcare.config import TaskConfig
 from archcare.core.models import TaskResult
@@ -31,3 +32,10 @@ class TaskStatusResponse:
     schedule_info: list[TaskScheduleInfo]
     summary: dict | None = None
     due_only: bool = False
+
+
+@dataclass
+class ConfigInitResponse:
+    """Outcome of initializing default configuration files."""
+
+    config_dir: Path
