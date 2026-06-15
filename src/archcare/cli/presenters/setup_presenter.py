@@ -13,7 +13,7 @@ from pathlib import Path
 from archcare.config import TaskConfig
 from archcare.services.responses import (
     ConfigInitResponse,
-    InstallTimersResponse,
+    InstallTemplatesResponse,
     ReloadSystemdResponse,
     EnableTimersResponse,
 )
@@ -57,24 +57,22 @@ class SetupPresenter:
 
     @staticmethod
     def render_template_installation(
-        response: InstallTimersResponse, dry_run: bool
+        response: InstallTemplatesResponse, dry_run: bool
     ) -> None:
+        verb = "Would create" if response.dry_run else "Created"
         print_info(f"Installing service template: {response.service_file}")
-        if not dry_run:
-            print_success(f"  Created {response.service_file}")
-
+        print_success(f"  {verb} {response.service_file}")
         print_info(f"Installing timer template: {response.timer_file}")
-        if not dry_run:
-            print_success(f"  Created {response.timer_file}")
+        print_success(f"  {verb} {response.timer_file}")
 
     @staticmethod
     def render_systemd_reload(response: ReloadSystemdResponse, dry_run: bool) -> None:
         print_info("Reloading systemd daemon...")
-        if not dry_run:
-            if not response.success:
-                print_error("Failed to reload systemd")
-                return
-        print_success("  Systemd daemon reloaded")
+        verb = "Would reload" if dry_run else "Reloaded"
+        if not response.success:
+            print_error("Failed to reload systemd")
+            return
+        print_success(f"  {verb} systemd daemon")
 
     @staticmethod
     def templates_installed() -> None:

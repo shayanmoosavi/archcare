@@ -42,11 +42,12 @@ class ConfigInitResponse:
 
 
 @dataclass
-class InstallTimersResponse:
+class InstallTemplatesResponse:
     """Outcome of installing systemd timer templates."""
 
     service_file: Path
     timer_file: Path
+    dry_run: bool
 
 
 @dataclass

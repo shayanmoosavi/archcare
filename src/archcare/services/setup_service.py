@@ -13,7 +13,7 @@ from archcare.services.exceptions import (
 )
 from archcare.services.responses import (
     ConfigInitResponse,
-    InstallTimersResponse,
+    InstallTemplatesResponse,
     ReloadSystemdResponse,
     EnableTimersResponse,
 )
@@ -84,15 +84,15 @@ class TimerService:
         tasks_config = self._executor.config_loader.load_tasks()
         return tasks_config.get_tasks_by_type("automated")
 
-    def install_templates(self, dry_run: bool) -> InstallTimersResponse:
+    def install_templates(self, dry_run: bool) -> InstallTemplatesResponse:
         if not dry_run:
             self.service_file.write_text(self._service_content)
             self.service_file.chmod(0o644)
             self.timer_file.write_text(self._timer_content)
             self.timer_file.chmod(0o644)
 
-        return InstallTimersResponse(
-            service_file=self.service_file, timer_file=self.timer_file
+        return InstallTemplatesResponse(
+            service_file=self.service_file, timer_file=self.timer_file, dry_run=dry_run
         )
 
     @staticmethod
