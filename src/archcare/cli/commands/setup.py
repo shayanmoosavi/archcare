@@ -1,27 +1,19 @@
 """One-time setup Typer commands for Archcare."""
 
-from os import getenv
-from pathlib import Path
-
 import typer
 from loguru import logger
 
 from archcare.cli._state import get_executor
-from archcare.config import create_default_config_files
-from archcare.services.systemd import (
-    generate_systemd_templates,
-    install_systemd_templates,
-    reload_systemd,
-    setup_systemd_timer,
+from archcare.cli.presenters.setup_presenter import SetupPresenter
+from archcare.services.exceptions import (
+    NotRootError,
+    SystemdReloadError,
+    UserDetectionError,
 )
-from archcare.utils import is_root
-from archcare.utils.output import (
-    print_header,
-    print_info,
-    print_warning,
-    print_success,
-    print_error,
-    console,
+from archcare.services.setup_service import (
+    ConfigService,
+    TimerService,
+    resolve_systemd_target_user,
 )
 
 setup_app = typer.Typer(help="One-time setup commands for bootstrapping Archcare.")
@@ -34,28 +26,19 @@ def setup_config():
 
     This creates default configuration files if they don't exist.
     """
-    config_dir = Path.home() / ".config/archcare"
+    service = ConfigService()
 
-    print_header("Initializing Archcare")
-    print_info(f"Config directory: {config_dir}")
+    SetupPresenter.config_header(service.config_dir)
 
-    if config_dir.exists():
-        files = list(config_dir.glob("*.toml"))
-        if files:
-            print_warning("Configuration files already exist:")
-            for f in files:
-                print(f"  - {f.name}")
+    existing = service.check_existing()
+    if existing:
+        SetupPresenter.existing_files_warning(existing)
+        if not typer.confirm("Overwrite existing files?"):
+            SetupPresenter.init_cancelled()
+            raise typer.Exit(0)
 
-            if not typer.confirm("Overwrite existing files?"):
-                print_info("Initialization cancelled")
-                raise typer.Exit(0)
-
-    # Create config files
-    create_default_config_files(config_dir)
-
-    print_success("Configuration initialized!")
-    print_info(f"Edit config files in: {config_dir}")
-    print_info("Run 'archcare task list' to see available tasks")
+    result = service.initialize()
+    SetupPresenter.render_config_init(result)
 
 
 @setup_app.command("timers")
@@ -79,79 +62,41 @@ def setup_timers(
         archcare setup timers --dry-run
         archcare setup timers
     """
-    from pathlib import Path
-
-    # Check root privilege
-    if not is_root():
-        print_error("This command needs root privilege and should be run with sudo.")
+    try:
+        user, home_dir = resolve_systemd_target_user()
+    except NotRootError:
+        SetupPresenter.not_root()
         raise typer.Exit(1)
-
-    # Get username (sudo command sets SUDO_USER env variable)
-    user = getenv("SUDO_USER")
-    if not user:
-        # Technically shouldn't happen since we check for root, but just in case
-        print_error("Could not determine the user. Make sure to run with sudo.")
+    except UserDetectionError as e:
+        SetupPresenter.error(str(e))
         raise typer.Exit(1)
-
-    # Get user's home directory
-    import pwd
 
     try:
-        user_info = pwd.getpwnam(user)
-        home_dir = user_info.pw_dir
-    except KeyError:
-        print_error(f"User '{user}' does not exist")
-        raise typer.Exit(1)
-
-    # Define systemd directory
-    systemd_dir = Path("/etc/systemd/system")
-
-    service_content, timer_content = generate_systemd_templates(home_dir, user)
-
-    # Service and timer file paths
-    service_file = systemd_dir / f"archcare@.service"
-    timer_file = systemd_dir / f"archcare@.timer"
-
-    try:
-        # Load task configuration to show available tasks
         executor = get_executor(user)
-        tasks_config = executor.config_loader.load_tasks()
-        automated_tasks = tasks_config.get_tasks_by_type("automated")
+        service = TimerService(executor, user, home_dir)
 
-        install_systemd_templates(
-            dry_run, service_content, service_file, timer_content, timer_file
-        )
+        service.install_templates(dry_run)
 
-        # Reload systemd
         print()
-        reload_systemd(dry_run)
+        service.reload(dry_run)
 
-        console.print("\n" + "=" * 60, style="bold green")
-        print_success("Systemd templates installed successfully!")
-        console.print("=" * 60, style="bold green")
+        SetupPresenter.templates_installed()
 
+        automated_tasks = service.get_automated_tasks()
         if automated_tasks:
-            setup_systemd_timer(automated_tasks, dry_run, enable)
+            service.setup_timers(automated_tasks, dry_run, enable)
         else:
-            print()
-            print_warning("No automated tasks found in configuration")
-            print_info("Edit ~/.config/archcare/tasks.toml to configure tasks")
+            SetupPresenter.no_automated_tasks()
 
-        print("\n" + "=" * 60)
-        print("Useful Commands")
-        print("=" * 60)
-        print(f"\n# List all timers")
-        print(f"  systemctl list-timers 'archcare@*'")
-        print(f"\n# Check specific timer")
-        print(f"  systemctl status archcare@TASK.timer")
-        print(f"\n# View logs")
-        print(f"  journalctl -u archcare@TASK.service")
-        print(f"\n# Manually trigger")
-        print(f"  sudo systemctl start archcare@TASK.service")
-        print(f"\n# Disable timer")
-        print(f"  sudo systemctl disable --now archcare@TASK.timer")
+        SetupPresenter.useful_commands()
 
+        if dry_run:
+            SetupPresenter.dry_run_notice()
+
+    except SystemdReloadError as e:
+        SetupPresenter.error(str(e))
+        raise typer.Exit(1)
     except Exception as e:
-        print_error(f"Setup failed: {e}")
+        SetupPresenter.error(f"Setup failed: {e}")
         logger.exception("Setup error")
         raise typer.Exit(1)
