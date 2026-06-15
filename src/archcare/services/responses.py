@@ -39,3 +39,11 @@ class ConfigInitResponse:
     """Outcome of initializing default configuration files."""
 
     config_dir: Path
+
+
+@dataclass
+class NotificationTestResponse:
+    """Outcome of sending a test desktop notification."""
+
+    severity: str
+    title: str
