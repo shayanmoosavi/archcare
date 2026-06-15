@@ -45,3 +45,27 @@ class SystemdReloadError(ArchcareError):
 
     def __init__(self) -> None:
         super().__init__("Failed to reload systemd")
+
+
+class InvalidSeverityError(ArchcareError):
+    """Raised when a notification severity isn't critical/warning/info."""
+
+    def __init__(self, severity: str, valid: list[str]) -> None:
+        self.severity = severity
+        self.valid = valid
+        super().__init__(f"Invalid severity: {severity!r} (expected one of {valid})")
+
+
+class NotificationUnavailableError(ArchcareError):
+    """Raised when notify-send/libnotify isn't available on this system."""
+
+    def __init__(self) -> None:
+        super().__init__("Desktop notifications are not available on this system")
+
+
+class NotificationSendError(ArchcareError):
+    """Raised when send_notification() reports failure."""
+
+    def __init__(self, severity: str) -> None:
+        self.severity = severity
+        super().__init__(f"Failed to send {severity} test notification")
