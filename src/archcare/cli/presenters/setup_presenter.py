@@ -1,12 +1,4 @@
-"""
-Presenter for the `setup` command group.
-
-Note: `archcare.services.systemd` (install_systemd_templates, reload_systemd,
-setup_systemd_timer) already prints its own progress output - that is a
-pre-existing pattern from before this refactor and is out of scope here.
-This presenter covers everything that was previously printed directly by
-the CLI commands themselves: headers, banners, and the final summary.
-"""
+"""Presenter for the `setup` command group."""
 
 from pathlib import Path
 
