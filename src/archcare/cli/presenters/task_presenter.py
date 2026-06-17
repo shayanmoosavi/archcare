@@ -41,12 +41,22 @@ class TaskPresenter:
 
         # Maintenance issues table rendering
         if maintenance_result:
-            mc_settings = get_settings().maintenance_check
-            MaintenanceCheckPresenter.render(
-                maintenance_result,
-                is_interactive=response.is_interactive,
-                require_acknowledgment=mc_settings.require_acknowledgment,
-            )
+            settings = get_settings()
+            report_dir = settings.report_dir
+            mc_settings = settings.maintenance_check
+            del settings
+
+            # Do not render if output_mode = 'file'
+            if mc_settings.output_mode != "file":
+                MaintenanceCheckPresenter.render(
+                    maintenance_result,
+                    is_interactive=response.is_interactive,
+                    require_acknowledgment=mc_settings.require_acknowledgment,
+                )
+            else:
+                print_info(
+                    f"Output mode was set to 'file', check the report in {report_dir}"
+                )
         print()
 
         if verbose:
