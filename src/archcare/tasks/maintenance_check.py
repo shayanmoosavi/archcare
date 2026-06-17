@@ -609,9 +609,7 @@ class MaintenanceCheckTask(BaseTask):
                 )
 
             if result.info_issues:
-                self._add_issues_section(
-                    lines, "🟦 INFORMATION", result.critical_issues
-                )
+                self._add_issues_section(lines, "🟦 INFORMATION", result.info_issues)
 
         lines.append("End of report")
         lines.append("=" * 80)
