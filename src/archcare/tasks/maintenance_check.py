@@ -7,9 +7,6 @@ Monitors task schedule status and alerts users to tasks needing attention.
 from datetime import datetime, timedelta
 
 from loguru import logger
-from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
 
 from archcare.config import (
     AppSettings,
@@ -60,9 +57,6 @@ class MaintenanceCheckTask(BaseTask):
         self.state = self.config_loader.load_state()
         self.tasks_config = self.config_loader.load_tasks()
         self.scheduler = TaskScheduler(self.tasks_config, self.state)
-
-        # Console for rich output
-        self.console = Console()
 
     def execute(self) -> TaskResult:
         """
@@ -119,7 +113,9 @@ class MaintenanceCheckTask(BaseTask):
         logger.info("Maintenance check complete")
 
         self.maintenance_check_result = result
-        return result.to_task_result()
+        task_result = result.to_task_result()
+        task_result.details["maintenance_result"] = result
+        return task_result
 
     @staticmethod
     def _categorize_issues(
@@ -172,7 +168,7 @@ class MaintenanceCheckTask(BaseTask):
                     days_overdue=None,
                     last_run=None,
                     last_status=None,
-                    recommendation=f"Run manually: archcare run {task_name}",
+                    recommendation=f"Run manually: archcare task run {task_name}",
                 )
             )
             return issues  # Don't check further for never-run tasks
@@ -233,7 +229,7 @@ class MaintenanceCheckTask(BaseTask):
                     days_overdue=days_overdue,
                     last_run=task_state.last_run,
                     last_status=task_state.last_status,
-                    recommendation=f"Run now: archcare run {task_name}",
+                    recommendation=f"Run now: archcare task run {task_name}",
                 )
             )
 
@@ -423,17 +419,10 @@ class MaintenanceCheckTask(BaseTask):
         if self.settings.maintenance_check.show_notifications:
             self._send_notification(check_result)
 
-        # Show terminal output based on output_mode
+        # Save report if output_mode requires it
         output_mode = self.settings.maintenance_check.output_mode
-
-        match output_mode:
-            case "terminal":
-                self._show_terminal_output(check_result)
-            case "file":
-                self._save_report(check_result)
-            case "both":
-                self._show_terminal_output(check_result)
-                self._save_report(check_result)
+        if output_mode in ("file", "both"):
+            self._save_report(check_result)
 
     def _send_notification(self, check_result: MaintenanceCheckResult):
         """
@@ -482,86 +471,6 @@ class MaintenanceCheckTask(BaseTask):
             tasks_count=len(check_result.all_issues),
             summary=check_result.summary_message,
         )
-
-    def _show_terminal_output(self, result: MaintenanceCheckResult):
-        """
-        Show maintenance check results in terminal.
-
-        Args:
-            result: Maintenance check result
-        """
-        if not result.has_issues:
-            # No issues - simple success message
-            success_message = "✓ All maintenance tasks are up to date!"
-            self.console.print()
-            self.console.print(
-                Panel(
-                    success_message,
-                    style="green",
-                    border_style="green",
-                    width=len(success_message) + 4,
-                )
-            )
-            return
-
-        # Show issues by severity
-        self.console.print()
-
-        if result.critical_issues:
-            self._show_issues_table(
-                title="🟥 Critical Issues",
-                issues=result.critical_issues,
-                style="red",
-            )
-
-        if result.warning_issues:
-            self._show_issues_table(
-                "🟨 Warning Issues",
-                result.warning_issues,
-                style="yellow",
-            )
-
-        if result.info_issues:
-            self._show_issues_table(
-                "🟦 Information",
-                result.info_issues,
-                style="blue",
-            )
-
-        # Show acknowledgment prompt for critical issues
-        require_acknowledgment = self.settings.maintenance_check.require_acknowledgment
-        if result.critical_issues and require_acknowledgment:
-            self.console.print()
-            self.console.print(
-                "[bold red]Critical issues require your attention![/bold red]"
-            )
-            self.console.input("Press Enter to acknowledge... ")
-
-    def _show_issues_table(
-        self, title: str, issues: list[MaintenanceIssue], style: str
-    ):
-        """
-        Show a table of issues.
-
-        Args:
-            title: Table title
-            issues: List of issues to display
-            style: Color style for the table
-        """
-        table = Table(title=title, show_header=True, border_style=style)
-        table.add_column("Task", style="cyan", no_wrap=True)
-        table.add_column("Issue", style="white")
-        table.add_column("Recommendation", style="green")
-
-        for issue in issues:
-            table.add_row(
-                issue.task_name,
-                issue.description,
-                issue.recommendation,
-            )
-
-        self.console.print(table)
-        self.console.print()
 
     def _save_report(self, result: MaintenanceCheckResult):
         """

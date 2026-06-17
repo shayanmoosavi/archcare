@@ -4,6 +4,9 @@ Presenter for the `task` command group.
 Owns all terminal rendering for TaskService results.
 """
 
+from archcare.cli._state import get_settings
+from archcare.cli.presenters.maintenance_presenter import MaintenanceCheckPresenter
+from archcare.core.models import MaintenanceCheckResult
 from archcare.services.responses import (
     TaskListResponse,
     TaskRunResponse,
@@ -30,7 +33,22 @@ class TaskPresenter:
     def render_run(response: TaskRunResponse, verbose: bool = False) -> None:
         if not response.outcome.is_skipped():
             print_header(f"Running Task: {response.task_name}", response.is_interactive)
+
+        # The maintenance-check task has this in TaskResult details dictionary
+        maintenance_result: MaintenanceCheckResult | None = (
+            response.outcome.details.get("maintenance_result")
+        )
+
+        # Maintenance issues table rendering
+        if maintenance_result:
+            mc_settings = get_settings().maintenance_check
+            MaintenanceCheckPresenter.render(
+                maintenance_result,
+                is_interactive=response.is_interactive,
+                require_acknowledgment=mc_settings.require_acknowledgment,
+            )
         print()
+
         if verbose:
             print_task_details(
                 response.task_name,
