@@ -3,6 +3,8 @@
 Holds the global executor singleton and the helpers that depend on it.
 """
 
+from os import getenv
+
 from archcare.cli.interaction import CliInteraction
 from archcare.config import AppSettings, ConfigLoader
 from archcare.core import TaskExecutor
@@ -71,6 +73,15 @@ def get_executor(user: str | None = None) -> TaskExecutor:
         _register_tasks(_executor)
 
     return _executor
+
+
+def get_settings() -> AppSettings:
+    global _settings
+    if not _settings:
+        # fallback (shouldn't happen if executor is initialized)
+        user = getenv("ARCHCARE_USER")
+        _settings = ConfigLoader(user=user).load_settings()
+    return _settings
 
 
 def _register_tasks(executor: TaskExecutor) -> None:
