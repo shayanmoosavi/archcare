@@ -29,7 +29,7 @@ class MaintenanceCheckPresenter:
         console = Console()
 
         if not result.has_issues:
-            msg = "✓ All maintenance tasks are up to date!"
+            msg = "✓ No maintenance issues found! Your system is healthy :)"
             console.print()
             console.print(
                 Panel(

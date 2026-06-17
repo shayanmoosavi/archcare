@@ -503,7 +503,7 @@ class MaintenanceCheckTask(BaseTask):
             lines.append("\n")
 
         if not result.has_issues:
-            lines.append("✓ All maintenance tasks are up to date!")
+            lines.append("✓ No maintenance issues found! Your system is healthy :)")
             lines.append("\n")
         else:
             # Add issues by severity
