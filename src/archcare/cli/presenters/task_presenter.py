@@ -55,7 +55,8 @@ class TaskPresenter:
                 )
             else:
                 print_info(
-                    f"Output mode was set to 'file', check the report in {report_dir}"
+                    f"Output mode was set to 'file', check the report in {report_dir}",
+                    response.is_interactive,
                 )
         print()
 
