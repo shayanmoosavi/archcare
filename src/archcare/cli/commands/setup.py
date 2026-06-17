@@ -4,7 +4,7 @@ import typer
 from loguru import logger
 
 from archcare.cli._state import get_executor
-from archcare.cli.presenters.setup_presenter import SetupPresenter
+from archcare.cli.presenters import SetupPresenter
 from archcare.services.exceptions import (
     NotRootError,
     SystemdReloadError,

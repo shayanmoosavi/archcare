@@ -5,7 +5,7 @@ import typer
 from archcare.config import AppSettings
 from archcare.cli import _state
 from archcare.utils import setup_logging
-from archcare.cli.presenters.debug_presenter import DebugPresenter
+from archcare.cli.presenters import DebugPresenter
 from archcare.services import DebugService
 from archcare.services.exceptions import (
     InvalidSeverityError,
