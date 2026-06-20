@@ -12,18 +12,17 @@ from archcare.config import (
     AppSettings,
     ConfigLoader,
     TaskConfig,
+    TaskState,
     TaskStatus,
     TaskType,
-    TaskState,
 )
-from archcare.core.scheduler import TaskScheduleInfo
 from archcare.core.models import (
     IssueSeverity,
     MaintenanceCheckResult,
     MaintenanceIssue,
     TaskResult,
 )
-from archcare.core.scheduler import TaskScheduler
+from archcare.core.scheduler import TaskScheduleInfo, TaskScheduler
 from archcare.tasks.base import BaseTask
 from archcare.utils.notifications import get_notification_manager
 
@@ -164,7 +163,7 @@ class MaintenanceCheckTask(BaseTask):
                 MaintenanceIssue(
                     task_name=task_name,
                     severity=IssueSeverity.INFO,
-                    description=f"Task has never been executed",
+                    description="Task has never been executed",
                     days_overdue=None,
                     last_run=None,
                     last_status=None,
@@ -486,7 +485,7 @@ class MaintenanceCheckTask(BaseTask):
         # Build report content
         lines = [
             "=" * 80,
-            f"Archcare Maintenance Check Report",
+            "Archcare Maintenance Check Report",
             f"Generated: {result.timestamp.strftime('%Y-%m-%d %H:%M:%S')}",
             "=" * 80,
             "\n",
