@@ -3,17 +3,16 @@
 import typer
 from loguru import logger
 
-from archcare.cli._state import get_executor
 from archcare.cli.presenters import SetupPresenter
-from archcare.services.exceptions import (
-    NotRootError,
-    SystemdReloadError,
-    UserDetectionError,
-)
 from archcare.services import (
     ConfigService,
     TimerService,
     resolve_systemd_target_user,
+)
+from archcare.services.exceptions import (
+    NotRootError,
+    SystemdReloadError,
+    UserDetectionError,
 )
 
 setup_app = typer.Typer(help="One-time setup commands for bootstrapping Archcare.")
@@ -43,6 +42,7 @@ def setup_config():
 
 @setup_app.command("timers")
 def setup_timers(
+    ctx: typer.Context,
     enable: bool = typer.Option(
         True, "--enable/--no-enable", help="Enable timers after installation"
     ),
@@ -72,7 +72,7 @@ def setup_timers(
         raise typer.Exit(1)
 
     try:
-        executor = get_executor(user)
+        executor = ctx.obj.executor_for_user(user)
         service = TimerService(executor, user, home_dir)
 
         install_response = service.install_templates(dry_run)
