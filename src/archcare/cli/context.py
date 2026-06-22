@@ -51,46 +51,49 @@ class AppContext:
         return self.user is None
 
     @property
+    def __loader(self) -> ConfigLoader:
+        if self._loader is None:
+            self._loader = ConfigLoader(user=self.user)
+        return self._loader
+
+    @property
     def settings(self) -> AppSettings:
         if self._settings is None:
-            self._build_default()
-        return self._settings  # pyright: ignore[reportReturnType]
+            settings = self.__loader.load_settings()
+            self._settings = settings
+        return self._settings
 
     @property
     def executor(self) -> TaskExecutor:
         if self._executor is None:
-            self._build_default()
-        return self._executor  # pyright: ignore[reportReturnType]
+            state = self.__loader.load_state()
+            executor = TaskExecutor(
+                config_loader=self.__loader,
+                settings=self.settings,
+                state=state,
+                interaction=CliInteraction(is_interactive=self.is_interactive),
+            )
+            _register_tasks(executor)
+            self._executor = executor
+        return self._executor
 
-    def _build_default(self) -> None:
-        """Lazily build the executor/settings for this context's own user."""
-        self._loader = ConfigLoader(user=self.user)
+    def setup_logging(self, user: str | None = None) -> None:
+        """Setup logging for this context."""
 
         default_settings = AppSettings(user=self.user)
         default_settings.ensure_directories()
         setup_logging(default_settings, devel_mode=self.devel)
 
-        settings = self._loader.load_settings()
+        self._loader = ConfigLoader(user=user)
+        self._settings = self.__loader.load_settings()
 
         # Reconfigure logging only if the user's settings differ from defaults
         if (
-            settings.log_dir != default_settings.log_dir
-            or settings.log_level != default_settings.log_level
-            or settings.log_retention_days != default_settings.log_retention_days
+            self.settings.log_dir != default_settings.log_dir
+            or self.settings.log_level != default_settings.log_level
+            or self.settings.log_retention_days != default_settings.log_retention_days
         ):
-            setup_logging(settings, reconfigure=True, devel_mode=self.devel)
-
-        self._settings = settings
-        state = self._loader.load_state()
-
-        executor = TaskExecutor(
-            config_loader=self._loader,
-            settings=settings,
-            state=state,
-            interaction=CliInteraction(is_interactive=self.is_interactive),
-        )
-        _register_tasks(executor)
-        self._executor = executor
+            setup_logging(self.settings, reconfigure=True, devel_mode=self.devel)
 
     def executor_for_user(self, user: str) -> TaskExecutor:
         """
@@ -101,13 +104,12 @@ class AppContext:
         ARCHCARE_USER are unrelated env vars and `setup timers` always runs
         interactively via sudo, never via the ARCHCARE_USER systemd path.
         """
-        loader = ConfigLoader(user=user)
-        settings = loader.load_settings()
-        state = loader.load_state()
+        self.setup_logging(user)
+        state = self.__loader.load_state()
 
         executor = TaskExecutor(
-            config_loader=loader,
-            settings=settings,
+            config_loader=self.__loader,
+            settings=self.settings,
             state=state,
         )
         _register_tasks(executor)
