@@ -1,4 +1,4 @@
-"""Application container for the Archcare CLI."""
+"""Application context for the Archcare CLI."""
 
 from dataclasses import dataclass, field
 
@@ -28,9 +28,9 @@ def _register_tasks(executor: TaskExecutor) -> None:
 
 
 @dataclass
-class AppContainer:
+class AppContext:
     """
-    Per-invocation container, built once by the root callback and read by
+    Per-invocation context, built once by the root callback and read by
     every command via `ctx.obj`.
 
     Args:
@@ -52,18 +52,18 @@ class AppContainer:
 
     @property
     def settings(self) -> AppSettings:
-        if not self._settings:
+        if self._settings is None:
             self._build_default()
         return self._settings  # pyright: ignore[reportReturnType]
 
     @property
     def executor(self) -> TaskExecutor:
-        if not self._executor:
+        if self._executor is None:
             self._build_default()
         return self._executor  # pyright: ignore[reportReturnType]
 
     def _build_default(self) -> None:
-        """Lazily build the executor/settings for this container's own user."""
+        """Lazily build the executor/settings for this context's own user."""
         self._loader = ConfigLoader(user=self.user)
 
         default_settings = AppSettings(user=self.user)
@@ -97,7 +97,7 @@ class AppContainer:
         Build a fresh, uncached TaskExecutor scoped to a specific user.
 
         Used by `setup timers`, which must read the target (SUDO_USER)
-        user's config rather than this container's own user - SUDO_USER and
+        user's config rather than this context's own user - SUDO_USER and
         ARCHCARE_USER are unrelated env vars and `setup timers` always runs
         interactively via sudo, never via the ARCHCARE_USER systemd path.
         """

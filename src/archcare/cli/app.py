@@ -5,7 +5,7 @@ from os import getenv
 import typer
 
 from archcare.cli.commands import debug_app, logs_app, setup_app, task_app
-from archcare.cli.container import AppContainer
+from archcare.cli.context import AppContext
 
 app = typer.Typer(
     name="archcare",
@@ -31,7 +31,7 @@ def callback(
     # ARCHCARE_USER is set by the systemd service unit; its absence means
     # an interactive invocation.
     user = getenv("ARCHCARE_USER")
-    ctx.obj = AppContainer(devel=devel, user=user)
+    ctx.obj = AppContext(devel=devel, user=user)
 
 
 def main():
