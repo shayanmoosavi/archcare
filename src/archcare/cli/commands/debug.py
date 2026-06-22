@@ -2,9 +2,6 @@
 
 import typer
 
-from archcare.config import AppSettings
-from archcare.cli import _state
-from archcare.utils import setup_logging
 from archcare.cli.presenters import DebugPresenter
 from archcare.services import DebugService
 from archcare.services.exceptions import (
@@ -18,6 +15,7 @@ debug_app = typer.Typer(help="Debug commands for Archcare.")
 
 @debug_app.command()
 def test_notification(
+    ctx: typer.Context,
     severity: str = typer.Option(
         "warning",
         "--severity",
@@ -34,15 +32,11 @@ def test_notification(
         archcare debug test-notification
         archcare debug test-notification --severity critical
     """
-    # Setup default logging
-    default_settings = AppSettings()
-    default_settings.ensure_directories()
-    setup_logging(default_settings, devel_mode=_state._devel)
-
+    ctx.obj.setup_logging()
     DebugPresenter.header()
 
     try:
-        result = DebugService().test_notification(severity)
+        response = DebugService().test_notification(severity)
     except InvalidSeverityError as e:
         DebugPresenter.invalid_severity(e)
         raise typer.Exit(1)
@@ -53,4 +47,4 @@ def test_notification(
         DebugPresenter.notification_send_failed()
         raise typer.Exit(1)
 
-    DebugPresenter.render_test_notification(result)
+    DebugPresenter.render_test_notification(response)
