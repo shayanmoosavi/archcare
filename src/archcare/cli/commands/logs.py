@@ -2,7 +2,7 @@
 
 import typer
 
-from archcare.cli._state import get_executor
+from archcare.core import TaskExecutor
 from archcare.utils.output import print_error, print_header
 
 logs_app = typer.Typer()
@@ -23,7 +23,8 @@ def logs(
     """
     if ctx.invoked_subcommand is not None:
         return  # a subcommand was given, let it handle things
-    executor = get_executor()
+    ctx.obj.setup_logging()
+    executor: TaskExecutor = ctx.obj.executor
 
     if task_name:
         # Show task logs
