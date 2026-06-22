@@ -47,9 +47,7 @@ class SetupPresenter:
     # -- setup timers -------------------------------------------------------
 
     @staticmethod
-    def render_template_installation(
-        response: InstallTemplatesResponse, dry_run: bool
-    ) -> None:
+    def render_template_installation(response: InstallTemplatesResponse) -> None:
         verb = "Would create" if response.dry_run else "Created"
         print_info(f"Installing service template: {response.service_file}")
         print_success(f"  {verb} {response.service_file}")

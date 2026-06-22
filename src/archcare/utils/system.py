@@ -97,7 +97,7 @@ def run_command(
             logger.debug(f"Command succeeded: {command_str}")
         else:
             logger.warning(
-                f"Command failed: {command_str} " f"(exit {cmd_result.returncode})"
+                f"Command failed: {command_str} (exit {cmd_result.returncode})"
             )
             logger.warning(f"ERROR: {cmd_result.stderr}")
 

@@ -1,15 +1,15 @@
 """Setup service - business logic for `setup config` and `setup timers`."""
 
-from os import getenv
 import pwd
+from os import getenv
 from pathlib import Path
 
 from archcare.config import TaskConfig, create_default_config_files
 from archcare.core import TaskExecutor
 from archcare.services.exceptions import (
     NotRootError,
-    UserDetectionError,
     SystemdReloadError,
+    UserDetectionError,
 )
 from archcare.services.responses import (
     ConfigInitResponse,
@@ -176,7 +176,7 @@ Restart=no
 WantedBy=multi-user.target
 """
     # Timer template content
-    timer_content = f"""[Unit]
+    timer_content = """[Unit]
 Description=Archcare maintenance timer: %i
 Requires=archcare@%i.service
 

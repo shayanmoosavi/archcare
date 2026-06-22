@@ -45,7 +45,7 @@ class MirrorlistUpdateTask(BaseTask):
         # Check if reflector is installed
         if not check_command_exists("reflector"):
             return False, (
-                "reflector is not installed. " "Install with: sudo pacman -S reflector"
+                "reflector is not installed. Install with: sudo pacman -S reflector"
             )
 
         # Check if mirrorlist file exists
@@ -93,7 +93,6 @@ class MirrorlistUpdateTask(BaseTask):
 
         # Run reflector
         try:
-
             mirrorlist_settings = self.settings.mirrorlist
             reflector_args: dict[str, Any] = {
                 "country": mirrorlist_settings.country,

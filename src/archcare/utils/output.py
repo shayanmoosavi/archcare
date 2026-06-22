@@ -148,7 +148,6 @@ def print_schedule_table(schedule_info: list[TaskScheduleInfo]) -> None:
     table.add_column("Due", justify="right")
 
     for info in schedule_info:
-
         # Status indicator
         status = _colorize_cell(info, is_status_col=True)
 

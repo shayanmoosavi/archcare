@@ -78,7 +78,7 @@ def setup_timers(
         service = TimerService(executor, user, home_dir)
 
         install_response = service.install_templates(dry_run)
-        SetupPresenter.render_template_installation(install_response, dry_run)
+        SetupPresenter.render_template_installation(install_response)
 
         print()
         reload_response = service.reload(dry_run)
