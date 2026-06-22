@@ -4,8 +4,7 @@ Presenter for the `task` command group.
 Owns all terminal rendering for TaskService results.
 """
 
-from archcare.cli._state import get_settings
-from archcare.cli.presenters.maintenance_presenter import MaintenanceCheckPresenter
+from archcare.config import AppSettings
 from archcare.core.models import MaintenanceCheckResult
 from archcare.services.responses import (
     TaskListResponse,
@@ -25,12 +24,16 @@ from archcare.utils.output import (
     print_warning,
 )
 
+from .maintenance_presenter import MaintenanceCheckPresenter
+
 
 class TaskPresenter:
     """Renders TaskService results and errors to the terminal."""
 
     @staticmethod
-    def render_run(response: TaskRunResponse, verbose: bool = False) -> None:
+    def render_run(
+        response: TaskRunResponse, settings: AppSettings, verbose: bool = False
+    ) -> None:
         if not response.outcome.is_skipped():
             print_header(f"Running Task: {response.task_name}", response.is_interactive)
 
@@ -41,10 +44,8 @@ class TaskPresenter:
 
         # Maintenance issues table rendering
         if maintenance_result:
-            settings = get_settings()
             report_dir = settings.report_dir
             mc_settings = settings.maintenance_check
-            del settings
 
             # Do not render if output_mode = 'file'
             if mc_settings.output_mode != "file":

@@ -1,9 +1,11 @@
 """Typer CLI interface for Archcare."""
 
+from os import getenv
+
 import typer
 
-from archcare.cli.commands import task_app, setup_app, logs_app, debug_app
-from archcare.cli import _state
+from archcare.cli.commands import debug_app, logs_app, setup_app, task_app
+from archcare.cli.context import AppContext
 
 app = typer.Typer(
     name="archcare",
@@ -17,7 +19,8 @@ app.add_typer(debug_app, name="debug")
 
 
 @app.callback()
-def devel_mode(
+def callback(
+    ctx: typer.Context,
     devel: bool = typer.Option(
         False,
         "--devel",
@@ -25,7 +28,10 @@ def devel_mode(
         is_eager=True,
     ),
 ) -> None:
-    _state._devel = devel
+    # ARCHCARE_USER is set by the systemd service unit; its absence means
+    # an interactive invocation.
+    user = getenv("ARCHCARE_USER")
+    ctx.obj = AppContext(devel=devel, user=user)
 
 
 def main():
