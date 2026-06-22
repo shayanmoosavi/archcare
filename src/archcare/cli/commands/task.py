@@ -29,6 +29,7 @@ def run(
         archcare task run system-update --forcetask
     """
     try:
+        ctx.obj.setup_logging()
         response = _service(ctx).run_task(task_name, force)
     except TaskNotFoundError:
         TaskPresenter.not_found(task_name)
@@ -67,6 +68,7 @@ def status(
         archcare task status --due              # Only due tasks
     """
     try:
+        ctx.obj.setup_logging()
         response = _service(ctx).get_task_status(task_name, due_only)
     except TaskNotFoundError as e:
         TaskPresenter.error(str(e))
@@ -90,6 +92,7 @@ def list_tasks(
         archcare task list --type manual
     """
     try:
+        ctx.obj.setup_logging()
         response = _service(ctx).list_tasks(task_type)
     except InvalidTaskTypeError:
         TaskPresenter.invalid_task_type()
