@@ -84,7 +84,7 @@ class AppContext:
         default_settings.ensure_directories()
         setup_logging(default_settings, devel_mode=self.devel)
 
-        self._loader = ConfigLoader(user=user)
+        self._loader = ConfigLoader(user=user or self.user)
         self._settings = self.__loader.load_settings()
 
         # Reconfigure logging only if the user's settings differ from defaults
