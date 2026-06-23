@@ -6,7 +6,11 @@ from loguru import logger
 
 from archcare.config import TaskType
 from archcare.core import TaskExecutor, TaskScheduler
-from archcare.services.exceptions import InvalidTaskTypeError, TaskNotFoundError
+from archcare.services.exceptions import (
+    InvalidTaskTypeError,
+    TaskNotFoundError,
+    TasksFileEmptyError,
+)
 from archcare.services.responses import (
     TaskListResponse,
     TaskRunResponse,
@@ -29,10 +33,12 @@ class TaskService:
             force: Whether to run even if not due
 
         Raises:
+            TasksFileEmptyError: If the tasks file is empty.
             TaskNotFoundError: If `task_name` is not in the task configuration.
         """
         tasks_config = self._executor.config_loader.load_tasks()
-
+        if not tasks_config.tasks:
+            raise TasksFileEmptyError()
         try:
             tasks_config.get_task(task_name)
         except ValueError:
@@ -59,9 +65,12 @@ class TaskService:
             task_type: Optional type to filter tasks by (one of 'automated' or 'manual')
 
         Raises:
+            TasksFileEmptyError: If the tasks file is empty.
             InvalidTaskTypeError: If `task_type` is set but not 'automated' or 'manual'.
         """
         tasks_config = self._executor.config_loader.load_tasks()
+        if not tasks_config.tasks:
+            raise TasksFileEmptyError()
 
         match task_type:
             case TaskType.AUTOMATED.value:
@@ -88,9 +97,12 @@ class TaskService:
                       (default: False)
 
         Raises:
+            TasksFileEmptyError: If the tasks file is empty.
             TaskNotFoundError: If `task_name` is set but unknown.
         """
         tasks_config = self._executor.config_loader.load_tasks()
+        if not tasks_config.tasks:
+            raise TasksFileEmptyError()
         scheduler = TaskScheduler(tasks_config, self._executor.state)
 
         if task_name:
