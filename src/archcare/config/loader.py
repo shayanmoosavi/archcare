@@ -255,6 +255,8 @@ def create_default_config_files(config_dir: Path, force: bool = False) -> None:
         config_dir: Directory to create config files in
         force: Whether to overwrite existing files (default: False)
     """
+    # TODO: Improve initialization behaviour to automatically create the missing
+    # TODO: files when only some files (e.g., tasks.toml) are missing
     from archcare.utils.output import print_info
 
     config_dir.mkdir(parents=True, exist_ok=True)
