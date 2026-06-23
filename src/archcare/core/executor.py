@@ -210,29 +210,6 @@ class TaskExecutor:
         else:
             return None
 
-    def get_due_tasks(self) -> dict[str, TaskConfig]:
-        """
-        Get all tasks that are currently due to run.
-
-        Returns:
-            Dictionary of task names to their configurations
-        """
-
-        tasks_config = self.config_loader.load_tasks()
-        scheduler = TaskScheduler(tasks_config, self.state)
-
-        # Get schedule info from scheduler
-        due_schedule_info = scheduler.get_due_tasks()
-
-        # Convert to dict of TaskConfig for execution purposes
-        due_tasks = {}
-        for info in due_schedule_info:
-            task_config = tasks_config.get_task(info.task_name)
-            if task_config:
-                due_tasks[info.task_name] = task_config
-
-        return due_tasks
-
     def _update_state(self, task_config: TaskConfig, result: TaskResult):
         """
         Update task state after execution.
