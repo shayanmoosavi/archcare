@@ -92,7 +92,7 @@ class TaskPresenter:
         print_header("Available Tasks")
 
         if not response.tasks:
-            print_info("No tasks found")
+            print_warning("No tasks found!")
             return
 
         for name, config in response.tasks.items():
