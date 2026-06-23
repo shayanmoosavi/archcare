@@ -2,35 +2,32 @@
 Utility functions for archcare.
 """
 
-from .logging import setup_logging, setup_task_logging
+from .hardware import get_cpu_info, get_disk_usage, get_memory_info
+from .mirrorlist import (
+    backup_file,
+    get_mirrorlist_info,
+    restore_backup,
+    update_mirrorlist,
+    validate_mirrorlist,
+)
+from .pacman import check_package_files, check_pacman_database
 from .system import (
-    CommandResult,
+    change_ownership_to_user,
     check_command_exists,
+    check_filesystem_errors,
+    format_bytes,
     get_service_logs,
     get_service_status,
+    get_system_uptime,
     get_systemd_failed_services,
     is_root,
     run_command,
     run_command_with_sudo,
     run_systemctl,
-    check_filesystem_errors,
-    format_bytes,
-    get_system_uptime,
-    change_ownership_to_user,
 )
-from .hardware import get_disk_usage, get_cpu_info, get_memory_info
-from .mirrorlist import (
-    backup_file,
-    restore_backup,
-    update_mirrorlist,
-    validate_mirrorlist,
-    get_mirrorlist_info,
-)
-from .pacman import check_pacman_database, check_package_files
 
 __all__ = [
     # Command execution
-    "CommandResult",
     "run_command",
     "run_command_with_sudo",
     "run_systemctl",
@@ -42,9 +39,6 @@ __all__ = [
     "get_systemd_failed_services",
     "get_service_status",
     "get_service_logs",
-    # Logging
-    "setup_logging",
-    "setup_task_logging",
     # System information
     "check_filesystem_errors",
     "format_bytes",
