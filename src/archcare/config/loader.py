@@ -134,6 +134,10 @@ class ConfigLoader:
         with open(settings_path, "rb") as f:
             data = tomllib.load(f)
 
+        if not data:
+            logger.warning("Settings file is empty, using defaults")
+            return self.load_default_settings()
+
         try:
             settings_data: dict[str, Any] = {"user": self.user}
 
