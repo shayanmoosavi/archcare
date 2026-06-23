@@ -118,9 +118,6 @@ class TaskExecutor:
         tasks_config = self.config_loader.load_tasks()
         task_config = tasks_config.get_task(task_name)
 
-        if not task_config:
-            raise ValueError(f"Task not found: {task_name}")
-
         is_systemd = self.settings.user is not None
         if not force:
             handle_disabled_result = self._handle_disabled_task(
