@@ -13,6 +13,13 @@ class TaskNotFoundError(ArchcareError):
         super().__init__(f"Task not found: {task_name}")
 
 
+class TasksFileEmptyError(ArchcareError):
+    """Raised when the tasks file is empty."""
+
+    def __init__(self):
+        super().__init__("Tasks file is empty!")
+
+
 class InvalidTaskTypeError(ArchcareError):
     """Raised when a task type filter is neither 'automated' nor 'manual'."""
 
