@@ -5,7 +5,11 @@ from loguru import logger
 
 from archcare.cli.presenters import TaskPresenter
 from archcare.services import TaskService
-from archcare.services.exceptions import InvalidTaskTypeError, TaskNotFoundError
+from archcare.services.exceptions import (
+    InvalidTaskTypeError,
+    TaskNotFoundError,
+    TasksFileEmptyError,
+)
 
 task_app = typer.Typer(help="Run and manage maintenance tasks.")
 
@@ -31,6 +35,9 @@ def run(
     try:
         ctx.obj.setup_logging()
         response = _service(ctx).run_task(task_name, force)
+    except TasksFileEmptyError:
+        TaskPresenter.empty()
+        raise typer.Exit(1)
     except TaskNotFoundError:
         TaskPresenter.not_found(task_name)
         raise typer.Exit(1)
@@ -70,6 +77,9 @@ def status(
     try:
         ctx.obj.setup_logging()
         response = _service(ctx).get_task_status(task_name, due_only)
+    except TasksFileEmptyError:
+        TaskPresenter.empty()
+        raise typer.Exit(1)
     except TaskNotFoundError as e:
         TaskPresenter.error(str(e))
         raise typer.Exit(1)
@@ -94,6 +104,9 @@ def list_tasks(
     try:
         ctx.obj.setup_logging()
         response = _service(ctx).list_tasks(task_type)
+    except TasksFileEmptyError:
+        TaskPresenter.empty()
+        raise typer.Exit(1)
     except InvalidTaskTypeError:
         TaskPresenter.invalid_task_type()
         raise typer.Exit(1)
