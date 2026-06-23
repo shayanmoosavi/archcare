@@ -255,6 +255,8 @@ def create_default_config_files(config_dir: Path, force: bool = False) -> None:
         config_dir: Directory to create config files in
         force: Whether to overwrite existing files (default: False)
     """
+    from archcare.utils.output import print_info
+
     config_dir.mkdir(parents=True, exist_ok=True)
     default_config_dir = Path(__file__).parent
 
@@ -266,7 +268,7 @@ def create_default_config_files(config_dir: Path, force: bool = False) -> None:
 
         default_tasks = tomli_w.dumps(data)
         tasks_path.write_text(default_tasks)
-        logger.info(f"Created default tasks.toml at {tasks_path}")
+        print_info(f"Created default tasks.toml at {tasks_path}")
 
     # Create default ignored-services.toml
     services_path = config_dir / "ignored-services.toml"
@@ -276,7 +278,7 @@ def create_default_config_files(config_dir: Path, force: bool = False) -> None:
 
         default_services = tomli_w.dumps(data)
         services_path.write_text(default_services)
-        logger.info(f"Created default ignored-services.toml at {services_path}")
+        print_info(f"Created default ignored-services.toml at {services_path}")
 
     # Create default settings.toml
     settings_path = config_dir / "settings.toml"
@@ -286,4 +288,4 @@ def create_default_config_files(config_dir: Path, force: bool = False) -> None:
 
         default_settings = tomli_w.dumps(data)
         settings_path.write_text(default_settings)
-        logger.info(f"Created default settings.toml at {settings_path}")
+        print_info(f"Created default settings.toml at {settings_path}")
