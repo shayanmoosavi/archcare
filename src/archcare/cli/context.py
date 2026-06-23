@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from archcare.cli.interaction import CliInteraction
 from archcare.config import AppSettings, ConfigLoader
 from archcare.core import TaskExecutor
+from archcare.services.exceptions import ConfigNotInitializedError
 from archcare.tasks import (
     BaseTask,
     FailedServicesTask,
@@ -81,6 +82,10 @@ class AppContext:
         """Setup logging for this context."""
 
         default_settings = AppSettings(user=self.user)
+        tasks_file_exists = (default_settings.config_dir / "tasks.toml").exists()
+        if not tasks_file_exists:
+            raise ConfigNotInitializedError()
+
         default_settings.ensure_directories()
         setup_logging(default_settings, devel_mode=self.devel)
 

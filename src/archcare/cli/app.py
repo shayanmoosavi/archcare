@@ -6,6 +6,8 @@ import typer
 
 from archcare.cli.commands import debug_app, logs_app, setup_app, task_app
 from archcare.cli.context import AppContext
+from archcare.services.exceptions import ConfigNotInitializedError
+from archcare.utils.output import print_error, print_info
 
 app = typer.Typer(
     name="archcare",
@@ -38,7 +40,12 @@ def main():
     """
     Main entry point for the CLI.
     """
-    app()
+    try:
+        app()
+    except ConfigNotInitializedError as e:
+        print_error(str(e))
+        print_info("Run 'archcare setup config' to get started.")
+        typer.Exit(1)
 
 
 if __name__ == "__main__":
