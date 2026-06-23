@@ -52,15 +52,13 @@ class ConfigNotInitializedError(ArchcareError):
     Raised when a command requiring configuration is run before
     `archcare setup config` has been executed.
 
-    Detected by the absence of settings.toml in the config directory.
+    Detected by the absence of tasks.toml in the config directory.
     Caught centrally in main() so every command gets the same clear
     message without per-command handling.
     """
 
     def __init__(self) -> None:
-        super().__init__(
-            "Archcare is not initialized. Run 'archcare setup config' to get started."
-        )
+        super().__init__("Archcare is not initialized.")
 
 
 class InvalidSeverityError(ArchcareError):
