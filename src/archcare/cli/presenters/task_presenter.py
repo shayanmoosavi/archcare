@@ -110,6 +110,13 @@ class TaskPresenter:
         print_info("Use 'archcare task list' to see available tasks")
 
     @staticmethod
+    def empty() -> None:
+        print_error("Tasks file is empty! Is Archcare not initialized?")
+        print_info(
+            "Run 'archcare setup config' to create a new configuration or add tasks manually."
+        )
+
+    @staticmethod
     def invalid_task_type() -> None:
         print_error("Type must be 'automated' or 'manual'")
 
