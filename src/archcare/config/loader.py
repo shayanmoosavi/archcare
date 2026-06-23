@@ -18,8 +18,8 @@ from .models import (
     AppState,
     CacheCleanupConfig,
     IgnoredServicesConfig,
-    MirrorlistSettings,
     MaintenanceCheckSettings,
+    MirrorlistSettings,
     TaskConfig,
     TasksConfig,
 )
@@ -245,7 +245,7 @@ class ConfigLoader:
             json.dump(data, f, indent=4)
 
 
-def create_default_config_files(config_dir: Path) -> None:
+def create_default_config_files(config_dir: Path, force: bool = False) -> None:
     """
     Create default configuration files if they don't exist.
 
@@ -253,13 +253,14 @@ def create_default_config_files(config_dir: Path) -> None:
 
     Args:
         config_dir: Directory to create config files in
+        force: Whether to overwrite existing files (default: False)
     """
     config_dir.mkdir(parents=True, exist_ok=True)
     default_config_dir = Path(__file__).parent
 
     # Create default tasks.toml
     tasks_path = config_dir / "tasks.toml"
-    if not tasks_path.exists():
+    if not tasks_path.exists() or force:
         with open(default_config_dir / "tasks.toml", "rb") as f:
             data = tomllib.load(f)
 
@@ -269,7 +270,7 @@ def create_default_config_files(config_dir: Path) -> None:
 
     # Create default ignored-services.toml
     services_path = config_dir / "ignored-services.toml"
-    if not services_path.exists():
+    if not services_path.exists() or force:
         with open(default_config_dir / "ignored-services.toml", "rb") as f:
             data = tomllib.load(f)
 
@@ -279,7 +280,7 @@ def create_default_config_files(config_dir: Path) -> None:
 
     # Create default settings.toml
     settings_path = config_dir / "settings.toml"
-    if not settings_path.exists():
+    if not settings_path.exists() or force:
         with open(default_config_dir / "settings.toml", "rb") as f:
             data = tomllib.load(f)
 

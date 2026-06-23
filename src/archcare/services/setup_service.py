@@ -62,7 +62,7 @@ class ConfigService:
 
     def initialize(self) -> ConfigInitResponse:
         """Write default configuration files, overwriting any existing ones."""
-        create_default_config_files(self.config_dir)
+        create_default_config_files(self.config_dir, force=True)
         return ConfigInitResponse(config_dir=self.config_dir)
 
 
