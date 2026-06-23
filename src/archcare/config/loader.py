@@ -38,8 +38,8 @@ class ConfigLoader:
         """
         # Use default settings to get config_dir if not provided
         self.user = user
-        default_settings = AppSettings(user=user)
-        self.config_dir = config_dir or default_settings.config_dir
+        self._settings: AppSettings = AppSettings(user=user)
+        self.config_dir = config_dir or self._settings.config_dir
         self.config_dir.mkdir(parents=True, exist_ok=True)
 
     def load_tasks(self, tasks_file: Path | None = None) -> TasksConfig:
@@ -127,7 +127,8 @@ class ConfigLoader:
 
         if not settings_path.exists():
             logger.info("Settings file not found, using defaults")
-            return self.load_default_settings()
+            self._settings = self.load_default_settings()
+            return self._settings
 
         logger.info(f"Loading settings from: {settings_path}")
 
@@ -136,7 +137,8 @@ class ConfigLoader:
 
         if not data:
             logger.warning("Settings file is empty, using defaults")
-            return self.load_default_settings()
+            self._settings = self.load_default_settings()
+            return self._settings
 
         try:
             settings_data: dict[str, Any] = {"user": self.user}
@@ -162,6 +164,7 @@ class ConfigLoader:
                 )
 
             settings = AppSettings(**settings_data)
+            self._settings = settings
             settings.ensure_directories()
 
         # Load default settings if settings.toml is invalid
@@ -169,9 +172,9 @@ class ConfigLoader:
             logger.error("Invalid settings.toml")
             print_error(f"{e}")
             logger.warning("Using default settings")
-            return self.load_default_settings()
+            self._settings = self.load_default_settings()
 
-        return settings
+        return self._settings
 
     def load_default_settings(self) -> AppSettings:
         """
@@ -214,8 +217,7 @@ class ConfigLoader:
         Returns:
             AppState object
         """
-        settings = self.load_settings()
-        state_path = state_file or settings.state_file
+        state_path = state_file or self._settings.state_file
 
         if not state_path.exists():
             logger.info("State file not found, creating new state")
@@ -236,8 +238,7 @@ class ConfigLoader:
             state: AppState object to save
             state_file: Path to state.json
         """
-        settings = self.load_settings()
-        state_path = state_file or settings.state_file
+        state_path = state_file or self._settings.state_file
         state_path.parent.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"Saving state to: {state_path}")
