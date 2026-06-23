@@ -5,24 +5,23 @@ Handles task instantiation and execution coordination.
 """
 
 from datetime import datetime, timedelta
+from os import getenv
 
 from loguru import logger
-from os import getenv
 
 from archcare.config import (
     AppSettings,
     AppState,
     ConfigLoader,
-    TaskConfig,
-    TaskType,
     SkipReason,
+    TaskConfig,
     TasksConfig,
     TaskStatus,
 )
 from archcare.core.interaction import NonInteractive, TaskInteraction
 from archcare.core.scheduler import TaskScheduler
 from archcare.tasks.base import BaseTask
-from archcare.utils import is_root, change_ownership_to_user
+from archcare.utils import change_ownership_to_user, is_root
 
 from .models import TaskResult, skipped
 
@@ -210,44 +209,6 @@ class TaskExecutor:
                 )
         else:
             return None
-
-    def execute_all(self, task_type: TaskType | None = None) -> dict[str, TaskResult]:
-        """
-        Execute all enabled tasks, optionally filtered by type.
-
-        Args:
-            task_type: Filter by "automated" or "manual" (None = all)
-
-        Returns:
-            Dictionary mapping task names to their results
-
-        Reason for returning dict instead of list:
-        - Easy lookup of specific task results
-        - Preserves task names with results
-        - Better for error reporting and logging
-        """
-        tasks_config = self.config_loader.load_tasks()
-
-        # Get tasks to execute
-        if task_type:
-            tasks_to_run = tasks_config.get_tasks_by_type(task_type.value)
-        else:
-            tasks_to_run = tasks_config.get_enabled_tasks()
-
-        logger.info(f"Executing {len(tasks_to_run)} tasks")
-
-        results = {}
-        for task_name, task_config in tasks_to_run.items():
-            try:
-                logger.info(f"Running task: {task_name}")
-                result = self.execute_task(task_name)
-                results[task_name] = result
-            except Exception as e:
-                logger.error(f"Failed to execute task {task_name}: {e}")
-                # Continue with other tasks even if one fails
-                # (unless it's an unrecoverable error)
-
-        return results
 
     def get_due_tasks(self) -> dict[str, TaskConfig]:
         """
