@@ -3,12 +3,12 @@
 import pytest
 
 from archcare.config import TasksConfig
+from archcare.services import TaskService
 from archcare.services.exceptions import (
     InvalidTaskTypeError,
     TaskNotFoundError,
     TasksFileEmptyError,
 )
-from archcare.services.task_service import TaskService
 
 # ---------------------------------------------------------------------------
 # Helpers
