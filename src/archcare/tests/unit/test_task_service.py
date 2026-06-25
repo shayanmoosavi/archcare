@@ -2,6 +2,7 @@
 
 import pytest
 
+from archcare.config import TasksConfig
 from archcare.services.exceptions import (
     InvalidTaskTypeError,
     TaskNotFoundError,
@@ -69,6 +70,56 @@ class TestRunTask:
         mock_executor.execute_task.return_value = mock_task_result
         _service(mock_executor).run_task("test-manual-task")
         mock_executor.execute_task.assert_called_once_with("test-manual-task", False)
+
+
+# ---------------------------------------------------------------------------
+# list_tasks
+# ---------------------------------------------------------------------------
+
+
+class TestListTasks:
+    def test_raises_when_tasks_file_is_empty(self, mock_executor, empty_tasks_config):
+        mock_executor.config_loader.load_tasks.return_value = empty_tasks_config
+        with pytest.raises(TasksFileEmptyError):
+            _service(mock_executor).list_tasks()
+
+    def test_returns_all_enabled_tasks_with_no_filter(
+        self, mock_executor, tasks_config
+    ):
+        response = _service(mock_executor).list_tasks()
+        assert set(response.tasks.keys()) == set(
+            tasks_config.get_enabled_tasks().keys()
+        )
+        assert response.filtered_by is None
+
+    def test_filters_to_automated_tasks(self, mock_executor):
+        response = _service(mock_executor).list_tasks(task_type="automated")
+        assert all(str(cfg.task_type) == "automated" for cfg in response.tasks.values())
+        assert response.filtered_by == "automated"
+
+    def test_filters_to_manual_tasks(self, mock_executor):
+        response = _service(mock_executor).list_tasks(task_type="manual")
+        assert all(str(cfg.task_type) == "manual" for cfg in response.tasks.values())
+        assert response.filtered_by == "manual"
+
+    def test_raises_for_invalid_task_type(self, mock_executor):
+        with pytest.raises(InvalidTaskTypeError) as exc_info:
+            _service(mock_executor).list_tasks(task_type="nonexistant")
+        assert exc_info.value.task_type == "nonexistant"
+
+    def test_disabled_tasks_excluded_from_default_list(
+        self, mock_executor, automated_task, disabled_task
+    ):
+        config_with_disabled = TasksConfig(
+            tasks={
+                automated_task.name: automated_task,
+                disabled_task.name: disabled_task,
+            }
+        )
+        mock_executor.config_loader.load_tasks.return_value = config_with_disabled
+        response = _service(mock_executor).list_tasks()
+        assert disabled_task.name not in response.tasks
+        assert automated_task.name in response.tasks
 
 
 # ---------------------------------------------------------------------------
