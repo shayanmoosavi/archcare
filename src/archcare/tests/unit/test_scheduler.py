@@ -125,3 +125,51 @@ class TestGetDueTasks:
         due = _scheduler(tasks_config, state).get_due_tasks()
         assert due[0].task_name == "test-manual-task"
         assert due[1].task_name == "test-auto-task"
+
+
+# ---------------------------------------------------------------------------
+# get_maintenance_summary
+# ---------------------------------------------------------------------------
+
+
+class TestGetMaintenanceSummary:
+    def test_total_equals_enabled_task_count(self, tasks_config, fresh_state):
+        summary = _scheduler(tasks_config, fresh_state).get_maintenance_summary()
+        assert summary["total"] == len(tasks_config.get_enabled_tasks())
+
+    def test_all_due_when_never_run(self, tasks_config, fresh_state):
+        summary = _scheduler(tasks_config, fresh_state).get_maintenance_summary()
+        assert summary["due"] == len(tasks_config.get_enabled_tasks())
+
+    def test_zero_due_when_all_tasks_have_future_next_due(self, tasks_config):
+        state = AppState()
+        for name in tasks_config.get_enabled_tasks():
+            state.update_task_state(
+                task_name=name,
+                status=TaskStatus.SUCCESS,
+                next_due=datetime.now() + timedelta(days=14),
+                error=None,
+                skip_reason=None,
+                skip_message=None,
+            )
+        summary = _scheduler(tasks_config, state).get_maintenance_summary()
+        assert summary["due"] == 0
+
+    def test_overdue_count_excludes_just_due_tasks(self, tasks_config):
+        """A task due today (days_overdue == 0) is due but not overdue."""
+        state = AppState()
+        state.update_task_state(
+            task_name="test-manual-task",
+            status=TaskStatus.SUCCESS,
+            next_due=datetime.now() - timedelta(hours=1),  # due, overdue by 0 days
+            error=None,
+            skip_reason=None,
+            skip_message=None,
+        )
+        summary = _scheduler(tasks_config, state).get_maintenance_summary()
+        assert summary["due"] >= 1
+        assert summary["overdue"] == 0
+
+    def test_summary_has_required_keys(self, tasks_config, fresh_state):
+        summary = _scheduler(tasks_config, fresh_state).get_maintenance_summary()
+        assert {"total", "due", "overdue", "upcoming"} <= summary.keys()
