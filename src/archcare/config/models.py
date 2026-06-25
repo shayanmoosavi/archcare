@@ -4,13 +4,13 @@ Configuration models for archcare using Pydantic.
 These models provide type-safe configuration with validation.
 """
 
-from os import getenv
 from datetime import datetime
 from enum import Enum
+from os import getenv
 from pathlib import Path
 from typing import Self
 
-from pydantic import BaseModel, Field, field_validator, computed_field, model_validator
+from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
 
 
 class LogLevel(Enum):
@@ -117,7 +117,7 @@ class TasksConfig(BaseModel):
         """Get a specific task by name."""
         task_name = self.tasks.get(name)
         if not task_name:
-            raise ValueError(f"Task not found: {task_name}")
+            raise ValueError(f"Task not found: {name}")
         return task_name
 
 
