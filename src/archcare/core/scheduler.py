@@ -78,7 +78,7 @@ class TaskScheduler:
         time_until_due = next_due - datetime.now()
 
         is_due = time_until_due.total_seconds() <= 0
-        days_overdue = max(0, -time_until_due.days)
+        days_overdue = max(0, (-time_until_due).days)
 
         # Generate reason message
         if is_due:
