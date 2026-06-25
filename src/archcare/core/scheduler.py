@@ -58,8 +58,6 @@ class TaskScheduler:
             ValueError: If task doesn't exist
         """
         task_config = self.tasks_config.get_task(task_name)
-        if not task_config:
-            raise ValueError(f"Task not found: {task_name}")
 
         task_state = self.state.get_task_state(task_name)
 
