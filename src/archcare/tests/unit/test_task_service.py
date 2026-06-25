@@ -69,3 +69,50 @@ class TestRunTask:
         mock_executor.execute_task.return_value = mock_task_result
         _service(mock_executor).run_task("test-manual-task")
         mock_executor.execute_task.assert_called_once_with("test-manual-task", False)
+
+
+# ---------------------------------------------------------------------------
+# get_task_status
+# ---------------------------------------------------------------------------
+
+
+class TestGetTaskStatus:
+    def test_raises_when_tasks_file_is_empty(self, mock_executor, empty_tasks_config):
+        mock_executor.config_loader.load_tasks.return_value = empty_tasks_config
+        with pytest.raises(TasksFileEmptyError):
+            _service(mock_executor).get_task_status()
+
+    def test_raises_for_unknown_task_name(self, mock_executor):
+        with pytest.raises(TaskNotFoundError):
+            _service(mock_executor).get_task_status(task_name="does-not-exist")
+
+    def test_single_task_returns_one_schedule_entry(self, mock_executor):
+        response = _service(mock_executor).get_task_status(task_name="test-auto-task")
+        assert len(response.schedule_info) == 1
+        assert response.schedule_info[0].task_name == "test-auto-task"
+
+    def test_single_task_has_no_summary(self, mock_executor):
+        response = _service(mock_executor).get_task_status(task_name="test-auto-task")
+        assert response.summary is None
+
+    def test_all_tasks_returns_one_entry_per_enabled_task(
+        self, mock_executor, tasks_config
+    ):
+        response = _service(mock_executor).get_task_status()
+        enabled = tasks_config.get_enabled_tasks()
+        assert len(response.schedule_info) == len(enabled)
+
+    def test_all_tasks_includes_summary(self, mock_executor):
+        response = _service(mock_executor).get_task_status()
+        assert response.summary is not None
+        assert "total" in response.summary
+        assert "due" in response.summary
+
+    def test_due_only_flag_is_reflected_in_response(self, mock_executor):
+        response = _service(mock_executor).get_task_status(due_only=True)
+        assert response.due_only is True
+
+    def test_due_only_returns_only_due_tasks(self, mock_executor):
+        # Fresh state means both tasks have never run → both are due
+        response = _service(mock_executor).get_task_status(due_only=True)
+        assert all(info.is_due for info in response.schedule_info)
