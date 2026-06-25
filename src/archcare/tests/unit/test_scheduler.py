@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from archcare.config import AppState, TasksConfig
+from archcare.config import AppState, TasksConfig, TaskStatus
 from archcare.core import TaskScheduler
 
 # ---------------------------------------------------------------------------
@@ -73,3 +73,55 @@ class TestGetScheduleInfo:
             "test-auto-task"
         )
         assert info.days_overdue == 0
+
+
+# ---------------------------------------------------------------------------
+# get_due_tasks
+# ---------------------------------------------------------------------------
+
+
+class TestGetDueTasks:
+    def test_all_tasks_due_when_never_run(self, tasks_config, fresh_state):
+        due = _scheduler(tasks_config, fresh_state).get_due_tasks()
+        assert len(due) == len(tasks_config.get_enabled_tasks())
+
+    def test_excludes_task_with_future_next_due(
+        self, tasks_config, state_with_recent_run
+    ):
+        due = _scheduler(tasks_config, state_with_recent_run).get_due_tasks()
+        due_names = {info.task_name for info in due}
+        assert "test-auto-task" not in due_names
+
+    def test_includes_overdue_task(self, tasks_config, state_with_overdue_run):
+        due = _scheduler(tasks_config, state_with_overdue_run).get_due_tasks()
+        due_names = {info.task_name for info in due}
+        assert "test-auto-task" in due_names
+
+    def test_all_returned_tasks_are_due(self, tasks_config, fresh_state):
+        due = _scheduler(tasks_config, fresh_state).get_due_tasks()
+        assert all(info.is_due for info in due)
+
+    def test_sorted_most_overdue_first(self, tasks_config):
+        """Most overdue task should appear before a task that is just due."""
+        state = AppState()
+        # test-manual-task overdue by 10 days
+        state.update_task_state(
+            task_name="test-manual-task",
+            status=TaskStatus.SUCCESS,
+            next_due=datetime.now() - timedelta(days=10),
+            error=None,
+            skip_reason=None,
+            skip_message=None,
+        )
+        # test-auto-task overdue by 1 day
+        state.update_task_state(
+            task_name="test-auto-task",
+            status=TaskStatus.SUCCESS,
+            next_due=datetime.now() - timedelta(days=1),
+            error=None,
+            skip_reason=None,
+            skip_message=None,
+        )
+        due = _scheduler(tasks_config, state).get_due_tasks()
+        assert due[0].task_name == "test-manual-task"
+        assert due[1].task_name == "test-auto-task"
