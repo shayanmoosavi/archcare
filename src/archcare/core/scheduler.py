@@ -166,30 +166,6 @@ class TaskScheduler:
 
         return schedule_info
 
-    def should_notify(self, task_name: str, warning_days: int = 3) -> bool:
-        """
-        Check if user should be notified about a task.
-
-        Args:
-            task_name: Name of the task
-            warning_days: Days before due to start warning (default: 3)
-
-        Returns:
-            True if notification should be sent
-        """
-        info = self.get_schedule_info(task_name)
-
-        # Notify if overdue
-        if info.is_due:
-            return True
-
-        # Notify if due soon
-        if info.next_due:
-            days_until = (info.next_due - datetime.now()).days
-            return days_until <= warning_days
-
-        return False
-
     def get_maintenance_summary(self) -> dict[str, int]:
         """
         Get a summary of maintenance status.
