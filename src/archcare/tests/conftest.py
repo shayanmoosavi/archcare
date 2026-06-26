@@ -1,9 +1,11 @@
 """Shared fixtures for the Archcare test suite."""
 
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock, Mock
+from io import StringIO
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from loguru import logger
 
 from archcare.config import AppState, TaskConfig, TasksConfig, TaskStatus
 from archcare.core.models import TaskResult
@@ -161,3 +163,22 @@ def clear_archcare_user(monkeypatch):
     of whether tests run as root (e.g. in a Docker-based CI pipeline).
     """
     monkeypatch.delenv("ARCHCARE_USER", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def no_task_logging():
+    """
+    Prevent BaseTask.run() from creating task log files during tests.
+
+    setup_task_logging() is patched to add a loguru handler that writes to
+    an in-memory buffer instead of a real file. This matters because loguru's
+    logger.remove(handler_id) is called in BaseTask.run()'s finally block —
+    returning a fake id would raise ValueError, so we return a real one.
+    """
+    with patch(
+        "archcare.tasks.base.setup_task_logging",
+        side_effect=lambda name, settings: logger.add(
+            StringIO(), format="{message}", colorize=False
+        ),
+    ):
+        yield
