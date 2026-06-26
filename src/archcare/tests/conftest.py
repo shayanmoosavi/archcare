@@ -144,3 +144,20 @@ def mock_executor(tasks_config, fresh_state) -> MagicMock:
     executor.config_loader.load_tasks.return_value = tasks_config
     executor.state = fresh_state
     return executor
+
+
+# ---------------------------------------------------------------------------
+# Environment setup
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def clear_archcare_user(monkeypatch):
+    """
+    Ensure ARCHCARE_USER is never set during tests.
+
+    _update_state's chown block requires both is_root() AND ARCHCARE_USER.
+    Clearing the env var makes the condition unconditionally False regardless
+    of whether tests run as root (e.g. in a Docker-based CI pipeline).
+    """
+    monkeypatch.delenv("ARCHCARE_USER", raising=False)
