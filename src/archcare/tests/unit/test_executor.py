@@ -206,6 +206,37 @@ class TestHandleNotDueTask:
 
 
 # ---------------------------------------------------------------------------
+# Force flag
+# ---------------------------------------------------------------------------
+
+
+class TestForceFlag:
+    """force=True bypasses both the disabled check and the due check."""
+
+    def test_force_runs_disabled_task_without_prompting(
+        self, tasks_config_with_disabled, fresh_state, disabled_task
+    ):
+        interaction = RecordingInteraction(confirm_response=False)
+        executor = _make_executor(tasks_config_with_disabled, fresh_state, interaction)
+
+        result = executor.execute_task(disabled_task.name, force=True)
+
+        assert result.is_success()
+        assert len(interaction.confirmations) == 0
+
+    def test_force_runs_not_due_task_without_prompting(
+        self, tasks_config, state_with_recent_run, automated_task
+    ):
+        interaction = RecordingInteraction(confirm_response=False)
+        executor = _make_executor(tasks_config, state_with_recent_run, interaction)
+
+        result = executor.execute_task(automated_task.name, force=True)
+
+        assert result.is_success()
+        assert len(interaction.confirmations) == 0
+
+
+# ---------------------------------------------------------------------------
 # Fixtures local to executor tests
 # ---------------------------------------------------------------------------
 
