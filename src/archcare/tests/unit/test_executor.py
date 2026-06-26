@@ -151,6 +151,61 @@ class TestHandleDisabledTask:
 
 
 # ---------------------------------------------------------------------------
+# Not-due branch
+# ---------------------------------------------------------------------------
+
+
+class TestHandleNotDueTask:
+    """_handle_due_task is exercised when the task has a future next_due."""
+
+    def test_notify_called_when_task_is_not_due(
+        self, tasks_config, state_with_recent_run, automated_task
+    ):
+        interaction = RecordingInteraction(confirm_response=False)
+        executor = _make_executor(tasks_config, state_with_recent_run, interaction)
+
+        executor.execute_task(automated_task.name)
+
+        assert len(interaction.notifications) > 0
+        assert any("not due" in msg.lower() for msg, _ in interaction.notifications)
+
+    def test_user_declined_returns_user_cancelled(
+        self, tasks_config, state_with_recent_run, automated_task
+    ):
+        interaction = RecordingInteraction(confirm_response=False)
+        executor = _make_executor(tasks_config, state_with_recent_run, interaction)
+
+        result = executor.execute_task(automated_task.name)
+
+        assert result.is_skipped()
+        assert result.skip_reason == SkipReason.USER_CANCELLED
+
+    def test_user_confirmed_task_actually_executes(
+        self, tasks_config, state_with_recent_run, automated_task
+    ):
+        interaction = RecordingInteraction(confirm_response=True)
+        executor = _make_executor(tasks_config, state_with_recent_run, interaction)
+
+        result = executor.execute_task(automated_task.name)
+
+        assert result.is_success()
+
+    def test_systemd_mode_skips_without_prompting(
+        self, tasks_config, state_with_recent_run, automated_task
+    ):
+        interaction = RecordingInteraction(confirm_response=True)
+        executor = _make_executor(
+            tasks_config, state_with_recent_run, interaction, user="alice"
+        )
+
+        result = executor.execute_task(automated_task.name)
+
+        assert len(interaction.confirmations) == 0
+        assert result.is_skipped()
+        assert result.skip_reason == SkipReason.NOT_DUE
+
+
+# ---------------------------------------------------------------------------
 # Fixtures local to executor tests
 # ---------------------------------------------------------------------------
 
