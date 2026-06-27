@@ -1,6 +1,7 @@
 """Unit tests for TaskExecutor."""
 
-from unittest.mock import MagicMock
+from datetime import datetime, timedelta
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -234,6 +235,151 @@ class TestForceFlag:
 
         assert result.is_success()
         assert len(interaction.confirmations) == 0
+
+
+# ---------------------------------------------------------------------------
+# _update_state
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateState:
+    """
+    _update_state is called at the end of every execute_task() path.
+    Tests verify save_state, next_due calculation, and the chown guard.
+    """
+
+    # -- save_state ----------------------------------------------------------
+
+    def test_save_state_called_after_successful_run(
+        self, tasks_config, fresh_state, automated_task
+    ):
+        interaction = RecordingInteraction()
+        executor = _make_executor(tasks_config, fresh_state, interaction)
+
+        executor.execute_task(automated_task.name)
+
+        executor.config_loader.save_state.assert_called_once()
+
+    def test_save_state_called_even_when_skipped(
+        self, tasks_config, state_with_recent_run, automated_task
+    ):
+        """State must be persisted for skipped tasks so the scheduler stays
+        in sync — verifies the update path runs regardless of outcome."""
+        interaction = RecordingInteraction(confirm_response=False)
+        executor = _make_executor(tasks_config, state_with_recent_run, interaction)
+
+        executor.execute_task(automated_task.name)
+
+        executor.config_loader.save_state.assert_called_once()
+
+    # -- next_due calculation ------------------------------------------------
+
+    def test_successful_run_sets_next_due_in_future(
+        self, tasks_config, fresh_state, automated_task
+    ):
+        interaction = RecordingInteraction()
+        executor = _make_executor(tasks_config, fresh_state, interaction)
+
+        executor.execute_task(automated_task.name)
+
+        task_state = fresh_state.get_task_state(automated_task.name)
+        assert task_state.next_due is not None
+        assert task_state.next_due > datetime.now()
+
+    def test_successful_next_due_respects_task_frequency(
+        self, tasks_config, fresh_state, automated_task
+    ):
+        interaction = RecordingInteraction()
+        executor = _make_executor(tasks_config, fresh_state, interaction)
+
+        before = datetime.now()
+        executor.execute_task(automated_task.name)
+        after = datetime.now()
+
+        task_state = fresh_state.get_task_state(automated_task.name)
+        expected_min = before + timedelta(days=automated_task.frequency)
+        expected_max = after + timedelta(days=automated_task.frequency)
+        assert expected_min <= task_state.next_due <= expected_max
+
+    def test_skipped_not_due_preserves_existing_next_due(
+        self, tasks_config, state_with_recent_run, automated_task
+    ):
+        """NOT_DUE skip must not overwrite the previously calculated next_due."""
+        original_next_due = state_with_recent_run.get_task_state(
+            automated_task.name
+        ).next_due
+
+        interaction = RecordingInteraction(confirm_response=False)
+        executor = _make_executor(tasks_config, state_with_recent_run, interaction)
+        executor.execute_task(automated_task.name)
+
+        task_state = state_with_recent_run.get_task_state(automated_task.name)
+        assert task_state.next_due == original_next_due
+
+    def test_disabled_skip_sets_next_due_to_none(
+        self, tasks_config_with_disabled, fresh_state, disabled_task
+    ):
+        """Disabled tasks have no schedule, so next_due should be None."""
+        interaction = RecordingInteraction(confirm_response=False)
+        executor = _make_executor(tasks_config_with_disabled, fresh_state, interaction)
+        executor.execute_task(disabled_task.name)
+
+        task_state = fresh_state.get_task_state(disabled_task.name)
+        assert task_state.next_due is None
+
+    # -- chown guard ---------------------------------------------------------
+
+    def test_chown_not_called_when_not_root(
+        self, tasks_config, fresh_state, automated_task, monkeypatch
+    ):
+        monkeypatch.setenv("ARCHCARE_USER", "alice")
+        with (
+            patch("archcare.core.executor.is_root", return_value=False),
+            patch("archcare.core.executor.change_ownership_to_user") as mock_chown,
+        ):
+            interaction = RecordingInteraction(confirm_response=True)
+            executor = _make_executor(tasks_config, fresh_state, interaction)
+            executor.execute_task(automated_task.name)
+            mock_chown.assert_not_called()
+
+    def test_chown_not_called_when_archcare_user_absent(
+        self, tasks_config, fresh_state, automated_task
+    ):
+        """ARCHCARE_USER is cleared by the autouse clear_archcare_user fixture."""
+        with (
+            patch("archcare.core.executor.is_root", return_value=True),
+            patch("archcare.core.executor.change_ownership_to_user") as mock_chown,
+        ):
+            interaction = RecordingInteraction()
+            executor = _make_executor(tasks_config, fresh_state, interaction)
+            executor.execute_task(automated_task.name)
+
+        mock_chown.assert_not_called()
+
+    def test_chown_called_for_state_file_and_parent_when_root_via_systemd(
+        self, tasks_config, fresh_state, automated_task, monkeypatch
+    ):
+
+        monkeypatch.setenv("ARCHCARE_USER", "alice")
+
+        with (
+            patch("archcare.core.executor.is_root", return_value=True),
+            patch("archcare.core.executor.change_ownership_to_user") as mock_chown,
+        ):
+            interaction = RecordingInteraction(confirm_response=True)
+            executor = _make_executor(
+                tasks_config, fresh_state, interaction, user="alice"
+            )
+            executor.execute_task(automated_task.name)
+
+            # Systemd mode must have user set in AppSettings
+            assert executor.settings.user == "alice"
+
+            # After state update, check that chown was called twice (file and parent)
+            assert mock_chown.call_count == 2
+            state_file = executor.settings.state_file
+            mock_chown.assert_any_call(state_file, "alice")
+            mock_chown.assert_any_call(state_file.parent, "alice")
 
 
 # ---------------------------------------------------------------------------
