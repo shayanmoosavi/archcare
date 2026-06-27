@@ -258,7 +258,7 @@ class TestUpdateState:
 
         executor.execute_task(automated_task.name)
 
-        executor.config_loader.save_state.assert_called_once()
+        executor.config_loader.save_state.assert_called_once()  # pyright: ignore[reportAttributeAccessIssue]
 
     def test_save_state_called_even_when_skipped(
         self, tasks_config, state_with_recent_run, automated_task
@@ -270,7 +270,7 @@ class TestUpdateState:
 
         executor.execute_task(automated_task.name)
 
-        executor.config_loader.save_state.assert_called_once()
+        executor.config_loader.save_state.assert_called_once()  # pyright: ignore[reportAttributeAccessIssue]
 
     # -- next_due calculation ------------------------------------------------
 
