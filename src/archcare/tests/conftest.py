@@ -182,3 +182,20 @@ def no_task_logging():
         ),
     ):
         yield
+
+
+@pytest.fixture(autouse=True)
+def reset_notification_manager():
+    """
+    Reset the notification manager singleton between tests.
+
+    NotificationManager.__init__ calls check_command_exists("notify-send"),
+    a real subprocess check. Without this reset, the first test to trigger
+    get_notification_manager() caches the result for the entire session,
+    making tests environment-dependent.
+    """
+    import archcare.utils.notifications as notif_module
+
+    notif_module._notification_manager = None
+    yield
+    notif_module._notification_manager = None
