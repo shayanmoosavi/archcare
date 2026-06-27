@@ -7,8 +7,10 @@ poetry.lock
 # Python bytecodes
 *__pycache__/
 
-# Mypy cache directory
+# Cache directories
 .mypy_cache/
+.pytest_cache/
+.ruff_cache/
 
 # Nuitka build directories
 *.build/
