@@ -216,6 +216,55 @@ class TestAppState:
 
 
 # ---------------------------------------------------------------------------
+# MirrorlistSettings validators
+# ---------------------------------------------------------------------------
+
+
+class TestMirrorlistSettings:
+    @pytest.mark.parametrize("protocol", ["http", "https", "rsync"])
+    def test_valid_protocol_accepted(self, protocol):
+        assert MirrorlistSettings(protocol=protocol).protocol == protocol
+
+    def test_invalid_protocol_raises(self):
+        with pytest.raises(ValidationError):
+            MirrorlistSettings(protocol="ftp")
+
+    @pytest.mark.parametrize("sort", ["age", "rate", "country", "score", "delay"])
+    def test_valid_sort_accepted(self, sort):
+        assert MirrorlistSettings(sort=sort).sort == sort
+
+    def test_invalid_sort_raises(self):
+        with pytest.raises(ValidationError):
+            MirrorlistSettings(sort="random")
+
+
+# ---------------------------------------------------------------------------
+# MaintenanceCheckSettings validators
+# ---------------------------------------------------------------------------
+
+
+class TestMaintenanceCheckSettings:
+    @pytest.mark.parametrize("mode", ["terminal", "file", "both"])
+    def test_valid_output_mode_accepted(self, mode):
+        assert MaintenanceCheckSettings(output_mode=mode).output_mode == mode
+
+    def test_invalid_output_mode_raises(self):
+        with pytest.raises(ValidationError):
+            MaintenanceCheckSettings(output_mode="stdout")
+
+    @pytest.mark.parametrize("level", ["critical", "warning", "info"])
+    def test_valid_notification_level_accepted(self, level):
+        assert (
+            MaintenanceCheckSettings(notification_level=level).notification_level
+            == level
+        )
+
+    def test_invalid_notification_level_raises(self):
+        with pytest.raises(ValidationError):
+            MaintenanceCheckSettings(notification_level="debug")
+
+
+# ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
 
