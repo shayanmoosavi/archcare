@@ -5,9 +5,9 @@ import pytest
 from archcare.config import TasksConfig
 from archcare.services import TaskService
 from archcare.services.exceptions import (
+    InvalidTasksFileError,
     InvalidTaskTypeError,
     TaskNotFoundError,
-    InvalidTasksFileError,
 )
 
 # ---------------------------------------------------------------------------
@@ -25,7 +25,7 @@ def _service(mock_executor) -> TaskService:
 
 
 class TestRunTask:
-    def test_raises_when_tasks_file_is_empty(self, mock_executor, empty_tasks_config):
+    def test_raises_when_tasks_file_is_invalid(self, mock_executor, empty_tasks_config):
         mock_executor.config_loader.load_tasks.return_value = empty_tasks_config
         with pytest.raises(InvalidTasksFileError):
             _service(mock_executor).run_task("test-manual-task")
@@ -78,7 +78,7 @@ class TestRunTask:
 
 
 class TestListTasks:
-    def test_raises_when_tasks_file_is_empty(self, mock_executor, empty_tasks_config):
+    def test_raises_when_tasks_file_is_invalid(self, mock_executor, empty_tasks_config):
         mock_executor.config_loader.load_tasks.return_value = empty_tasks_config
         with pytest.raises(InvalidTasksFileError):
             _service(mock_executor).list_tasks()
@@ -128,7 +128,7 @@ class TestListTasks:
 
 
 class TestGetTaskStatus:
-    def test_raises_when_tasks_file_is_empty(self, mock_executor, empty_tasks_config):
+    def test_raises_when_tasks_file_is_invalid(self, mock_executor, empty_tasks_config):
         mock_executor.config_loader.load_tasks.return_value = empty_tasks_config
         with pytest.raises(InvalidTasksFileError):
             _service(mock_executor).get_task_status()
