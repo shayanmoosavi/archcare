@@ -242,10 +242,18 @@ class ConfigLoader:
 
         logger.info(f"Loading state from: {state_path}")
 
-        with open(state_path, "r") as f:
-            data = json.load(f)
-
-        return AppState(**data)
+        try:
+            with open(state_path, "r") as f:
+                data = json.load(f)
+            return AppState(**data)
+        except json.JSONDecodeError as e:
+            logger.error(str(e))
+            logger.warning("Corrupt state file, starting with fresh state")
+            return AppState()
+        except ValidationError as e:
+            logger.error(str(e))
+            logger.warning("Invalid state file structure, starting with fresh state")
+            return AppState()
 
     def save_state(self, state: AppState, state_file: Path | None = None) -> None:
         """
