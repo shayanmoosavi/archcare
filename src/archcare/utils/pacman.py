@@ -24,7 +24,7 @@ def check_pacman_database() -> tuple[bool, str]:
     if not result.success:
         return False, f"Pacman database integrity check failed: {result.stderr}"
 
-    return True, f"Pacman database healthy"
+    return True, "Pacman database healthy"
 
 
 def check_package_files() -> tuple[bool, str]:
@@ -50,6 +50,6 @@ def check_package_files() -> tuple[bool, str]:
     ]
 
     if missing_files:
-        return False, f"Missing files found:\n" + "\n".join(missing_files)
+        return False, "Missing files found:\n" + "\n".join(missing_files)
 
     return True, "All package files are present"

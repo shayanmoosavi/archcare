@@ -260,7 +260,7 @@ class AppSettings(BaseModel):
     """Application-wide settings."""
 
     # Global settings
-    # This corresponds to the [global] section in the settings.toml file
+    # This corresponds to the global section in the settings.toml file
 
     # Username
     user: str | None = None
