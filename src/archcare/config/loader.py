@@ -16,7 +16,6 @@ from pydantic import ValidationError
 from .models import (
     AppSettings,
     AppState,
-    CacheCleanupConfig,
     IgnoredServicesConfig,
     MaintenanceCheckSettings,
     MirrorlistSettings,
@@ -72,7 +71,7 @@ class ConfigLoader:
         for section_name, section_data in data.items():
             if isinstance(section_data, dict):
                 # Add the section name as the task name
-                task_data = {**section_data, "name": section_name}
+                task_data: dict[str, Any] = {**section_data, "name": section_name}
                 tasks_dict[section_name] = TaskConfig(**task_data)
 
         config = TasksConfig(tasks=tasks_dict)
