@@ -50,36 +50,40 @@ class ConfigLoader:
 
         Returns:
             TasksConfig object with all task definitions
-
-        Raises:
-            FileNotFoundError: If tasks file doesn't exist
-            ValueError: If TOML is invalid or doesn't match schema
         """
         tasks_path = tasks_file or self.config_dir / "tasks.toml"
 
         if not tasks_path.exists():
-            logger.warning(f"Tasks file not found: {tasks_path}")
+            logger.error(f"Tasks file not found: {tasks_path}")
             return TasksConfig(tasks={})
 
         logger.info(f"Loading tasks from: {tasks_path}")
 
-        with open(tasks_path, "rb") as f:
-            data = tomllib.load(f)
+        try:
+            with open(tasks_path, "rb") as f:
+                data = tomllib.load(f)
 
-        tasks_dict = {}
+            tasks_dict = {}
 
-        for section_name, section_data in data.items():
-            if isinstance(section_data, dict):
-                # Add the section name as the task name
-                task_data: dict[str, Any] = {**section_data, "name": section_name}
-                tasks_dict[section_name] = TaskConfig(**task_data)
+            for section_name, section_data in data.items():
+                if isinstance(section_data, dict):
+                    # Add the section name as the task name
+                    task_data: dict[str, Any] = {**section_data, "name": section_name}
+                    tasks_dict[section_name] = TaskConfig(**task_data)
 
-        config = TasksConfig(tasks=tasks_dict)
-        logger.info(
-            f"Loaded {len(config.tasks)} tasks ({len(config.get_enabled_tasks())} enabled)"
-        )
+            config = TasksConfig(tasks=tasks_dict)
+            logger.info(
+                f"Loaded {len(config.tasks)} tasks ({len(config.get_enabled_tasks())} enabled)"
+            )
 
-        return config
+            return config
+
+        except tomllib.TOMLDecodeError as e:
+            logger.error(f"Invalid tasks.toml, cannot load tasks: {e}")
+            return TasksConfig(tasks={})
+        except ValidationError as e:
+            logger.error(f"Invalid task configuration in tasks.toml: {e}")
+            return TasksConfig(tasks={})
 
     def load_ignored_services(
         self, services_file: Path | None = None
@@ -91,7 +95,7 @@ class ConfigLoader:
             services_file: Path to ignored-services.toml
 
         Returns:
-            IgnoredServicesConfig object
+            IgnoredServicesConfig object with the ignored services loaded from the file
         """
         services_path = services_file or self.config_dir / "ignored-services.toml"
 
@@ -101,14 +105,22 @@ class ConfigLoader:
 
         logger.info(f"Loading ignored services from: {services_path}")
 
-        with open(services_path, "rb") as f:
-            data = tomllib.load(f)
+        try:
+            with open(services_path, "rb") as f:
+                data = tomllib.load(f)
 
-        # Expected format: services = ["service1", "service2"]
-        config = IgnoredServicesConfig(**data)
-        logger.info(f"Loaded {len(config.services)} ignored services")
+            # Expected format: services = ["service1", "service2"]
+            config = IgnoredServicesConfig(**data)
+            logger.info(f"Loaded {len(config.services)} ignored services")
 
-        return config
+            return config
+
+        except tomllib.TOMLDecodeError as e:
+            logger.error(f"Corrupt ignored-services.toml, ignoring no services: {e}")
+            return IgnoredServicesConfig(services=[])
+        except ValidationError as e:
+            logger.error(f"Invalid ignored-services.toml, ignoring no services: {e}")
+            return IgnoredServicesConfig(services=[])
 
     def load_settings(self, settings_file: Path | None = None) -> AppSettings:
         """
@@ -123,6 +135,7 @@ class ConfigLoader:
 
         settings_path = settings_file or self.config_dir / "settings.toml"
 
+        # Load default settings if no settings.toml file exists
         if not settings_path.exists():
             logger.info("Settings file not found, using defaults")
             self._settings = self.load_default_settings()
@@ -130,15 +143,16 @@ class ConfigLoader:
 
         logger.info(f"Loading settings from: {settings_path}")
 
-        with open(settings_path, "rb") as f:
-            data = tomllib.load(f)
-
-        if not data:
-            logger.warning("Settings file is empty, using defaults")
-            self._settings = self.load_default_settings()
-            return self._settings
-
         try:
+            with open(settings_path, "rb") as f:
+                data = tomllib.load(f)
+
+            # Load default settings if the file is empty
+            if not data:
+                logger.warning("Settings file is empty, using defaults")
+                self._settings = self.load_default_settings()
+                return self._settings
+
             settings_data: dict[str, Any] = {"user": self.user}
 
             # Copy global settings
@@ -165,10 +179,15 @@ class ConfigLoader:
             self._settings = settings
             settings.ensure_directories()
 
-        # Load default settings if settings.toml is invalid
-        except ValidationError as e:
+        # Load default settings if the file is invalid
+        except tomllib.TOMLDecodeError as e:
             logger.error("Invalid settings.toml")
-            logger.error(f"{e}")
+            logger.error(str(e))
+            logger.warning("Using default settings")
+            self._settings = self.load_default_settings()
+        except ValidationError as e:
+            logger.error("Invalid section in settings.toml")
+            logger.error(str(e))
             logger.warning("Using default settings")
             self._settings = self.load_default_settings()
 
