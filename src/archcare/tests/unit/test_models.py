@@ -161,6 +161,61 @@ class TestAppSettingsEnsureDirectories:
 
 
 # ---------------------------------------------------------------------------
+# AppState
+# ---------------------------------------------------------------------------
+
+
+class TestAppState:
+    def test_get_task_state_creates_new_state_for_unknown_task(self, fresh_state):
+        state = fresh_state.get_task_state("brand-new")
+        assert state.last_run is None
+        assert state.run_count == 0
+
+    def test_get_task_state_returns_same_object_each_time(self, fresh_state):
+        first = fresh_state.get_task_state("some-task")
+        second = fresh_state.get_task_state("some-task")
+        assert first is second
+
+    def test_update_sets_last_run_to_now(self, fresh_state):
+        before = datetime.now()
+        _update(fresh_state, "task-a", TaskStatus.SUCCESS)
+        assert fresh_state.get_task_state("task-a").last_run >= before
+
+    def test_update_records_status(self, fresh_state):
+        _update(fresh_state, "task-a", TaskStatus.FAILURE)
+        assert fresh_state.get_task_state("task-a").last_status == TaskStatus.FAILURE
+
+    def test_run_count_increments_on_each_update(self, fresh_state):
+        for _ in range(3):
+            _update(fresh_state, "task-a", TaskStatus.SUCCESS)
+        assert fresh_state.get_task_state("task-a").run_count == 3
+
+    def test_update_stores_next_due(self, fresh_state):
+        due = datetime.now() + timedelta(days=7)
+        _update(fresh_state, "task-a", TaskStatus.SUCCESS, next_due=due)
+        assert fresh_state.get_task_state("task-a").next_due == due
+
+    def test_update_stores_error_message(self, fresh_state):
+        _update(fresh_state, "task-a", TaskStatus.FAILURE, error="timeout")
+        assert fresh_state.get_task_state("task-a").last_error == "timeout"
+
+    def test_update_stores_skip_reason(self, fresh_state):
+        _update(
+            fresh_state,
+            "task-a",
+            TaskStatus.SKIPPED,
+            skip_reason=SkipReason.NOT_DUE,
+        )
+        assert fresh_state.get_task_state("task-a").skip_reason == SkipReason.NOT_DUE
+
+    def test_independent_tasks_have_independent_state(self, fresh_state):
+        _update(fresh_state, "task-a", TaskStatus.SUCCESS)
+        _update(fresh_state, "task-b", TaskStatus.FAILURE)
+        assert fresh_state.get_task_state("task-a").last_status == TaskStatus.SUCCESS
+        assert fresh_state.get_task_state("task-b").last_status == TaskStatus.FAILURE
+
+
+# ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
 
