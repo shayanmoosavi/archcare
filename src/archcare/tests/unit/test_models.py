@@ -92,6 +92,75 @@ class TestTasksConfig:
 
 
 # ---------------------------------------------------------------------------
+# AppSettings — path computation
+# ---------------------------------------------------------------------------
+
+
+class TestAppSettingsPaths:
+    def test_home_dir_is_path_home_when_user_is_none(self, monkeypatch):
+        monkeypatch.delenv("SUDO_USER", raising=False)
+        settings = AppSettings(user=None)
+        assert settings.home_dir == Path.home()
+
+    def test_home_dir_uses_user_name(self, monkeypatch):
+        monkeypatch.delenv("SUDO_USER", raising=False)
+        settings = AppSettings(user="alice")
+        assert settings.home_dir == Path("/home/alice")
+
+    def test_sudo_user_overrides_user(self, monkeypatch):
+        monkeypatch.setenv("SUDO_USER", "bob")
+        settings = AppSettings(user="alice")
+        assert settings.home_dir == Path("/home/bob")
+
+    def test_log_dir_is_under_home(self, monkeypatch):
+        monkeypatch.delenv("SUDO_USER", raising=False)
+        s = AppSettings(user="alice")
+        assert s.log_dir == Path("/home/alice/.local/state/archcare/logs")
+
+    def test_config_dir_is_under_home(self, monkeypatch):
+        monkeypatch.delenv("SUDO_USER", raising=False)
+        s = AppSettings(user="alice")
+        assert s.config_dir == Path("/home/alice/.config/archcare")
+
+    def test_state_file_is_under_home(self, monkeypatch):
+        monkeypatch.delenv("SUDO_USER", raising=False)
+        s = AppSettings(user="alice")
+        assert s.state_file == Path("/home/alice/.local/state/archcare/state.json")
+
+    def test_report_dir_is_under_home(self, monkeypatch):
+        monkeypatch.delenv("SUDO_USER", raising=False)
+        s = AppSettings(user="alice")
+        assert s.report_dir == Path("/home/alice/.local/state/archcare/reports")
+
+
+class TestAppSettingsEnsureDirectories:
+    def test_all_required_directories_are_created(self, tmp_path, monkeypatch):
+        """
+        Redirect Path.home() to tmp_path so ensure_directories() writes to a
+        temp location instead of the real home directory.
+        """
+        monkeypatch.delenv("SUDO_USER", raising=False)
+        monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+        settings = AppSettings(user=None)
+
+        settings.ensure_directories()
+
+        assert settings.log_dir.exists()
+        assert settings.config_dir.exists()
+        assert settings.state_file.parent.exists()
+        assert settings.report_dir.exists()
+
+    def test_ensure_directories_is_idempotent(self, tmp_path, monkeypatch):
+        """Calling twice must not raise even if directories already exist."""
+        monkeypatch.delenv("SUDO_USER", raising=False)
+        monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+        settings = AppSettings(user=None)
+
+        settings.ensure_directories()
+        settings.ensure_directories()  # must not raise
+
+
+# ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
 
