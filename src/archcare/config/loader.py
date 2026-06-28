@@ -120,7 +120,6 @@ class ConfigLoader:
         Returns:
             AppSettings object
         """
-        from archcare.utils.output import print_error
 
         settings_path = settings_file or self.config_dir / "settings.toml"
 
@@ -169,7 +168,7 @@ class ConfigLoader:
         # Load default settings if settings.toml is invalid
         except ValidationError as e:
             logger.error("Invalid settings.toml")
-            print_error(f"{e}")
+            logger.error(f"{e}")
             logger.warning("Using default settings")
             self._settings = self.load_default_settings()
 
