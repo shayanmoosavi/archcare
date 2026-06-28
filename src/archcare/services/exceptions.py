@@ -13,7 +13,7 @@ class TaskNotFoundError(ArchcareError):
         super().__init__(f"Task not found: {task_name}")
 
 
-class TasksFileEmptyError(ArchcareError):
+class InvalidTasksFileError(ArchcareError):
     """Raised when the tasks file is empty."""
 
     def __init__(self):

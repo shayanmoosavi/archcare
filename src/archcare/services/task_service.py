@@ -9,7 +9,7 @@ from archcare.core import TaskExecutor, TaskScheduler
 from archcare.services.exceptions import (
     InvalidTaskTypeError,
     TaskNotFoundError,
-    TasksFileEmptyError,
+    InvalidTasksFileError,
 )
 from archcare.services.responses import (
     TaskListResponse,
@@ -38,7 +38,7 @@ class TaskService:
         """
         tasks_config = self._executor.config_loader.load_tasks()
         if not tasks_config.tasks:
-            raise TasksFileEmptyError()
+            raise InvalidTasksFileError()
         try:
             tasks_config.get_task(task_name)
         except ValueError:
@@ -70,7 +70,7 @@ class TaskService:
         """
         tasks_config = self._executor.config_loader.load_tasks()
         if not tasks_config.tasks:
-            raise TasksFileEmptyError()
+            raise InvalidTasksFileError()
 
         match task_type:
             case TaskType.AUTOMATED.value:
@@ -102,7 +102,7 @@ class TaskService:
         """
         tasks_config = self._executor.config_loader.load_tasks()
         if not tasks_config.tasks:
-            raise TasksFileEmptyError()
+            raise InvalidTasksFileError()
         scheduler = TaskScheduler(tasks_config, self._executor.state)
 
         if task_name:
