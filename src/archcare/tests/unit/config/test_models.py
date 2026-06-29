@@ -6,7 +6,14 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from archcare.config import AppSettings, AppState, SkipReason, TasksConfig, TaskStatus
+from archcare.config import (
+    AppSettings,
+    AppState,
+    SkipReason,
+    TaskConfig,
+    TasksConfig,
+    TaskStatus,
+)
 from archcare.config.models import MaintenanceCheckSettings, MirrorlistSettings
 
 # ---------------------------------------------------------------------------
@@ -15,7 +22,7 @@ from archcare.config.models import MaintenanceCheckSettings, MirrorlistSettings
 
 
 class TestTaskConfig:
-    def test_valid_config_is_accepted(self, automated_task):
+    def test_valid_config_is_accepted(self, automated_task: TaskConfig):
         assert automated_task.name == "test-auto-task"
         assert automated_task.enabled is True
         assert automated_task.frequency == 7
@@ -47,15 +54,19 @@ class TestTaskConfig:
 
 
 class TestTasksConfig:
-    def test_get_task_returns_matching_config(self, tasks_config, automated_task):
+    def test_get_task_returns_matching_config(
+        self, tasks_config: TasksConfig, automated_task: TaskConfig
+    ):
         result = tasks_config.get_task(automated_task.name)
         assert result == automated_task
 
-    def test_get_task_raises_for_unknown_name(self, tasks_config):
+    def test_get_task_raises_for_unknown_name(self, tasks_config: TasksConfig):
         with pytest.raises(ValueError):
             tasks_config.get_task("does-not-exist")
 
-    def test_get_enabled_tasks_excludes_disabled(self, automated_task, disabled_task):
+    def test_get_enabled_tasks_excludes_disabled(
+        self, automated_task: TaskConfig, disabled_task: TaskConfig
+    ):
         config = TasksConfig(
             tasks={
                 automated_task.name: automated_task,
@@ -66,28 +77,36 @@ class TestTasksConfig:
         assert automated_task.name in enabled
         assert disabled_task.name not in enabled
 
-    def test_get_enabled_tasks_includes_all_when_all_enabled(self, tasks_config):
+    def test_get_enabled_tasks_includes_all_when_all_enabled(
+        self, tasks_config: TasksConfig
+    ):
         assert len(tasks_config.get_enabled_tasks()) == len(tasks_config.tasks)
 
     def test_get_tasks_by_type_returns_automated(
-        self, tasks_config, automated_task, manual_task
+        self,
+        tasks_config: TasksConfig,
+        automated_task: TaskConfig,
+        manual_task: TaskConfig,
     ):
         result = tasks_config.get_tasks_by_type("automated")
         assert automated_task.name in result
         assert manual_task.name not in result
 
     def test_get_tasks_by_type_returns_manual(
-        self, tasks_config, automated_task, manual_task
+        self,
+        tasks_config: TasksConfig,
+        automated_task: TaskConfig,
+        manual_task: TaskConfig,
     ):
         result = tasks_config.get_tasks_by_type("manual")
         assert manual_task.name in result
         assert automated_task.name not in result
 
-    def test_get_tasks_by_type_raises_for_invalid_type(self, tasks_config):
+    def test_get_tasks_by_type_raises_for_invalid_type(self, tasks_config: TasksConfig):
         with pytest.raises(ValueError):
             tasks_config.get_tasks_by_type("weekly")
 
-    def test_empty_config_has_no_enabled_tasks(self, empty_tasks_config):
+    def test_empty_config_has_no_enabled_tasks(self, empty_tasks_config: TasksConfig):
         assert empty_tasks_config.get_enabled_tasks() == {}
 
 
@@ -166,40 +185,42 @@ class TestAppSettingsEnsureDirectories:
 
 
 class TestAppState:
-    def test_get_task_state_creates_new_state_for_unknown_task(self, fresh_state):
+    def test_get_task_state_creates_new_state_for_unknown_task(
+        self, fresh_state: AppState
+    ):
         state = fresh_state.get_task_state("brand-new")
         assert state.last_run is None
         assert state.run_count == 0
 
-    def test_get_task_state_returns_same_object_each_time(self, fresh_state):
+    def test_get_task_state_returns_same_object_each_time(self, fresh_state: AppState):
         first = fresh_state.get_task_state("some-task")
         second = fresh_state.get_task_state("some-task")
         assert first is second
 
-    def test_update_sets_last_run_to_now(self, fresh_state):
+    def test_update_sets_last_run_to_now(self, fresh_state: AppState):
         before = datetime.now()
         _update(fresh_state, "task-a", TaskStatus.SUCCESS)
-        assert fresh_state.get_task_state("task-a").last_run >= before
+        assert fresh_state.get_task_state("task-a").last_run >= before  # ty:ignore[unsupported-operator]
 
-    def test_update_records_status(self, fresh_state):
+    def test_update_records_status(self, fresh_state: AppState):
         _update(fresh_state, "task-a", TaskStatus.FAILURE)
         assert fresh_state.get_task_state("task-a").last_status == TaskStatus.FAILURE
 
-    def test_run_count_increments_on_each_update(self, fresh_state):
+    def test_run_count_increments_on_each_update(self, fresh_state: AppState):
         for _ in range(3):
             _update(fresh_state, "task-a", TaskStatus.SUCCESS)
         assert fresh_state.get_task_state("task-a").run_count == 3
 
-    def test_update_stores_next_due(self, fresh_state):
+    def test_update_stores_next_due(self, fresh_state: AppState):
         due = datetime.now() + timedelta(days=7)
         _update(fresh_state, "task-a", TaskStatus.SUCCESS, next_due=due)
         assert fresh_state.get_task_state("task-a").next_due == due
 
-    def test_update_stores_error_message(self, fresh_state):
+    def test_update_stores_error_message(self, fresh_state: AppState):
         _update(fresh_state, "task-a", TaskStatus.FAILURE, error="timeout")
         assert fresh_state.get_task_state("task-a").last_error == "timeout"
 
-    def test_update_stores_skip_reason(self, fresh_state):
+    def test_update_stores_skip_reason(self, fresh_state: AppState):
         _update(
             fresh_state,
             "task-a",
@@ -208,7 +229,7 @@ class TestAppState:
         )
         assert fresh_state.get_task_state("task-a").skip_reason == SkipReason.NOT_DUE
 
-    def test_independent_tasks_have_independent_state(self, fresh_state):
+    def test_independent_tasks_have_independent_state(self, fresh_state: AppState):
         _update(fresh_state, "task-a", TaskStatus.SUCCESS)
         _update(fresh_state, "task-b", TaskStatus.FAILURE)
         assert fresh_state.get_task_state("task-a").last_status == TaskStatus.SUCCESS
@@ -269,7 +290,7 @@ class TestMaintenanceCheckSettings:
 # ---------------------------------------------------------------------------
 
 
-def _make_task(**overrides):
+def _make_task(**overrides) -> TaskConfig:
     """Build a minimal TaskConfig, merging any overrides."""
     from archcare.config import TaskConfig
 

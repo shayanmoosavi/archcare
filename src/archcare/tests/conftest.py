@@ -61,7 +61,7 @@ def disabled_task() -> TaskConfig:
 
 
 @pytest.fixture
-def tasks_config(automated_task, manual_task) -> TasksConfig:
+def tasks_config(automated_task: TaskConfig, manual_task: TaskConfig) -> TasksConfig:
     """Two-task config: one automated, one manual, both enabled."""
     return TasksConfig(
         tasks={
@@ -88,7 +88,7 @@ def fresh_state() -> AppState:
 
 
 @pytest.fixture
-def state_with_recent_run(automated_task) -> AppState:
+def state_with_recent_run(automated_task: TaskConfig) -> AppState:
     """automated_task ran successfully just now; next_due is 7 days away."""
     state = AppState()
     state.update_task_state(
@@ -103,7 +103,7 @@ def state_with_recent_run(automated_task) -> AppState:
 
 
 @pytest.fixture
-def state_with_overdue_run(automated_task) -> AppState:
+def state_with_overdue_run(automated_task: TaskConfig) -> AppState:
     """automated_task last ran 10 days ago with a 7-day frequency → overdue."""
     state = AppState()
     state.update_task_state(
@@ -136,7 +136,7 @@ def mock_task_result() -> Mock:
 
 
 @pytest.fixture
-def mock_executor(tasks_config, fresh_state) -> MagicMock:
+def mock_executor(tasks_config: TasksConfig, fresh_state: AppState) -> MagicMock:
     """
     Mock TaskExecutor with a two-task config and fresh state.
 

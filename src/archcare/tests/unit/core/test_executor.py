@@ -10,6 +10,7 @@ from archcare.config import (
     AppState,
     ConfigLoader,
     SkipReason,
+    TaskConfig,
     TasksConfig,
 )
 from archcare.core import TaskExecutor
@@ -94,7 +95,10 @@ class TestHandleDisabledTask:
     """_handle_disabled_task is exercised when enabled=False in the config."""
 
     def test_notify_called_when_task_is_disabled(
-        self, tasks_config_with_disabled, fresh_state, disabled_task
+        self,
+        tasks_config_with_disabled: TasksConfig,
+        fresh_state: AppState,
+        disabled_task: TaskConfig,
     ):
         interaction = RecordingInteraction(confirm_response=False)
         executor = _make_executor(tasks_config_with_disabled, fresh_state, interaction)
@@ -105,7 +109,10 @@ class TestHandleDisabledTask:
         assert any("disabled" in msg.lower() for msg, _ in interaction.notifications)
 
     def test_confirm_called_exactly_once_in_interactive_mode(
-        self, tasks_config_with_disabled, fresh_state, disabled_task
+        self,
+        tasks_config_with_disabled: TasksConfig,
+        fresh_state: AppState,
+        disabled_task: TaskConfig,
     ):
         interaction = RecordingInteraction(confirm_response=False)
         executor = _make_executor(tasks_config_with_disabled, fresh_state, interaction)
@@ -115,7 +122,10 @@ class TestHandleDisabledTask:
         assert len(interaction.confirmations) == 1
 
     def test_user_declined_returns_user_cancelled(
-        self, tasks_config_with_disabled, fresh_state, disabled_task
+        self,
+        tasks_config_with_disabled: TasksConfig,
+        fresh_state: AppState,
+        disabled_task: TaskConfig,
     ):
         interaction = RecordingInteraction(confirm_response=False)
         executor = _make_executor(tasks_config_with_disabled, fresh_state, interaction)
@@ -126,7 +136,10 @@ class TestHandleDisabledTask:
         assert result.skip_reason == SkipReason.USER_CANCELLED
 
     def test_user_confirmed_task_actually_executes(
-        self, tasks_config_with_disabled, fresh_state, disabled_task
+        self,
+        tasks_config_with_disabled: TasksConfig,
+        fresh_state: AppState,
+        disabled_task: TaskConfig,
     ):
         interaction = RecordingInteraction(confirm_response=True)
         executor = _make_executor(tasks_config_with_disabled, fresh_state, interaction)
@@ -136,7 +149,10 @@ class TestHandleDisabledTask:
         assert result.is_success()
 
     def test_systemd_mode_skips_without_prompting(
-        self, tasks_config_with_disabled, fresh_state, disabled_task
+        self,
+        tasks_config_with_disabled: TasksConfig,
+        fresh_state: AppState,
+        disabled_task: TaskConfig,
     ):
         """user=<name> signals systemd mode; no TTY, so no confirm prompt."""
         interaction = RecordingInteraction(confirm_response=True)
@@ -160,7 +176,10 @@ class TestHandleNotDueTask:
     """_handle_due_task is exercised when the task has a future next_due."""
 
     def test_notify_called_when_task_is_not_due(
-        self, tasks_config, state_with_recent_run, automated_task
+        self,
+        tasks_config: TasksConfig,
+        state_with_recent_run: AppState,
+        automated_task: TaskConfig,
     ):
         interaction = RecordingInteraction(confirm_response=False)
         executor = _make_executor(tasks_config, state_with_recent_run, interaction)
@@ -171,7 +190,10 @@ class TestHandleNotDueTask:
         assert any("not due" in msg.lower() for msg, _ in interaction.notifications)
 
     def test_user_declined_returns_user_cancelled(
-        self, tasks_config, state_with_recent_run, automated_task
+        self,
+        tasks_config: TasksConfig,
+        state_with_recent_run: AppState,
+        automated_task: TaskConfig,
     ):
         interaction = RecordingInteraction(confirm_response=False)
         executor = _make_executor(tasks_config, state_with_recent_run, interaction)
@@ -182,7 +204,10 @@ class TestHandleNotDueTask:
         assert result.skip_reason == SkipReason.USER_CANCELLED
 
     def test_user_confirmed_task_actually_executes(
-        self, tasks_config, state_with_recent_run, automated_task
+        self,
+        tasks_config: TasksConfig,
+        state_with_recent_run: AppState,
+        automated_task: TaskConfig,
     ):
         interaction = RecordingInteraction(confirm_response=True)
         executor = _make_executor(tasks_config, state_with_recent_run, interaction)
@@ -192,7 +217,10 @@ class TestHandleNotDueTask:
         assert result.is_success()
 
     def test_systemd_mode_skips_without_prompting(
-        self, tasks_config, state_with_recent_run, automated_task
+        self,
+        tasks_config: TasksConfig,
+        state_with_recent_run: AppState,
+        automated_task: TaskConfig,
     ):
         interaction = RecordingInteraction(confirm_response=True)
         executor = _make_executor(
@@ -215,7 +243,10 @@ class TestForceFlag:
     """force=True bypasses both the disabled check and the due check."""
 
     def test_force_runs_disabled_task_without_prompting(
-        self, tasks_config_with_disabled, fresh_state, disabled_task
+        self,
+        tasks_config_with_disabled: TasksConfig,
+        fresh_state: AppState,
+        disabled_task: TaskConfig,
     ):
         interaction = RecordingInteraction(confirm_response=False)
         executor = _make_executor(tasks_config_with_disabled, fresh_state, interaction)
@@ -226,7 +257,10 @@ class TestForceFlag:
         assert len(interaction.confirmations) == 0
 
     def test_force_runs_not_due_task_without_prompting(
-        self, tasks_config, state_with_recent_run, automated_task
+        self,
+        tasks_config: TasksConfig,
+        state_with_recent_run: AppState,
+        automated_task: TaskConfig,
     ):
         interaction = RecordingInteraction(confirm_response=False)
         executor = _make_executor(tasks_config, state_with_recent_run, interaction)
@@ -251,17 +285,23 @@ class TestUpdateState:
     # -- save_state ----------------------------------------------------------
 
     def test_save_state_called_after_successful_run(
-        self, tasks_config, fresh_state, automated_task
+        self,
+        tasks_config: TasksConfig,
+        fresh_state: AppState,
+        automated_task: TaskConfig,
     ):
         interaction = RecordingInteraction()
         executor = _make_executor(tasks_config, fresh_state, interaction)
 
         executor.execute_task(automated_task.name)
 
-        executor.config_loader.save_state.assert_called_once()  # pyright: ignore[reportAttributeAccessIssue]
+        executor.config_loader.save_state.assert_called_once()  # pyright: ignore[reportAttributeAccessIssue]  # ty:ignore[unresolved-attribute]
 
     def test_save_state_called_even_when_skipped(
-        self, tasks_config, state_with_recent_run, automated_task
+        self,
+        tasks_config: TasksConfig,
+        state_with_recent_run: AppState,
+        automated_task: TaskConfig,
     ):
         """State must be persisted for skipped tasks so the scheduler stays
         in sync — verifies the update path runs regardless of outcome."""
@@ -270,12 +310,15 @@ class TestUpdateState:
 
         executor.execute_task(automated_task.name)
 
-        executor.config_loader.save_state.assert_called_once()  # pyright: ignore[reportAttributeAccessIssue]
+        executor.config_loader.save_state.assert_called_once()  # pyright: ignore[reportAttributeAccessIssue]  # ty:ignore[unresolved-attribute]
 
     # -- next_due calculation ------------------------------------------------
 
     def test_successful_run_sets_next_due_in_future(
-        self, tasks_config, fresh_state, automated_task
+        self,
+        tasks_config: TasksConfig,
+        fresh_state: AppState,
+        automated_task: TaskConfig,
     ):
         interaction = RecordingInteraction()
         executor = _make_executor(tasks_config, fresh_state, interaction)
@@ -287,7 +330,10 @@ class TestUpdateState:
         assert task_state.next_due > datetime.now()
 
     def test_successful_next_due_respects_task_frequency(
-        self, tasks_config, fresh_state, automated_task
+        self,
+        tasks_config: TasksConfig,
+        fresh_state: AppState,
+        automated_task: TaskConfig,
     ):
         interaction = RecordingInteraction()
         executor = _make_executor(tasks_config, fresh_state, interaction)
@@ -299,10 +345,13 @@ class TestUpdateState:
         task_state = fresh_state.get_task_state(automated_task.name)
         expected_min = before + timedelta(days=automated_task.frequency)
         expected_max = after + timedelta(days=automated_task.frequency)
-        assert expected_min <= task_state.next_due <= expected_max
+        assert expected_min <= task_state.next_due <= expected_max  # ty:ignore[unsupported-operator]
 
     def test_skipped_not_due_preserves_existing_next_due(
-        self, tasks_config, state_with_recent_run, automated_task
+        self,
+        tasks_config: TasksConfig,
+        state_with_recent_run: AppState,
+        automated_task: TaskConfig,
     ):
         """NOT_DUE skip must not overwrite the previously calculated next_due."""
         original_next_due = state_with_recent_run.get_task_state(
@@ -317,7 +366,10 @@ class TestUpdateState:
         assert task_state.next_due == original_next_due
 
     def test_disabled_skip_sets_next_due_to_none(
-        self, tasks_config_with_disabled, fresh_state, disabled_task
+        self,
+        tasks_config_with_disabled: TasksConfig,
+        fresh_state: AppState,
+        disabled_task: TaskConfig,
     ):
         """Disabled tasks have no schedule, so next_due should be None."""
         interaction = RecordingInteraction(confirm_response=False)
@@ -330,7 +382,11 @@ class TestUpdateState:
     # -- chown guard ---------------------------------------------------------
 
     def test_chown_not_called_when_not_root(
-        self, tasks_config, fresh_state, automated_task, monkeypatch
+        self,
+        tasks_config: TasksConfig,
+        fresh_state: AppState,
+        automated_task: TaskConfig,
+        monkeypatch,
     ):
         monkeypatch.setenv("ARCHCARE_USER", "alice")
         with patch("archcare.core.executor.change_ownership_to_user") as mock_chown:
@@ -340,7 +396,10 @@ class TestUpdateState:
             mock_chown.assert_not_called()
 
     def test_chown_not_called_when_archcare_user_absent(
-        self, tasks_config, fresh_state, automated_task
+        self,
+        tasks_config: TasksConfig,
+        fresh_state: AppState,
+        automated_task: TaskConfig,
     ):
         """ARCHCARE_USER is cleared by the autouse clear_archcare_user fixture."""
         with (
@@ -354,7 +413,11 @@ class TestUpdateState:
         mock_chown.assert_not_called()
 
     def test_chown_called_for_state_file_and_parent_when_root_via_systemd(
-        self, tasks_config, fresh_state, automated_task, monkeypatch
+        self,
+        tasks_config: TasksConfig,
+        fresh_state: AppState,
+        automated_task: TaskConfig,
+        monkeypatch,
     ):
 
         monkeypatch.setenv("ARCHCARE_USER", "alice")
@@ -385,7 +448,9 @@ class TestUpdateState:
 
 
 @pytest.fixture
-def tasks_config_with_disabled(automated_task, disabled_task) -> TasksConfig:
+def tasks_config_with_disabled(
+    automated_task: TaskConfig, disabled_task: TaskConfig
+) -> TasksConfig:
     """Config containing both an enabled and a disabled task."""
     return TasksConfig(
         tasks={
