@@ -114,6 +114,9 @@ class ConfigLoader:
         try:
             with open(services_path, "rb") as f:
                 data = tomllib.load(f)
+            if not data:
+                logger.warning("Ignored services file is empty, ignoring no services")
+                return IgnoredServicesConfig(services=[])
 
             # Expected format: services = ["service1", "service2"]
             config = IgnoredServicesConfig(**data)
@@ -255,6 +258,9 @@ class ConfigLoader:
         try:
             with open(state_path, "r") as f:
                 data = json.load(f)
+            if not data:
+                logger.warning("State file is empty, starting with fresh state")
+                return AppState()
             return AppState(**data)
         except json.JSONDecodeError as e:
             logger.error(str(e))
