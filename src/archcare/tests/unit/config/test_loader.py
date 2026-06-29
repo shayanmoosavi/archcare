@@ -46,6 +46,14 @@ class TestLoadTasks:
         config: TasksConfig = loader.load_tasks()
         assert config.tasks == {}
 
+    def test_empty_file_returns_empty_config(
+        self, loader: ConfigLoader, config_dir: Path
+    ):
+        tasks_file: Path = config_dir / "tasks.toml"
+        tasks_file.touch()
+        config: TasksConfig = loader.load_tasks(tasks_file)
+        assert config.tasks == {}
+
     def test_valid_file_parses_tasks_correctly(
         self, loader: ConfigLoader, config_dir: Path
     ):
@@ -105,6 +113,14 @@ class TestLoadTasks:
 class TestLoadIgnoredServices:
     def test_missing_file_returns_empty_list(self, loader: ConfigLoader):
         config = loader.load_ignored_services()
+        assert config.services == []
+
+    def test_empty_file_returns_empty_list(
+        self, loader: ConfigLoader, config_dir: Path
+    ):
+        services_file: Path = config_dir / "ignored-services.toml"
+        services_file.touch()
+        config = loader.load_ignored_services(services_file)
         assert config.services == []
 
     def test_valid_file_loads_services(self, loader: ConfigLoader, config_dir: Path):
