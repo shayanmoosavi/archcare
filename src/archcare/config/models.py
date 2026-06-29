@@ -10,7 +10,14 @@ from os import getenv
 from pathlib import Path
 from typing import Self
 
-from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    computed_field,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 
 
 class LogLevel(Enum):
@@ -19,6 +26,9 @@ class LogLevel(Enum):
     WARNING = "WARNING"
     ERROR = "ERROR"
     CRITICAL = "CRITICAL"
+
+    def __str__(self) -> str:
+        return self.value
 
 
 class TaskType(Enum):
@@ -208,6 +218,11 @@ class MirrorlistSettings(BaseModel):
             raise ValueError(f"sort must be one of {valid_sorts}")
         return v
 
+    @field_serializer("path")
+    def serialize_path(self, v: Path) -> str:
+        """Serialize the mirrorlist path to a string."""
+        return str(v)
+
 
 class MaintenanceCheckSettings(BaseModel):
     """Settings for maintenance check task."""
@@ -346,6 +361,10 @@ class AppSettings(BaseModel):
             raise ValueError("All paths must be valid and accessible.")
 
         return self
+
+    @field_serializer("log_level")
+    def serialize_log_level(self, log_level: LogLevel) -> str:
+        return str(log_level)
 
     def ensure_directories(self) -> None:
         """Create necessary directories if they don't exist."""
