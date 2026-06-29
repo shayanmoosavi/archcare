@@ -95,3 +95,42 @@ class TestLoadTasks:
 
         config: TasksConfig = loader.load_tasks()
         assert config.tasks == {}
+
+
+# ---------------------------------------------------------------------------
+# ConfigLoader.load_ignored_services
+# ---------------------------------------------------------------------------
+
+
+class TestLoadIgnoredServices:
+    def test_missing_file_returns_empty_list(self, loader: ConfigLoader):
+        config = loader.load_ignored_services()
+        assert config.services == []
+
+    def test_valid_file_loads_services(self, loader: ConfigLoader, config_dir: Path):
+        services_file = config_dir / "ignored-services.toml"
+        with open(services_file, "wb") as f:
+            tomli_w.dump({"services": ["NetworkManager-wait-online.service"]}, f)
+
+        config = loader.load_ignored_services()
+        assert "NetworkManager-wait-online.service" in config.services
+
+    def test_toml_decode_error_returns_empty_list(
+        self, loader: ConfigLoader, config_dir: Path
+    ):
+        services_file = config_dir / "ignored-services.toml"
+        services_file.write_text("services = [unclosed array")
+
+        config = loader.load_ignored_services()
+        assert config.services == []
+
+    def test_validation_error_returns_empty_list(
+        self, loader: ConfigLoader, config_dir: Path
+    ):
+        services_file = config_dir / "ignored-services.toml"
+        # Should be a list of strings, passing an int
+        with open(services_file, "wb") as f:
+            tomli_w.dump({"services": 123}, f)
+
+        config = loader.load_ignored_services()
+        assert config.services == []
