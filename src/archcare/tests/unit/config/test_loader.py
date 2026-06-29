@@ -234,10 +234,11 @@ class TestConfigLoaderSettings:
     def test_valid_file_overrides_defaults(
         self, loader: ConfigLoader, config_dir: Path
     ):
-        settings_toml = {"log_level": "DEBUG", "dry_run": True}
-        settings_file = config_dir / "settings.toml"
-        with open(settings_file, "wb") as f:
-            tomli_w.dump(settings_toml, f)
+        settings_toml = """\
+log_level = "DEBUG"
+dry_run = true
+"""
+        _w(config_dir / "settings.toml", settings_toml)
 
         settings = loader.load_settings()
         assert settings.log_level == LogLevel.DEBUG
@@ -246,8 +247,7 @@ class TestConfigLoaderSettings:
     def test_toml_decode_error_returns_defaults(
         self, loader: ConfigLoader, config_dir: Path
     ):
-        settings_file = config_dir / "settings.toml"
-        settings_file.write_text("invalid syntax = =")
+        _w(config_dir / "settings.toml", _BAD_TOML)
 
         settings = loader.load_settings()
         default_settings = loader.load_default_settings()
@@ -256,10 +256,8 @@ class TestConfigLoaderSettings:
     def test_validation_error_returns_defaults(
         self, loader: ConfigLoader, config_dir: Path
     ):
-        settings_toml = {"log_retention_days": "seven"}  # Expected int
-        settings_file = config_dir / "settings.toml"
-        with open(settings_file, "wb") as f:
-            tomli_w.dump(settings_toml, f)
+        # Expected int
+        _w(config_dir / "settings.toml", 'log_retention_days = "seven"\n')
 
         settings = loader.load_settings()
         # Should fallback gracefully rather than raising ValidationError
