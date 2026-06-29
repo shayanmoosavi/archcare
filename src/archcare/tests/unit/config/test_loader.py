@@ -15,6 +15,7 @@ from archcare.config import (
     LogLevel,
     TasksConfig,
     TaskStatus,
+    TaskType,
     create_default_config_files,
 )
 
@@ -50,6 +51,28 @@ def loader(config_dir: Path) -> ConfigLoader:
 
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _w(path: Path, content: str) -> None:
+    """Write content to path."""
+    path.write_text(content)
+
+
+# Minimal valid task block reused across test classes
+_TASK_TOML = """\
+[test-task]
+type = "automated"
+frequency = 7
+description = "A test task"
+command = "test-task"
+enabled = true
+"""
+
+_BAD_TOML = "[[[ this is not valid toml"
+
+# ---------------------------------------------------------------------------
 # ConfigLoader.__init__
 # ---------------------------------------------------------------------------
 
@@ -83,32 +106,12 @@ class TestLoadTasks:
         config: TasksConfig = loader.load_tasks(tasks_file)
         assert config.tasks == {}
 
-    def test_valid_file_parses_tasks_correctly(
-        self, loader: ConfigLoader, config_dir: Path
-    ):
-        tasks_toml: dict[str, Any] = {
-            "test-task": {
-                "type": "automated",
-                "frequency": 7,
-                "description": "A test task",
-                "command": "test-task",
-                "enabled": True,
-            }
-        }
-        tasks_file: Path = config_dir / "tasks.toml"
-        with open(tasks_file, "wb") as f:
-            tomli_w.dump(tasks_toml, f)
-
-        config: TasksConfig = loader.load_tasks()
-        assert "test-task" in config.tasks
-        assert config.tasks["test-task"].frequency == 7
-
     def test_toml_decode_error_returns_empty_config(
         self, loader: ConfigLoader, config_dir: Path
     ):
         """A syntactically invalid TOML file should gracefully return empty tasks."""
         tasks_file: Path = config_dir / "tasks.toml"
-        tasks_file.write_text("[broken toml\nkey = value")
+        _w(tasks_file, _BAD_TOML)
 
         config: TasksConfig = loader.load_tasks()
         assert config.tasks == {}
@@ -117,21 +120,53 @@ class TestLoadTasks:
         self, loader: ConfigLoader, config_dir: Path
     ):
         """A valid TOML file with wrong schema types should return empty tasks."""
-        tasks_toml: dict[str, Any] = {
-            "test-task": {
-                "type": "automated",
-                "frequency": "not-an-integer",  # Causes ValidationError
-                "description": "A test task",
-                "command": "test-task",
-                "enabled": True,
-            }
-        }
-        tasks_file: Path = config_dir / "tasks.toml"
-        with open(tasks_file, "wb") as f:
-            tomli_w.dump(tasks_toml, f)
+        # frequency = -1 fails TaskConfig validation
+        _w(
+            config_dir / "tasks.toml",
+            """\
+[bad-task]
+type = "automated"
+frequency = -1
+description = "Bad"
+command = "bad-task"
+enabled = true
+""",
+        )
 
         config: TasksConfig = loader.load_tasks()
         assert config.tasks == {}
+
+    def test_valid_file_parses_single_task_correctly(
+        self, loader: ConfigLoader, config_dir: Path
+    ):
+        tasks_file: Path = config_dir / "tasks.toml"
+        _w(tasks_file, _TASK_TOML)
+
+        config: TasksConfig = loader.load_tasks()
+        assert "test-task" in config.tasks
+
+        test_task = config.tasks["test-task"]
+        assert test_task.task_type == TaskType.AUTOMATED
+        assert test_task.frequency == 7
+        assert test_task.description == "A test task"
+        assert test_task.command == "test-task"
+        assert test_task.enabled is True
+
+    def test_loads_multiple_tasks(self, config_dir, loader):
+        _w(
+            config_dir / "tasks.toml",
+            _TASK_TOML
+            + """\
+[second-task]
+type = "manual"
+frequency = 30
+description = "Second"
+command = "second-task"
+enabled = true
+""",
+        )
+
+        assert len(loader.load_tasks().tasks) == 2
 
 
 # ---------------------------------------------------------------------------
