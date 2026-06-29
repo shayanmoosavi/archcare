@@ -12,6 +12,7 @@ from archcare.config import (
     AppSettings,
     AppState,
     ConfigLoader,
+    LogLevel,
     TasksConfig,
     TaskStatus,
     create_default_config_files,
@@ -23,10 +24,22 @@ from archcare.config import (
 
 
 @pytest.fixture
-def config_dir(tmp_path) -> Path:
+def mock_home_dir(monkeypatch, tmp_path):
+    """
+    Prevent AppSettings from hitting the real /home directory.
+    By patching the property descriptor on the class, we force all derived
+    paths (config, state, logs, reports) to safely build inside tmp_path.
+    """
+    home_dir: Path = tmp_path / "home/testuser"
+    monkeypatch.setattr(AppSettings, "home_dir", property(lambda _: home_dir))
+    return home_dir
+
+
+@pytest.fixture
+def config_dir(mock_home_dir) -> Path:
     """Provides an isolated configuration directory."""
-    d: Path = tmp_path / "archcare_config"
-    d.mkdir()
+    d: Path = mock_home_dir / ".config/archcare"
+    d.mkdir(parents=True, exist_ok=True)
     return d
 
 
@@ -150,3 +163,69 @@ class TestLoadIgnoredServices:
 
         config = loader.load_ignored_services()
         assert config.services == []
+
+
+# ---------------------------------------------------------------------------
+# Loading / Saving Settings
+# ---------------------------------------------------------------------------
+
+
+class TestConfigLoaderSettings:
+    def test_missing_file_returns_defaults(self, loader: ConfigLoader):
+        settings = loader.load_settings()
+        default_settings = loader.load_default_settings()
+        assert settings == default_settings
+
+    def test_empty_file_returns_defaults(self, loader: ConfigLoader, config_dir: Path):
+        settings_file = config_dir / "settings.toml"
+        settings_file.touch()
+
+        settings = loader.load_settings()
+        default_settings = loader.load_default_settings()
+        assert settings == default_settings
+
+    def test_valid_file_overrides_defaults(
+        self, loader: ConfigLoader, config_dir: Path
+    ):
+        settings_toml = {"log_level": "DEBUG", "dry_run": True}
+        settings_file = config_dir / "settings.toml"
+        with open(settings_file, "wb") as f:
+            tomli_w.dump(settings_toml, f)
+
+        settings = loader.load_settings()
+        assert settings.log_level == LogLevel.DEBUG
+        assert settings.dry_run is True
+
+    def test_toml_decode_error_returns_defaults(
+        self, loader: ConfigLoader, config_dir: Path
+    ):
+        settings_file = config_dir / "settings.toml"
+        settings_file.write_text("invalid syntax = =")
+
+        settings = loader.load_settings()
+        default_settings = loader.load_default_settings()
+        assert settings == default_settings
+
+    def test_validation_error_returns_defaults(
+        self, loader: ConfigLoader, config_dir: Path
+    ):
+        settings_toml = {"log_retention_days": "seven"}  # Expected int
+        settings_file = config_dir / "settings.toml"
+        with open(settings_file, "wb") as f:
+            tomli_w.dump(settings_toml, f)
+
+        settings = loader.load_settings()
+        # Should fallback gracefully rather than raising ValidationError
+        assert isinstance(settings.log_retention_days, int)
+
+    def test_save_and_load_roundtrip(self, loader, config_dir):
+        settings = AppSettings(
+            user="testuser", log_level=LogLevel.WARNING, dry_run=True
+        )
+        loader.save_settings(settings)
+
+        fresh_loader = ConfigLoader(user="testuser", config_dir=config_dir)
+        loaded = fresh_loader.load_settings()
+
+        assert loaded.log_level == LogLevel.WARNING
+        assert loaded.dry_run is True
