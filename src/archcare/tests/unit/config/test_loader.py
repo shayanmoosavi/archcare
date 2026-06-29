@@ -231,19 +231,6 @@ class TestConfigLoaderSettings:
         default_settings = loader.load_default_settings()
         assert settings == default_settings
 
-    def test_valid_file_overrides_defaults(
-        self, loader: ConfigLoader, config_dir: Path
-    ):
-        settings_toml = """\
-log_level = "DEBUG"
-dry_run = true
-"""
-        _w(config_dir / "settings.toml", settings_toml)
-
-        settings = loader.load_settings()
-        assert settings.log_level == LogLevel.DEBUG
-        assert settings.dry_run is True
-
     def test_toml_decode_error_returns_defaults(
         self, loader: ConfigLoader, config_dir: Path
     ):
@@ -262,6 +249,57 @@ dry_run = true
         settings = loader.load_settings()
         # Should fallback gracefully rather than raising ValidationError
         assert isinstance(settings.log_retention_days, int)
+
+    def test_valid_file_overrides_defaults(
+        self, loader: ConfigLoader, config_dir: Path
+    ):
+        settings_toml = """\
+log_level = "DEBUG"
+dry_run = true
+"""
+        _w(config_dir / "settings.toml", settings_toml)
+
+        settings = loader.load_settings()
+        assert settings.log_level == LogLevel.DEBUG
+        assert settings.dry_run is True
+
+    def test_parses_mirrorlist_section(self, loader, config_dir):
+        _w(
+            config_dir / "settings.toml",
+            """\
+[mirrorlist]
+country = "France"
+protocol = "https"
+sort = "age"
+latest = 10
+number_of_mirrors = 3
+""",
+        )
+        settings = loader.load_settings()
+        assert settings.mirrorlist.country == "France"
+        assert settings.mirrorlist.number_of_mirrors == 3
+
+    def test_falls_back_to_defaults_on_invalid_value(self, loader, config_dir):
+        _w(config_dir / "settings.toml", 'log_level = "VERBOSE"\n')
+        assert loader.load_settings().log_level.value == "INFO"
+
+    def test_parses_maintenance_check_section(self, loader, config_dir):
+        _w(
+            config_dir / "settings.toml",
+            """\
+[maintenance_check]
+output_mode = "file"
+require_acknowledgment = false
+""",
+        )
+        settings = loader.load_settings()
+        assert settings.maintenance_check.output_mode == "file"
+        assert settings.maintenance_check.require_acknowledgment is False
+
+    def test_updates_cached_settings_after_loading(self, loader, config_dir):
+        _w(config_dir / "settings.toml", "log_retention_days = 99\n")
+        loader.load_settings()
+        assert loader._settings.log_retention_days == 99
 
     def test_save_and_load_roundtrip(self, loader, config_dir):
         settings = AppSettings(
