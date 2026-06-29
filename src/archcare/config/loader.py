@@ -83,10 +83,12 @@ class ConfigLoader:
             return config
 
         except tomllib.TOMLDecodeError as e:
-            logger.error(f"Invalid tasks.toml, cannot load tasks: {e}")
+            logger.error("Invalid tasks.toml, cannot load tasks")
+            logger.error(str(e))
             return TasksConfig(tasks={})
         except ValidationError as e:
-            logger.error(f"Invalid task configuration in tasks.toml: {e}")
+            logger.error("Invalid task configuration in tasks.toml")
+            logger.error(str(e))
             return TasksConfig(tasks={})
 
     def load_ignored_services(
@@ -120,10 +122,14 @@ class ConfigLoader:
             return config
 
         except tomllib.TOMLDecodeError as e:
-            logger.error(f"Corrupt ignored-services.toml, ignoring no services: {e}")
+            logger.error("Invalid ignored-services.toml, ignoring no services")
+            logger.error(str(e))
             return IgnoredServicesConfig(services=[])
         except ValidationError as e:
-            logger.error(f"Invalid ignored-services.toml, ignoring no services: {e}")
+            logger.error(
+                "Invalid service structure in ignored-services.toml, ignoring no services"
+            )
+            logger.error(str(e))
             return IgnoredServicesConfig(services=[])
 
     def load_settings(self, settings_file: Path | None = None) -> AppSettings:
