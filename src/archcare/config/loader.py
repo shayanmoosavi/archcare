@@ -63,6 +63,10 @@ class ConfigLoader:
             with open(tasks_path, "rb") as f:
                 data = tomllib.load(f)
 
+            if not data:
+                logger.error(f"Tasks file is empty: {tasks_path}")
+                return TasksConfig(tasks={})
+
             tasks_dict = {}
 
             for section_name, section_data in data.items():
