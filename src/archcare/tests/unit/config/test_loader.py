@@ -1,12 +1,12 @@
 """Unit tests for ConfigLoader and configuration initialization."""
 
 import json
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
 import pytest
-import tomli_w
 
 from archcare.config import (
     AppSettings,
@@ -48,6 +48,12 @@ def config_dir(mock_home_dir) -> Path:
 def loader(config_dir: Path) -> ConfigLoader:
     """ConfigLoader instance bound to the temporary config directory."""
     return ConfigLoader(user="testuser", config_dir=config_dir)
+
+
+@pytest.fixture
+def state_file(tmp_path) -> Path:
+    """Explicit state file path in tmp_path passed to load_state/save_state."""
+    return tmp_path / "state.json"
 
 
 # ---------------------------------------------------------------------------
@@ -312,3 +318,68 @@ require_acknowledgment = false
 
         assert loaded.log_level == LogLevel.WARNING
         assert loaded.dry_run is True
+
+
+# ---------------------------------------------------------------------------
+# Loading / Saving State
+# ---------------------------------------------------------------------------
+
+
+class TestStateManagement:
+    def test_returns_fresh_state_when_file_absent(self, loader, state_file):
+        state = loader.load_state(state_file=state_file)
+        assert isinstance(state, AppState)
+        assert state.tasks == {}
+
+    def test_returns_fresh_state_on_corrupt_json(self, loader, state_file):
+        state_file.write_text("{{{ not json")
+        assert loader.load_state(state_file=state_file).tasks == {}
+
+    def test_returns_fresh_state_on_invalid_structure(self, loader, state_file):
+        # tasks should be a dict; passing a string triggers ValidationError
+        state_file.write_text('{"tasks": "should be a dict not a string"}')
+        result = loader.load_state(state_file=state_file)
+        assert isinstance(result, AppState)
+        assert result.tasks == {}
+
+    def test_round_trip_preserves_last_status(self, loader, state_file):
+        state = AppState()
+        state.update_task_state(
+            task_name="test-task",
+            status=TaskStatus.SUCCESS,
+            next_due=datetime.now() + timedelta(days=7),
+            error=None,
+            skip_reason=None,
+            skip_message=None,
+        )
+        loader.save_state(state, state_file=state_file)
+
+        reloaded = loader.load_state(state_file=state_file)
+        assert reloaded.get_task_state("test-task").last_status == TaskStatus.SUCCESS
+
+    def test_round_trip_preserves_run_count(self, loader, state_file):
+        state = AppState()
+        for _ in range(3):
+            state.update_task_state(
+                task_name="test-task",
+                status=TaskStatus.SUCCESS,
+                next_due=None,
+                error=None,
+                skip_reason=None,
+                skip_message=None,
+            )
+        loader.save_state(state, state_file=state_file)
+
+        reloaded = loader.load_state(state_file=state_file)
+        assert reloaded.get_task_state("test-task").run_count == 3
+
+    def test_save_creates_parent_directory(self, loader, tmp_path):
+        nested = tmp_path / "deep" / "nested" / "state.json"
+        loader.save_state(AppState(), state_file=nested)
+        assert nested.exists()
+
+    def test_saved_file_is_valid_json(self, loader, state_file):
+        loader.save_state(AppState(), state_file=state_file)
+        data = json.loads(state_file.read_text())
+        assert "tasks" in data
+        assert "last_updated" in data
