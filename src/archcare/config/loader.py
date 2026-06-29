@@ -229,8 +229,12 @@ class ConfigLoader:
         """
         settings_path = settings_file or self.config_dir / "settings.toml"
 
+        # Exclude computed fields from AppSettings during serialization as they're
+        # dynamically computed at runtime and should not be saved.
+        exclude = {"home_dir", "log_dir", "state_file", "report_dir", "config_dir"}
+
         # Convert to dict and handle Path objects
-        data = settings.model_dump()
+        data = settings.model_dump(exclude=exclude)
 
         logger.info(f"Saving settings to: {settings_path}")
 
