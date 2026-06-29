@@ -50,6 +50,22 @@ def loader(config_dir: Path) -> ConfigLoader:
 
 
 # ---------------------------------------------------------------------------
+# ConfigLoader.__init__
+# ---------------------------------------------------------------------------
+
+
+class TestConfigLoaderInit:
+    def test_creates_config_dir_when_absent(self, tmp_path):
+        config_dir: Path = tmp_path / "new" / "archcare"
+        ConfigLoader(config_dir=config_dir)
+        assert config_dir.exists()
+
+    def test_accepts_existing_config_dir(self, config_dir):
+        loader = ConfigLoader(config_dir=config_dir)
+        assert loader.config_dir == config_dir
+
+
+# ---------------------------------------------------------------------------
 # ConfigLoader.load_tasks
 # ---------------------------------------------------------------------------
 
