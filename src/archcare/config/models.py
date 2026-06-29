@@ -134,6 +134,7 @@ class TasksConfig(BaseModel):
 class IgnoredServicesConfig(BaseModel):
     """Configuration for services to ignore in failed-services check."""
 
+    # TODO: add proper service name validation so it's a valid systemd service name
     services: list[str] = Field(
         default_factory=list, description="List of systemd service names to ignore"
     )
