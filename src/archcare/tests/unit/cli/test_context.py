@@ -161,7 +161,7 @@ class TestExecutorProperty:
 
         assert executor_instance.register_task.call_count == len(_TASK_REGISTRY)
 
-    def test_executor_is_lazy_loaded_and_cached(self, mocker, context: AppContext):
+    def test_caches_after_first_access(self, mocker, context: AppContext):
         mock_executor_class: MagicMock = mocker.patch(
             "archcare.cli.context.TaskExecutor"
         )
