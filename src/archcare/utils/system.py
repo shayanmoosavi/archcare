@@ -4,12 +4,13 @@ System command utilities for archcare.
 Provides safe wrappers around subprocess for executing system commands.
 """
 
-from datetime import datetime
 import shutil
 import subprocess
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+
 from loguru import logger
 
 
@@ -253,7 +254,7 @@ def _parse_loaded_status(line: str) -> bool:
     Returns:
         True if service is loaded, False otherwise
     """
-    return "not-found" not in line
+    return "could not be found." not in line
 
 
 def _parse_active_status(line: str) -> tuple[str, bool]:
@@ -276,6 +277,8 @@ def _parse_active_status(line: str) -> tuple[str, bool]:
         return "active", "running" in line
     elif "inactive" in line:
         return "inactive", False
+    elif "active" in line:
+        return "active", "running" in line
     elif "failed" in line:
         return "failed", False
 
