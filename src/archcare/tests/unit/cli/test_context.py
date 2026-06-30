@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from archcare.cli.context import AppContext
-from archcare.config import AppSettings, ConfigLoader, LogLevel
+from archcare.config import AppSettings, LogLevel
 from archcare.services.exceptions import ConfigNotInitializedError
 
 # ---------------------------------------------------------------------------
@@ -58,6 +58,14 @@ def mock_setup_logging(mocker) -> MagicMock:
     return mocker.patch("archcare.cli.context.setup_logging")
 
 
+@pytest.fixture
+def mock_config_loader(mocker) -> MagicMock:
+    """Patches ConfigLoader at its import site in context.py."""
+    instance = MagicMock()
+    mocker.patch("archcare.cli.context.ConfigLoader", MagicMock(return_value=instance))
+    return instance
+
+
 # ---------------------------------------------------------------------------
 # is_interactive
 # ---------------------------------------------------------------------------
@@ -73,14 +81,21 @@ class TestIsInteractive:
 
 
 # ---------------------------------------------------------------------------
-# Properties and Caching
+# settings property
 # ---------------------------------------------------------------------------
 
 
-class TestAppContextProperties:
-    def test_settings_are_lazy_loaded_and_cached(self, mocker, context: AppContext):
-        load_settings: MagicMock = mocker.patch.object(ConfigLoader, "load_settings")
+class TestSettingsProperty:
+    def test_loads_settings_via_loader(
+        self, mock_config_loader: MagicMock, context: AppContext
+    ):
+        mock_config_loader.load_settings.return_value = "SETTINGS"
 
+        assert context.settings == "SETTINGS"
+
+    def test_caches_after_first_access(
+        self, mock_config_loader: MagicMock, context: AppContext
+    ):
         # Access settings twice
         first = context.settings
         second = context.settings
@@ -89,6 +104,13 @@ class TestAppContextProperties:
         assert first is second
         load_settings.assert_called_once()
 
+
+# ---------------------------------------------------------------------------
+# Properties and Caching
+# ---------------------------------------------------------------------------
+
+
+class TestAppContextProperties:
     def test_executor_is_lazy_loaded_and_cached(self, mocker, context: AppContext):
         mock_executor_class: MagicMock = mocker.patch(
             "archcare.cli.context.TaskExecutor"
