@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from archcare.cli.context import AppContext
-from archcare.config import AppSettings
+from archcare.config import AppSettings, ConfigLoader, LogLevel
 from archcare.services.exceptions import ConfigNotInitializedError
 
 # ---------------------------------------------------------------------------
@@ -44,12 +44,18 @@ def config_dir(mock_home: Path) -> Path:
     return d
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def tasks_toml(config_dir: Path) -> Path:
     """Presence of this file is what setup_logging() gates on."""
     f = config_dir / "tasks.toml"
     f.touch()
     return f
+
+
+@pytest.fixture
+def mock_setup_logging(mocker) -> MagicMock:
+    """Patches the setup_logging() function (not AppContext's method)."""
+    return mocker.patch("archcare.cli.context.setup_logging")
 
 
 # ---------------------------------------------------------------------------
@@ -65,13 +71,8 @@ class TestAppContextProperties:
         ctx = AppContext(devel=False, user="systemd-user")
         assert ctx.is_interactive is False
 
-    @patch("archcare.cli.context.ConfigLoader")
-    def test_settings_are_lazy_loaded_and_cached(
-        self, mock_loader_class, context: AppContext
-    ):
-        # Setup mock loader instance
-        mock_loader = MagicMock()
-        mock_loader_class.return_value = mock_loader
+    def test_settings_are_lazy_loaded_and_cached(self, mocker, context: AppContext):
+        load_settings: MagicMock = mocker.patch.object(ConfigLoader, "load_settings")
 
         # Access settings twice
         first = context.settings
@@ -79,13 +80,12 @@ class TestAppContextProperties:
 
         # Ensure it was only loaded once
         assert first is second
-        mock_loader.load_settings.assert_called_once()
+        load_settings.assert_called_once()
 
-    @patch("archcare.cli.context.TaskExecutor")
-    def test_executor_is_lazy_loaded_and_cached(
-        self, mock_executor_class, context: AppContext
-    ):
-        mock_executor_class.return_value = MagicMock()
+    def test_executor_is_lazy_loaded_and_cached(self, mocker, context: AppContext):
+        mock_executor_class: MagicMock = mocker.patch(
+            "archcare.cli.context.TaskExecutor"
+        )
 
         first = context.executor
         second = context.executor
@@ -108,33 +108,30 @@ class TestSetupLogging:
         with pytest.raises(ConfigNotInitializedError):
             context.setup_logging()
 
-    @patch("archcare.cli.context.setup_logging")
     def test_succeeds_if_tasks_toml_exists(
-        self, mock_setup_logging_util, context: AppContext, tasks_toml: Path
+        self, mock_setup_logging: MagicMock, context: AppContext
     ):
 
         # Should not raise
         context.setup_logging()
 
         # Verify the underlying utility was called
-        assert mock_setup_logging_util.call_count >= 1
+        assert mock_setup_logging.call_count >= 1
 
-    @patch("archcare.cli.context.setup_logging")
     def test_reconfigures_logging_if_settings_differ(
-        self, mock_setup_logging_util, context: AppContext, tasks_toml: Path
+        self, mocker, mock_setup_logging: MagicMock, context: AppContext
     ):
         # Mock settings to differ from defaults
-        with patch.object(
-            AppContext, "settings", new_callable=MagicMock
-        ) as mock_settings:
-            mock_settings.log_level = "DEBUG"  # Different from default INFO
-            context.setup_logging()
+        mock_settings: AppSettings = mocker.patch.object(AppContext, "settings")
+        mock_settings.log_level = LogLevel.DEBUG  # Different from default INFO
 
-            # Should be called once for defaults, and a second time for reconfiguration
-            assert mock_setup_logging_util.call_count == 2
-            mock_setup_logging_util.assert_called_with(
-                mock_settings, reconfigure=True, devel_mode=False
-            )
+        context.setup_logging()
+
+        # Should be called once for defaults, and a second time for reconfiguration
+        assert mock_setup_logging.call_count == 2
+        mock_setup_logging.assert_called_with(
+            mock_settings, reconfigure=True, devel_mode=False
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -145,7 +142,7 @@ class TestSetupLogging:
 class TestExecutorForUser:
     @patch("archcare.cli.context.TaskExecutor")
     def test_returns_new_uncached_executor(
-        self, mock_executor_class, context: AppContext, tasks_toml: Path
+        self, mock_executor_class, context: AppContext
     ):
         # Instruct the mock to return a brand new MagicMock on every instantiation
         mock_executor_class.side_effect = lambda **_: MagicMock()
