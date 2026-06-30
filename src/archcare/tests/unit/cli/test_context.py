@@ -59,18 +59,25 @@ def mock_setup_logging(mocker) -> MagicMock:
 
 
 # ---------------------------------------------------------------------------
+# is_interactive
+# ---------------------------------------------------------------------------
+
+
+class TestIsInteractive:
+    def test_true_when_user_is_none(self, context):
+        assert context.is_interactive is True
+
+    def test_false_when_user_is_set(self):
+        context = AppContext(devel=False, user="alice")
+        assert context.is_interactive is False
+
+
+# ---------------------------------------------------------------------------
 # Properties and Caching
 # ---------------------------------------------------------------------------
 
 
 class TestAppContextProperties:
-    def test_is_interactive_true_when_user_is_none(self, context: AppContext):
-        assert context.is_interactive is True
-
-    def test_is_interactive_false_when_user_is_set(self):
-        ctx = AppContext(devel=False, user="systemd-user")
-        assert ctx.is_interactive is False
-
     def test_settings_are_lazy_loaded_and_cached(self, mocker, context: AppContext):
         load_settings: MagicMock = mocker.patch.object(ConfigLoader, "load_settings")
 
