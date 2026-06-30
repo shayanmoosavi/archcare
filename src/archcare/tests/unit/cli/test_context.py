@@ -53,7 +53,7 @@ def tasks_toml(config_dir: Path) -> Path:
     return f
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def mock_setup_logging(mocker) -> MagicMock:
     """Patches the setup_logging() function (not AppContext's method)."""
     return mocker.patch("archcare.cli.context.setup_logging")
@@ -179,7 +179,9 @@ class TestExecutorProperty:
 
 
 class TestSetupLogging:
-    def test_raises_if_tasks_toml_missing(self, context: AppContext, tasks_toml: Path):
+    def test_raises_when_tasks_toml_absent(
+        self, context: AppContext, tasks_toml: Path, mock_config_loader: MagicMock
+    ):
         # Ensure tasks.toml does NOT exist
         if tasks_toml.exists():
             tasks_toml.unlink()
@@ -187,7 +189,9 @@ class TestSetupLogging:
         with pytest.raises(ConfigNotInitializedError):
             context.setup_logging()
 
-    def test_succeeds_if_tasks_toml_exists(
+        mock_config_loader.assert_not_called()
+
+    def test_succeeds_when_tasks_toml_present(
         self, mock_setup_logging: MagicMock, context: AppContext
     ):
 
@@ -196,6 +200,28 @@ class TestSetupLogging:
 
         # Verify the underlying utility was called
         assert mock_setup_logging.call_count >= 1
+
+    def test_passes_devel_flag_to_logging_setup(self, mock_setup_logging: MagicMock):
+        ctx = AppContext(devel=True, user="testuser")
+        ctx.setup_logging()
+
+        first_call_kwargs = mock_setup_logging.call_args_list[0].kwargs
+        assert first_call_kwargs["devel_mode"] is True
+
+    def test_ensures_directories_exist(self, mock_home: Path):
+        ctx = AppContext(devel=False, user="testuser")
+        ctx.setup_logging()
+
+        assert (mock_home / ".local/state/archcare/logs").exists()
+
+    def test_does_not_reconfigure_when_settings_match_defaults(
+        self, mock_setup_logging: MagicMock, context: AppContext
+    ):
+
+        context.setup_logging()
+
+        # Should be called once for defaults
+        assert mock_setup_logging.call_count == 1
 
     def test_reconfigures_logging_if_settings_differ(
         self, mocker, mock_setup_logging: MagicMock, context: AppContext
@@ -211,6 +237,22 @@ class TestSetupLogging:
         mock_setup_logging.assert_called_with(
             mock_settings, reconfigure=True, devel_mode=False
         )
+
+    def test_defaults_to_self_user_when_no_user_param(self, mocker):
+        mock_loader: MagicMock = mocker.patch("archcare.cli.context.ConfigLoader")
+
+        ctx = AppContext(devel=False, user="bob")
+        ctx.setup_logging()
+
+        assert mock_loader.call_args.kwargs["user"] == "bob"
+
+    def test_passes_explicit_user_to_loader_over_self_user(self, mocker):
+        mock_loader: MagicMock = mocker.patch("archcare.cli.context.ConfigLoader")
+
+        ctx = AppContext(devel=False, user="root")
+        ctx.setup_logging(user="alice")
+
+        assert mock_loader.call_args.kwargs["user"] == "alice"
 
 
 # ---------------------------------------------------------------------------
