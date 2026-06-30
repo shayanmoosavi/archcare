@@ -5,7 +5,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from archcare.cli.context import AppContext
+from archcare.cli.context import _TASK_REGISTRY, AppContext
+from archcare.cli.interaction import CliInteraction
 from archcare.config import AppSettings, LogLevel
 from archcare.services.exceptions import ConfigNotInitializedError
 
@@ -72,7 +73,7 @@ def mock_config_loader(mocker) -> MagicMock:
 
 
 class TestIsInteractive:
-    def test_true_when_user_is_none(self, context):
+    def test_true_when_user_is_none(self, context: AppContext):
         assert context.is_interactive is True
 
     def test_false_when_user_is_set(self):
@@ -102,15 +103,64 @@ class TestSettingsProperty:
 
         # Ensure it was only loaded once
         assert first is second
-        load_settings.assert_called_once()
+        mock_config_loader.load_settings.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
-# Properties and Caching
+# executor property
 # ---------------------------------------------------------------------------
 
 
-class TestAppContextProperties:
+class TestExecutorProperty:
+    def test_returns_built_executor(self, context: AppContext, mocker):
+        executor_instance = MagicMock()
+        mocker.patch(
+            "archcare.cli.context.TaskExecutor",
+            MagicMock(return_value=executor_instance),
+        )
+
+        assert context.executor is executor_instance
+
+    def test_builds_with_loader_settings_and_state(
+        self, mock_config_loader: MagicMock, mocker, context: AppContext
+    ):
+        mock_config_loader.load_settings.return_value = "SETTINGS"
+        mock_config_loader.load_state.return_value = "STATE"
+
+        mock_executor_class: MagicMock = mocker.patch(
+            "archcare.cli.context.TaskExecutor"
+        )
+
+        context.executor
+
+        _, kwargs = mock_executor_class.call_args
+        assert kwargs["config_loader"] is mock_config_loader
+        assert kwargs["settings"] == "SETTINGS"
+        assert kwargs["state"] == "STATE"
+
+    def test_builds_with_interactive_cli_interaction(self, mocker, context: AppContext):
+        mock_executor_class: MagicMock = mocker.patch(
+            "archcare.cli.context.TaskExecutor"
+        )
+
+        context.executor
+
+        _, kwargs = mock_executor_class.call_args
+        interaction = kwargs["interaction"]
+        assert isinstance(interaction, CliInteraction)
+        assert interaction.is_interactive is True
+
+    def test_registers_all_known_tasks(self, mocker: MagicMock, context: AppContext):
+        executor_instance = MagicMock()
+        mocker.patch(
+            "archcare.cli.context.TaskExecutor",
+            MagicMock(return_value=executor_instance),
+        )
+
+        context.executor
+
+        assert executor_instance.register_task.call_count == len(_TASK_REGISTRY)
+
     def test_executor_is_lazy_loaded_and_cached(self, mocker, context: AppContext):
         mock_executor_class: MagicMock = mocker.patch(
             "archcare.cli.context.TaskExecutor"
