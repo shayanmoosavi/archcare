@@ -22,9 +22,34 @@ def context() -> AppContext:
 
 @pytest.fixture
 def mock_home(monkeypatch, tmp_path) -> Path:
-    """Isolate AppSettings paths to tmp_path."""
-    monkeypatch.setattr(AppSettings, "home_dir", property(lambda _: tmp_path))
-    return tmp_path
+    """
+    Redirect AppSettings.home_dir to a fixed tmp_path, ignoring both `user`
+    and SUDO_USER.
+
+    Used wherever the exact user-resolution mechanism isn't under test
+    (settings/executor caching, register_task wiring, init-gate presence
+    checks). For tests that exercise the SUDO_USER indirection itself, see
+    `per_user_home_dir` below instead.
+    """
+    monkeypatch.delenv("SUDO_USER", raising=False)
+    home_dir = tmp_path / "home/testuser"
+    monkeypatch.setattr(AppSettings, "home_dir", property(lambda _: home_dir))
+    return home_dir
+
+
+@pytest.fixture
+def config_dir(mock_home: Path) -> Path:
+    d = mock_home / ".config/archcare"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+@pytest.fixture
+def tasks_toml(config_dir: Path) -> Path:
+    """Presence of this file is what setup_logging() gates on."""
+    f = config_dir / "tasks.toml"
+    f.touch()
+    return f
 
 
 # ---------------------------------------------------------------------------
@@ -75,23 +100,18 @@ class TestAppContextProperties:
 
 
 class TestSetupLogging:
-    def test_raises_if_tasks_toml_missing(self, context, mock_home):
+    def test_raises_if_tasks_toml_missing(self, context: AppContext, tasks_toml: Path):
         # Ensure tasks.toml does NOT exist
-        tasks_file = mock_home / ".config/archcare/tasks.toml"
-        if tasks_file.exists():
-            tasks_file.unlink()
+        if tasks_toml.exists():
+            tasks_toml.unlink()
 
         with pytest.raises(ConfigNotInitializedError):
             context.setup_logging()
 
     @patch("archcare.cli.context.setup_logging")
     def test_succeeds_if_tasks_toml_exists(
-        self, mock_setup_logging_util, context, mock_home
+        self, mock_setup_logging_util, context: AppContext, tasks_toml: Path
     ):
-        # Fake the initialization
-        config_dir = mock_home / ".config/archcare"
-        config_dir.mkdir(parents=True)
-        (config_dir / "tasks.toml").touch()
 
         # Should not raise
         context.setup_logging()
@@ -101,12 +121,8 @@ class TestSetupLogging:
 
     @patch("archcare.cli.context.setup_logging")
     def test_reconfigures_logging_if_settings_differ(
-        self, mock_setup_logging_util, context, mock_home
+        self, mock_setup_logging_util, context: AppContext, tasks_toml: Path
     ):
-        config_dir = mock_home / ".config/archcare"
-        config_dir.mkdir(parents=True)
-        (config_dir / "tasks.toml").touch()
-
         # Mock settings to differ from defaults
         with patch.object(
             AppContext, "settings", new_callable=MagicMock
@@ -129,15 +145,10 @@ class TestSetupLogging:
 class TestExecutorForUser:
     @patch("archcare.cli.context.TaskExecutor")
     def test_returns_new_uncached_executor(
-        self, mock_executor_class, context, mock_home
+        self, mock_executor_class, context: AppContext, tasks_toml: Path
     ):
         # Instruct the mock to return a brand new MagicMock on every instantiation
-        mock_executor_class.side_effect = lambda **kwargs: MagicMock()
-
-        # Satisfy setup_logging checks
-        config_dir = mock_home / ".config/archcare"
-        config_dir.mkdir(parents=True)
-        (config_dir / "tasks.toml").touch()
+        mock_executor_class.side_effect = lambda **_: MagicMock()
 
         # Generate a targeted executor
         target_executor = context.executor_for_user("alice")
