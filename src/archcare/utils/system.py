@@ -273,9 +273,8 @@ def _parse_active_status(line: str) -> tuple[str, bool]:
     - Easy to extend with more states
     """
 
-    if "active" in line:
-        return "active", "running" in line
-    elif "inactive" in line:
+    # 'inactive' check should be before 'active' to avoid false positives
+    if "inactive" in line:
         return "inactive", False
     elif "active" in line:
         return "active", "running" in line
