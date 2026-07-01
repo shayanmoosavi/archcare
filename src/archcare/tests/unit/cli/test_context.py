@@ -82,9 +82,15 @@ def mock_setup_logging(mocker) -> MagicMock:
 
 
 @pytest.fixture
-def mock_config_loader(mocker) -> MagicMock:
-    """Patches ConfigLoader at its import site in context.py."""
-    return mocker.patch("archcare.cli.context.ConfigLoader").return_value
+def mock_config_loader_class(mocker) -> MagicMock:
+    """The patched ConfigLoader class itself — use for call-count/call-args assertions."""
+    return mocker.patch("archcare.cli.context.ConfigLoader")
+
+
+@pytest.fixture
+def mock_config_loader(mock_config_loader_class) -> MagicMock:
+    """The instance ConfigLoader() returns — use for stubbing load_settings()/load_state()."""
+    return mock_config_loader_class.return_value
 
 
 # ---------------------------------------------------------------------------
@@ -187,7 +193,7 @@ class TestExecutorProperty:
 
 class TestSetupLogging:
     def test_raises_when_tasks_toml_absent(
-        self, context: AppContext, tasks_toml: Path, mock_config_loader: MagicMock
+        self, context: AppContext, tasks_toml: Path, mock_config_loader_class: MagicMock
     ):
         # Ensure tasks.toml does NOT exist
         if tasks_toml.exists():
@@ -196,7 +202,7 @@ class TestSetupLogging:
         with pytest.raises(ConfigNotInitializedError):
             context.setup_logging()
 
-        mock_config_loader.assert_not_called()
+        mock_config_loader_class.assert_not_called()
 
     def test_succeeds_when_tasks_toml_present(
         self, mock_setup_logging: MagicMock, context: AppContext
