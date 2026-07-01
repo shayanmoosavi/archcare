@@ -51,7 +51,7 @@ class TestRunTask:
     ):
         mock_executor.execute_task.return_value = mock_task_result
         response = _service(mock_executor).run_task("test-manual-task")
-        assert response.outcome == mock_task_result
+        assert response.outcome is mock_task_result
 
     def test_is_interactive_without_archcare_user(
         self, mock_executor: MagicMock, mock_task_result: Mock, monkeypatch
