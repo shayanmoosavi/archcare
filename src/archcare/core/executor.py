@@ -18,12 +18,12 @@ from archcare.config import (
     TasksConfig,
     TaskStatus,
 )
-from archcare.core.interaction import NonInteractive, TaskInteraction
-from archcare.core.scheduler import TaskScheduler
-from archcare.tasks.base import BaseTask
+from archcare.tasks import BaseTask
 from archcare.utils import change_ownership_to_user, is_root
 
+from .interaction import NonInteractive, TaskInteraction
 from .models import TaskResult, skipped
+from .scheduler import TaskScheduler
 
 
 class TaskExecutor:
