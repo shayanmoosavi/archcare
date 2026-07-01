@@ -2,13 +2,12 @@
 
 from datetime import datetime, timedelta
 from io import StringIO
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import patch
 
 import pytest
 from loguru import logger
 
 from archcare.config import AppState, TaskConfig, TasksConfig, TaskStatus
-from archcare.core.models import TaskResult
 
 # ---------------------------------------------------------------------------
 # TaskConfig fixtures
@@ -115,37 +114,6 @@ def state_with_overdue_run(automated_task: TaskConfig) -> AppState:
         skip_message=None,
     )
     return state
-
-
-# ---------------------------------------------------------------------------
-# Executor / service mocks
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-def mock_task_result() -> Mock:
-    """A successful TaskResult mock."""
-    result = Mock(spec=TaskResult)
-    result.status = TaskStatus.SUCCESS
-    result.is_success.return_value = True
-    result.is_partial.return_value = False
-    result.is_skipped.return_value = False
-    result.is_failed.return_value = False
-    result.details = {}
-    return result
-
-
-@pytest.fixture
-def mock_executor(tasks_config: TasksConfig, fresh_state: AppState) -> MagicMock:
-    """
-    Mock TaskExecutor with a two-task config and fresh state.
-
-    Used by service-layer tests that should never touch the filesystem.
-    """
-    executor = MagicMock()
-    executor.config_loader.load_tasks.return_value = tasks_config
-    executor.state = fresh_state
-    return executor
 
 
 # ---------------------------------------------------------------------------
