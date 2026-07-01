@@ -8,6 +8,7 @@ import pytest
 from archcare.cli.context import _TASK_REGISTRY, AppContext
 from archcare.cli.interaction import CliInteraction
 from archcare.config import AppSettings, LogLevel
+from archcare.core import TaskExecutor
 from archcare.services.exceptions import ConfigNotInitializedError
 
 # ---------------------------------------------------------------------------
@@ -62,9 +63,7 @@ def mock_setup_logging(mocker) -> MagicMock:
 @pytest.fixture
 def mock_config_loader(mocker) -> MagicMock:
     """Patches ConfigLoader at its import site in context.py."""
-    instance = MagicMock()
-    mocker.patch("archcare.cli.context.ConfigLoader", MagicMock(return_value=instance))
-    return instance
+    return mocker.patch("archcare.cli.context.ConfigLoader").return_value
 
 
 # ---------------------------------------------------------------------------
@@ -113,13 +112,10 @@ class TestSettingsProperty:
 
 class TestExecutorProperty:
     def test_returns_built_executor(self, context: AppContext, mocker):
-        executor_instance = MagicMock()
-        mocker.patch(
-            "archcare.cli.context.TaskExecutor",
-            MagicMock(return_value=executor_instance),
-        )
-
-        assert context.executor is executor_instance
+        mock_executor: MagicMock = mocker.patch(
+            "archcare.cli.context.TaskExecutor"
+        ).return_value
+        assert context.executor is mock_executor
 
     def test_builds_with_loader_settings_and_state(
         self, mock_config_loader: MagicMock, mocker, context: AppContext
@@ -127,50 +123,40 @@ class TestExecutorProperty:
         mock_config_loader.load_settings.return_value = "SETTINGS"
         mock_config_loader.load_state.return_value = "STATE"
 
-        mock_executor_class: MagicMock = mocker.patch(
-            "archcare.cli.context.TaskExecutor"
-        )
+        mock_executor: MagicMock = mocker.patch("archcare.cli.context.TaskExecutor")
 
         context.executor
 
-        _, kwargs = mock_executor_class.call_args
+        _, kwargs = mock_executor.call_args
         assert kwargs["config_loader"] is mock_config_loader
         assert kwargs["settings"] == "SETTINGS"
         assert kwargs["state"] == "STATE"
 
     def test_builds_with_interactive_cli_interaction(self, mocker, context: AppContext):
-        mock_executor_class: MagicMock = mocker.patch(
-            "archcare.cli.context.TaskExecutor"
-        )
+        mock_executor: MagicMock = mocker.patch("archcare.cli.context.TaskExecutor")
 
         context.executor
 
-        _, kwargs = mock_executor_class.call_args
+        _, kwargs = mock_executor.call_args
         interaction = kwargs["interaction"]
         assert isinstance(interaction, CliInteraction)
         assert interaction.is_interactive is True
 
     def test_registers_all_known_tasks(self, mocker: MagicMock, context: AppContext):
-        executor_instance = MagicMock()
-        mocker.patch(
-            "archcare.cli.context.TaskExecutor",
-            MagicMock(return_value=executor_instance),
-        )
+        register_task: MagicMock = mocker.patch.object(TaskExecutor, "register_task")
 
         context.executor
 
-        assert executor_instance.register_task.call_count == len(_TASK_REGISTRY)
+        assert register_task.call_count == len(_TASK_REGISTRY)
 
     def test_caches_after_first_access(self, mocker, context: AppContext):
-        mock_executor_class: MagicMock = mocker.patch(
-            "archcare.cli.context.TaskExecutor"
-        )
+        mock_executor: MagicMock = mocker.patch("archcare.cli.context.TaskExecutor")
 
         first = context.executor
         second = context.executor
 
         assert first is second
-        mock_executor_class.assert_called_once()
+        mock_executor.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -205,8 +191,7 @@ class TestSetupLogging:
         ctx = AppContext(devel=True, user="testuser")
         ctx.setup_logging()
 
-        first_call_kwargs = mock_setup_logging.call_args_list[0].kwargs
-        assert first_call_kwargs["devel_mode"] is True
+        mock_setup_logging.assert_called_with(ctx.settings, devel_mode=True)
 
     def test_ensures_directories_exist(self, mock_home: Path):
         ctx = AppContext(devel=False, user="testuser")
