@@ -13,9 +13,8 @@ from archcare.config import (
     TaskConfig,
     TasksConfig,
 )
-from archcare.core import TaskExecutor
-from archcare.core.models import TaskResult, success
-from archcare.tasks.base import BaseTask
+from archcare.core import TaskExecutor, TaskResult, success
+from archcare.tasks import BaseTask
 
 # ---------------------------------------------------------------------------
 # Test doubles
