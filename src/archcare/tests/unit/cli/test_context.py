@@ -1,7 +1,7 @@
 """Unit tests for the CLI AppContext."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -37,6 +37,27 @@ def mock_home(monkeypatch, tmp_path) -> Path:
     home_dir = tmp_path / "home/testuser"
     monkeypatch.setattr(AppSettings, "home_dir", property(lambda _: home_dir))
     return home_dir
+
+
+@pytest.fixture
+def per_user_home_dir(monkeypatch, tmp_path) -> Path:
+    """
+    AppSettings.home_dir resolves the way the real implementation does -
+    via SUDO_USER first, falling back to the `user` field - but rooted in
+    tmp_path instead of /home. Needed for executor_for_user() tests, where
+    that SUDO_USER indirection is the actual behavior under test.
+    """
+
+    def home_dir(self) -> Path:
+        from os import getenv
+
+        sudo_user = getenv("SUDO_USER")
+        if sudo_user:
+            return tmp_path / "home" / sudo_user
+        return tmp_path / "home" / (self.user or "root")
+
+    monkeypatch.setattr(AppSettings, "home_dir", property(home_dir))
+    return tmp_path
 
 
 @pytest.fixture
@@ -246,12 +267,85 @@ class TestSetupLogging:
 
 
 class TestExecutorForUser:
-    @patch("archcare.cli.context.TaskExecutor")
-    def test_returns_new_uncached_executor(
-        self, mock_executor_class, context: AppContext
+    """
+    executor_for_user() is used exclusively by `setup timers`, which always
+    runs with ctx.obj.user == None (invoked interactively via sudo, never
+    through the ARCHCARE_USER systemd path - see setup.py). In that flow,
+    setup_logging()'s init-check builds AppSettings(user=self.user) i.e.
+    AppSettings(user=None), but home_dir still resolves to the *target*
+    user's home because it reads SUDO_USER from the environment regardless
+    of the `user` field. The tests below set SUDO_USER to recreate that.
+    """
+
+    def _init_target_user_config(self, root: Path, user: str) -> Path:
+        config_dir = root / "home" / user / ".config/archcare"
+        config_dir.mkdir(parents=True)
+        (config_dir / "tasks.toml").touch()
+        return config_dir
+
+    def test_resolves_target_user_via_sudo_user_env(
+        self, per_user_home_dir: Path, monkeypatch, mocker, context: AppContext
     ):
+        monkeypatch.setenv("SUDO_USER", "alice")
+        self._init_target_user_config(per_user_home_dir, "alice")
+
+        mock_executor: MagicMock = mocker.patch("archcare.cli.context.TaskExecutor")
+
+        result: TaskExecutor = context.executor_for_user("alice")
+
+        assert result is mock_executor.return_value
+
+    @pytest.mark.usefixtures("per_user_home_dir")
+    def test_raises_when_target_users_config_missing(
+        self, monkeypatch, context: AppContext
+    ):
+        monkeypatch.setenv("SUDO_USER", "alice")
+        # alice's config dir is deliberately never created.
+
+        with pytest.raises(ConfigNotInitializedError):
+            context.executor_for_user("alice")
+
+    def test_does_not_pass_interaction_kwarg(
+        self, per_user_home_dir: Path, monkeypatch, mocker
+    ):
+        """
+        Unlike the `executor` property, executor_for_user() omits
+        `interaction`, so TaskExecutor falls back to its NonInteractive
+        default - appropriate for setup timers, which must never block on
+        a confirmation prompt mid-install.
+        """
+        monkeypatch.setenv("SUDO_USER", "alice")
+        self._init_target_user_config(per_user_home_dir, "alice")
+
+        mock_executor: MagicMock = mocker.patch("archcare.cli.context.TaskExecutor")
+
+        ctx = AppContext(devel=False, user=None)
+        ctx.executor_for_user("alice")
+
+        _, kwargs = mock_executor.call_args
+        assert "interaction" not in kwargs
+
+    def test_registers_all_known_tasks(
+        self, per_user_home_dir: Path, context: AppContext, monkeypatch, mocker
+    ):
+        monkeypatch.setenv("SUDO_USER", "alice")
+        self._init_target_user_config(per_user_home_dir, "alice")
+
+        register_task: MagicMock = mocker.patch.object(TaskExecutor, "register_task")
+
+        context.executor_for_user("alice")
+
+        assert register_task.call_count == len(_TASK_REGISTRY)
+
+    def test_returns_new_uncached_executor(
+        self, monkeypatch, per_user_home_dir: Path, mocker, context: AppContext
+    ):
+        monkeypatch.setenv("SUDO_USER", "alice")
+        self._init_target_user_config(per_user_home_dir, "alice")
+
         # Instruct the mock to return a brand new MagicMock on every instantiation
-        mock_executor_class.side_effect = lambda **_: MagicMock()
+        mock_executor: MagicMock = mocker.patch("archcare.cli.context.TaskExecutor")
+        mock_executor.side_effect = [MagicMock(), MagicMock()]
 
         # Generate a targeted executor
         target_executor = context.executor_for_user("alice")
@@ -261,4 +355,4 @@ class TestExecutorForUser:
 
         # They should be distinct instances (TaskExecutor should have been constructed multiple times)
         assert target_executor is not cached_executor
-        assert mock_executor_class.call_count == 2
+        assert mock_executor.call_count == 2
