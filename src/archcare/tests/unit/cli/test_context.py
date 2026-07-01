@@ -238,16 +238,16 @@ class TestSetupLogging:
     def test_reconfigures_logging_if_settings_differ(
         self, mocker, mock_setup_logging: MagicMock, context: AppContext
     ):
-        # Mock settings to differ from defaults
-        mock_settings: AppSettings = mocker.patch.object(AppContext, "settings")
-        mock_settings.log_level = LogLevel.DEBUG  # Different from default INFO
+        # Instantiate an AppSetting with different settings
+        settings = AppSettings(user=context.user, log_level=LogLevel.DEBUG)
+        mocker.patch.object(AppContext, "settings", new=settings)
 
         context.setup_logging()
 
         # Should be called once for defaults, and a second time for reconfiguration
         assert mock_setup_logging.call_count == 2
         mock_setup_logging.assert_called_with(
-            mock_settings, reconfigure=True, devel_mode=False
+            settings, reconfigure=True, devel_mode=False
         )
 
     def test_defaults_to_self_user_when_no_user_param(self, mocker):
