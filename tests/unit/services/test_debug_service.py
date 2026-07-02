@@ -12,6 +12,8 @@ from archcare.services.exceptions import (
 _PATCH_AVAILABLE = "archcare.services.debug_service.is_notification_available"
 _PATCH_SEND = "archcare.services.debug_service.send_notification"
 
+pytestmark = pytest.mark.usefixtures("reset_notification_manager")
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

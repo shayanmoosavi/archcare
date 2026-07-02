@@ -152,7 +152,7 @@ def no_task_logging():
         yield
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def reset_notification_manager():
     """
     Reset the notification manager singleton between tests.
