@@ -7,6 +7,7 @@ import pytest
 
 from archcare.utils.system import (
     CommandResult,
+    _get_boot_time,
     _get_service_description,
     _parse_active_status,
     _parse_loaded_status,
@@ -122,6 +123,36 @@ class TestSystemctlParsing:
                 success=True,
             )
             assert _get_service_description("nonexistent.service") == ""
+
+    def test_get_service_description_returns_empty_when_command_fails(self):
+        with patch("archcare.utils.system.run_systemctl") as mock_run:
+            mock_run.return_value = CommandResult(
+                command="",
+                returncode=1,
+                stdout="some.service loaded active running Some description",
+                stderr="unit not found",
+                success=False,
+            )
+            assert _get_service_description("some.service") == ""
+
+
+# ---------------------------------------------------------------------------
+# Boot time
+# ---------------------------------------------------------------------------
+
+
+class TestGetBootTime:
+    def test_falls_back_to_now_on_psutil_failure(self):
+        """
+        Every other test mocks _get_boot_time() itself, so its own
+        try/except around psutil.boot_time() has no coverage elsewhere.
+        """
+        with patch("psutil.boot_time", side_effect=Exception("no /proc/stat")):
+            before = datetime.now()
+            result = _get_boot_time()
+            after = datetime.now()
+
+        assert before <= result <= after
 
 
 # ---------------------------------------------------------------------------
