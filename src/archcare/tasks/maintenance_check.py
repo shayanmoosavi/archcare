@@ -24,7 +24,6 @@ from archcare.core.models import (
 )
 from archcare.core.scheduler import TaskScheduleInfo, TaskScheduler
 from archcare.tasks.base import BaseTask
-from archcare.utils.notifications import get_notification_manager
 
 
 class MaintenanceCheckTask(BaseTask):
@@ -430,6 +429,8 @@ class MaintenanceCheckTask(BaseTask):
         Args:
             check_result: Maintenance check result
         """
+        from archcare.utils.notifications import get_notification_manager
+
         notification_level = self.settings.maintenance_check.notification_level
 
         # Severity threshold map to check against
