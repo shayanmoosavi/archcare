@@ -42,6 +42,22 @@ class TestValidateMirrorlist:
         assert is_valid is True
         assert "2 mirrors" in msg
 
+    def test_indented_server_lines_are_counted(self, tmp_path):
+        """
+        The implementation strips each line before checking the
+        "Server = " prefix, so leading whitespace (spaces or tabs) must
+        not cause a valid entry to be skipped.
+        """
+        indented_file: Path = tmp_path / "indented"
+        indented_file.write_text(
+            "    Server = https://mirror1.com/$repo/os/$arch\n"
+            "\tServer = http://mirror2.com/$repo/os/$arch\n"
+        )
+
+        is_valid, msg = validate_mirrorlist(indented_file)
+        assert is_valid is True
+        assert "2 mirrors" in msg
+
 
 # ---------------------------------------------------------------------------
 # get_mirrorlist_info
@@ -72,3 +88,14 @@ class TestGetMirrorlistInfo:
         assert info["protocols"] == {"https", "http", "rsync"}
         # Ensure timestamp was generated
         assert info["last_modified"] is not None
+
+    def test_unrecognized_protocol_counted_but_not_categorized(self, tmp_path):
+        mirrorlist: Path = tmp_path / "mirrorlist"
+        mirrorlist.write_text(
+            "Server = https://mirror1.com\nServer = ftp://mirror2.com\n"
+        )
+
+        info = get_mirrorlist_info(mirrorlist)
+
+        assert info["total_mirrors"] == 2
+        assert info["protocols"] == {"https"}
