@@ -16,6 +16,8 @@ from archcare.config import (
 from archcare.core import TaskExecutor, TaskResult, success
 from archcare.tasks import BaseTask
 
+pytestmark = pytest.mark.usefixtures("no_task_logging")
+
 # ---------------------------------------------------------------------------
 # Test doubles
 # ---------------------------------------------------------------------------
