@@ -1,8 +1,37 @@
-"""Unit tests for mirrorlist parsing and validation."""
+"""Unit tests for mirrorlist utility functions."""
 
+from datetime import datetime
 from pathlib import Path
+from subprocess import CalledProcessError
+from unittest.mock import MagicMock
 
-from archcare.utils.mirrorlist import get_mirrorlist_info, validate_mirrorlist
+import pytest
+
+from archcare.utils.mirrorlist import (
+    backup_file,
+    get_mirrorlist_info,
+    restore_backup,
+    update_mirrorlist,
+    validate_mirrorlist,
+)
+from archcare.utils.system import CommandResult
+
+_PATCH_IS_ROOT = "archcare.utils.system.is_root"
+_PATCH_CHECK_COMMAND = "archcare.utils.mirrorlist.check_command_exists"
+_PATCH_RUN_SUDO = "archcare.utils.mirrorlist.run_command_with_sudo"
+
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def write_src_file(tmp_path) -> Path:
+    src: Path = tmp_path / "source_file"
+    src.write_text("source file contents\n")
+    return src
+
 
 # ---------------------------------------------------------------------------
 # validate_mirrorlist
@@ -99,3 +128,96 @@ class TestGetMirrorlistInfo:
 
         assert info["total_mirrors"] == 2
         assert info["protocols"] == {"https"}
+
+
+# ---------------------------------------------------------------------------
+# backup_file
+# ---------------------------------------------------------------------------
+
+
+class TestBackupFile:
+    def test_raises_io_error_if_source_missing(self, tmp_path):
+        with pytest.raises(IOError):
+            backup_file(tmp_path / "missing")
+
+    def test_creates_backup_with_default_suffix(
+        self, monkeypatch, write_src_file: Path
+    ):
+        """
+        is_root() is mocked so run_command_with_sudo skips prepending
+        'sudo' (which would hang/fail without a real privilege escalation
+        in a test environment) - the actual `cp` subprocess still runs for
+        real against tmp_path, so this also confirms the backup's content
+        matches the source rather than just "some file got created".
+        """
+        monkeypatch.setattr(_PATCH_IS_ROOT, lambda: True)
+        source = write_src_file
+        backup_path = backup_file(source)
+
+        assert backup_path.exists()
+        assert backup_path.read_text() == source.read_text()
+        assert backup_path.name.endswith(".backup")
+
+    def test_creates_backup_with_custom_suffix(self, monkeypatch, write_src_file: Path):
+        monkeypatch.setattr(_PATCH_IS_ROOT, lambda: True)
+        source = write_src_file
+        backup_path = backup_file(source, backup_suffix=".bak")
+
+        assert backup_path.read_text() == source.read_text()
+        assert backup_path.name.endswith(".bak")
+
+    def test_backup_filename_includes_source_name_and_timestamp(
+        self, monkeypatch, write_src_file: Path
+    ):
+        monkeypatch.setattr(_PATCH_IS_ROOT, lambda: True)
+        source = write_src_file
+        backup_path = backup_file(source, backup_suffix=".bak")
+
+        assert "source_file_" in backup_path.name
+        assert datetime.now().strftime("%Y-%m-%d") in backup_path.name
+
+    def test_wraps_called_process_error_as_io_error(
+        self, monkeypatch, write_src_file: Path
+    ):
+        source = write_src_file
+
+        # Simulate a CalledProcessError being raised by run_command_with_sudo
+        monkeypatch.setattr(
+            _PATCH_RUN_SUDO, MagicMock(side_effect=CalledProcessError(1, "cp"))
+        )
+
+        with pytest.raises(IOError):
+            backup_file(source)
+
+
+# ---------------------------------------------------------------------------
+# restore_backup
+# ---------------------------------------------------------------------------
+
+
+class TestRestoreBackup:
+    def test_raises_io_error_if_backup_missing(self, tmp_path):
+        with pytest.raises(IOError):
+            restore_backup(tmp_path / "missing.backup", tmp_path / "target")
+
+    def test_restores_content_to_target(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(_PATCH_IS_ROOT, lambda: True)
+        backup: Path = tmp_path / "target.backup"
+        backup.write_text("backed up content\n")
+        target: Path = tmp_path / "target"
+        target.write_text("messed up content\n")
+
+        restore_backup(backup, target)
+
+        assert target.read_text() == backup.read_text()
+
+    def test_wraps_called_process_error_as_io_error(self, tmp_path, monkeypatch):
+        backup: Path = tmp_path / "target.backup"
+        backup.write_text("backed up content\n")
+
+        monkeypatch.setattr(
+            _PATCH_RUN_SUDO, MagicMock(side_effect=CalledProcessError(1, "cp"))
+        )
+
+        with pytest.raises(IOError):
+            restore_backup(backup, tmp_path / "target")
