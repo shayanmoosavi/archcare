@@ -22,7 +22,7 @@ _PATCH_RUN_SUDO = "archcare.utils.mirrorlist.run_command_with_sudo"
 
 
 # ---------------------------------------------------------------------------
-# Fixtures
+# Helpers and Fixtures
 # ---------------------------------------------------------------------------
 
 
@@ -31,6 +31,16 @@ def write_src_file(tmp_path) -> Path:
     src: Path = tmp_path / "source_file"
     src.write_text("source file contents\n")
     return src
+
+
+def _reflector_result(success: bool = True) -> CommandResult:
+    return CommandResult(
+        command="reflector",
+        returncode=0 if success else 1,
+        stdout="",
+        stderr="",
+        success=success,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -221,3 +231,90 @@ class TestRestoreBackup:
 
         with pytest.raises(IOError):
             restore_backup(backup, tmp_path / "target")
+
+
+# ---------------------------------------------------------------------------
+# update_mirrorlist
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateMirrorlist:
+    def test_raises_when_reflector_not_found(self, monkeypatch):
+        monkeypatch.setattr(_PATCH_CHECK_COMMAND, lambda _: False)
+
+        with pytest.raises(RuntimeError):
+            update_mirrorlist()
+
+    def test_builds_command_with_string_country_and_protocol(self, monkeypatch):
+        monkeypatch.setattr(_PATCH_CHECK_COMMAND, lambda _: True)
+        mock_run = MagicMock(return_value=_reflector_result())
+        monkeypatch.setattr(_PATCH_RUN_SUDO, mock_run)
+
+        update_mirrorlist(country="Germany", protocol="https")
+
+        cmd = mock_run.call_args[0][0]
+        assert "--country" in cmd and "Germany" in cmd
+        assert "--protocol" in cmd and "https" in cmd
+
+    def test_builds_command_with_list_country_and_protocol(self, monkeypatch):
+        """Lists are comma-joined into a single reflector argument."""
+        monkeypatch.setattr(_PATCH_CHECK_COMMAND, lambda _: True)
+        mock_run = MagicMock(return_value=_reflector_result())
+        monkeypatch.setattr(_PATCH_RUN_SUDO, mock_run)
+
+        update_mirrorlist(country=["Germany", "France"], protocol=["https", "http"])
+
+        cmd = mock_run.call_args[0][0]
+        assert "Germany,France" in cmd
+        assert "https,http" in cmd
+
+    def test_omits_country_and_protocol_when_not_given(self, monkeypatch):
+        monkeypatch.setattr(_PATCH_CHECK_COMMAND, lambda _: True)
+        mock_run = MagicMock(return_value=_reflector_result())
+        monkeypatch.setattr(_PATCH_RUN_SUDO, mock_run)
+
+        update_mirrorlist(country=None, protocol=None)
+
+        cmd = mock_run.call_args[0][0]
+        assert "--country" not in cmd
+        assert "--protocol" not in cmd
+
+    def test_includes_save_path_when_given(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(_PATCH_CHECK_COMMAND, lambda _: True)
+        mock_run = MagicMock(return_value=_reflector_result())
+        monkeypatch.setattr(_PATCH_RUN_SUDO, mock_run)
+
+        save_path: Path = tmp_path / "mirrorlist"
+        update_mirrorlist(save_path=save_path)
+
+        cmd = mock_run.call_args[0][0]
+        assert "--save" in cmd and str(save_path) in cmd
+
+    def test_omits_save_path_when_not_given(self, monkeypatch):
+        monkeypatch.setattr(_PATCH_CHECK_COMMAND, lambda _: True)
+        mock_run = MagicMock(return_value=_reflector_result())
+        monkeypatch.setattr(_PATCH_RUN_SUDO, mock_run)
+
+        update_mirrorlist()
+
+        cmd = mock_run.call_args[0][0]
+        assert "--save" not in cmd
+
+    def test_timeout_formula_matches_latest_value(self, monkeypatch):
+        """cmd_timeout = latest * 5 + 30 seconds of padding."""
+        monkeypatch.setattr(_PATCH_CHECK_COMMAND, lambda _: True)
+        mock_run = MagicMock(return_value=_reflector_result())
+        monkeypatch.setattr(_PATCH_RUN_SUDO, mock_run)
+
+        update_mirrorlist(latest=10)
+
+        assert mock_run.call_args.kwargs["timeout"] == 10 * 5 + 30
+
+    def test_returns_command_result_from_run_sudo(self, monkeypatch):
+        monkeypatch.setattr(_PATCH_CHECK_COMMAND, lambda _: True)
+        expected = _reflector_result()
+        monkeypatch.setattr(_PATCH_RUN_SUDO, MagicMock(return_value=expected))
+
+        result = update_mirrorlist()
+
+        assert result is expected
