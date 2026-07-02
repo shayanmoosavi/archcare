@@ -165,7 +165,7 @@ def clear_archcare_user(monkeypatch):
     monkeypatch.delenv("ARCHCARE_USER", raising=False)
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def no_task_logging():
     """
     Prevent BaseTask.run() from creating task log files during tests.
