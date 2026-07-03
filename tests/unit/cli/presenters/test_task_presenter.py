@@ -8,6 +8,7 @@ import pytest
 from archcare.cli.presenters.task_presenter import TaskPresenter
 from archcare.config import AppSettings, TaskConfig
 from archcare.config.models import MaintenanceCheckSettings
+from archcare.core import TaskScheduleInfo
 from archcare.core.models import TaskResult
 from archcare.services.responses import (
     TaskListResponse,
@@ -184,3 +185,64 @@ class TestRenderRun:
 
         mock_result.assert_called_once_with(outcome, "check-health", True)
         mock_details.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# render_status
+# ---------------------------------------------------------------------------
+
+
+class TestRenderStatus:
+    def test_due_only_with_no_schedule_shows_success_and_returns_early(self, mocker):
+        mock_success: MagicMock = mocker.patch(f"{_MODULE}.print_success")
+        mock_table: MagicMock = mocker.patch(f"{_MODULE}.print_schedule_table")
+
+        response = TaskStatusResponse(schedule_info=[], due_only=True)
+        TaskPresenter.render_status(response)
+
+        mock_success.assert_called_once_with("No tasks currently due!")
+        mock_table.assert_not_called()
+
+    def test_due_only_with_results_shows_table_not_success(self, mocker):
+        mock_success: MagicMock = mocker.patch(f"{_MODULE}.print_success")
+        mock_table: MagicMock = mocker.patch(f"{_MODULE}.print_schedule_table")
+
+        mock_task_info = MagicMock(spec=TaskScheduleInfo)
+        response = TaskStatusResponse(schedule_info=[mock_task_info], due_only=True)
+        TaskPresenter.render_status(response)
+
+        mock_table.assert_called_once_with([mock_task_info])
+        mock_success.assert_not_called()
+
+    def test_non_due_only_with_empty_schedule_still_shows_table(self, mocker):
+        mock_success: MagicMock = mocker.patch(f"{_MODULE}.print_success")
+        mock_table: MagicMock = mocker.patch(f"{_MODULE}.print_schedule_table")
+
+        response = TaskStatusResponse(schedule_info=[], due_only=False)
+        TaskPresenter.render_status(response)
+
+        mock_table.assert_called_once_with([])
+        mock_success.assert_not_called()
+
+    def test_summary_panel_rendered_when_summary_present(self, mocker):
+        mocker.patch(f"{_MODULE}.print_schedule_table")
+        mock_panel: MagicMock = mocker.patch(f"{_MODULE}.print_summary_panel")
+
+        summary = {"total": 3, "overdue": 1}
+        response = TaskStatusResponse(
+            schedule_info=[MagicMock(spec=TaskScheduleInfo)], summary=summary
+        )
+        TaskPresenter.render_status(response)
+
+        mock_panel.assert_called_once_with("Summary", summary)
+
+    def test_summary_panel_not_rendered_when_no_summary(self, mocker):
+        mocker.patch(f"{_MODULE}.print_schedule_table")
+        mock_panel: MagicMock = mocker.patch(f"{_MODULE}.print_summary_panel")
+
+        response = TaskStatusResponse(
+            schedule_info=[MagicMock(spec=TaskScheduleInfo)], summary=None
+        )
+        TaskPresenter.render_status(response)
+
+        mock_panel.assert_not_called()
