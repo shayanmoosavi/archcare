@@ -354,3 +354,45 @@ class TestRunCommandWithSudo:
         run_command_with_sudo(["pacman", "-Syu"], check=True, timeout=15)
         assert mock_run_command.call_args.kwargs["check"] is True
         assert mock_run_command.call_args.kwargs["timeout"] == 15
+
+
+# ---------------------------------------------------------------------------
+# get_systemd_failed_services
+# ---------------------------------------------------------------------------
+
+
+class TestGetSystemdFailedServices:
+    def test_returns_empty_list_when_systemctl_fails(self, mocker):
+        mocker.patch(
+            _PATCH_RUN_SYSTEMCTL,
+            return_value=CommandResult(
+                command="", returncode=1, stdout="", stderr="", success=False
+            ),
+        )
+        assert get_systemd_failed_services() == []
+
+    def test_parses_unit_names_from_output(self, mocker):
+        stdout = (
+            "nginx.service     loaded failed failed nginx web server\n"
+            "docker.service    loaded failed failed Docker daemon\n"
+        )
+        mocker.patch(
+            _PATCH_RUN_SYSTEMCTL,
+            return_value=CommandResult(
+                command="", returncode=0, stdout=stdout, stderr="", success=True
+            ),
+        )
+
+        result = get_systemd_failed_services()
+        assert result == ["nginx.service", "docker.service"]
+
+    def test_skips_blank_lines(self, mocker):
+        stdout = "nginx.service loaded failed failed nginx\n\n   \n"
+        mocker.patch(
+            _PATCH_RUN_SYSTEMCTL,
+            return_value=CommandResult(
+                command="", returncode=0, stdout=stdout, stderr="", success=True
+            ),
+        )
+        result = get_systemd_failed_services()
+        assert result == ["nginx.service"]
