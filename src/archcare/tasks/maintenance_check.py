@@ -23,7 +23,8 @@ from archcare.core.models import (
     TaskResult,
 )
 from archcare.core.scheduler import TaskScheduleInfo, TaskScheduler
-from archcare.tasks.base import BaseTask
+
+from .base import BaseTask
 
 
 class MaintenanceCheckTask(BaseTask):

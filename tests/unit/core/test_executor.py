@@ -13,7 +13,8 @@ from archcare.config import (
     TaskConfig,
     TasksConfig,
 )
-from archcare.core import TaskExecutor, TaskResult, success
+from archcare.core import TaskExecutor
+from archcare.core.models import TaskResult, success
 from archcare.tasks import BaseTask
 
 pytestmark = pytest.mark.usefixtures("no_task_logging")
