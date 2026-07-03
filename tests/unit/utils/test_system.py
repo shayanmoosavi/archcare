@@ -1,6 +1,7 @@
 """Unit tests for system utility parsing and formatting logic."""
 
 from datetime import datetime, timedelta
+from pathlib import Path
 from subprocess import CalledProcessError, TimeoutExpired
 from unittest.mock import MagicMock
 
@@ -13,6 +14,7 @@ from archcare.utils.system import (
     _parse_active_status,
     _parse_loaded_status,
     _parse_main_pid,
+    change_ownership_to_user,
     check_filesystem_errors,
     format_bytes,
     get_system_uptime,
@@ -27,6 +29,18 @@ _PATCH_SUBPROCESS_RUN = f"{_UTILS_SYSTEM}.subprocess.run"
 _PATCH_IS_ROOT = f"{_UTILS_SYSTEM}.is_root"
 _PATCH_RUN_COMMAND = f"{_UTILS_SYSTEM}.run_command"
 _PATCH_RUN_SYSTEMCTL = f"{_UTILS_SYSTEM}.run_systemctl"
+
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def target_file(tmp_path) -> Path:
+    target: Path = tmp_path / "target_file"
+    target.touch()
+    return target
 
 
 # ---------------------------------------------------------------------------
@@ -459,3 +473,42 @@ class TestCheckFilesystemErrors:
         assert len(result) == 10
         assert result[0] == "kernel: disk error #2"
         assert result[-1] == "kernel: disk error #11"
+
+
+# ---------------------------------------------------------------------------
+# change_ownership_to_user
+# ---------------------------------------------------------------------------
+
+
+class TestChangeOwnershipToUser:
+    def test_changes_ownership_for_valid_user(self, target_file: Path, mocker):
+        mocker.patch("pwd.getpwnam", return_value=MagicMock(pw_uid=1000, pw_gid=1000))
+        mock_chown: MagicMock = mocker.patch("os.chown")
+        change_ownership_to_user(target_file, "alice")
+
+        mock_chown.assert_called_once_with(target_file, 1000, 1000)
+
+    def test_unknown_user_does_not_raise(self, target_file: Path, mocker):
+        mocker.patch("pwd.getpwnam", side_effect=KeyError("no such user"))
+        mock_chown: MagicMock = mocker.patch("os.chown")
+        change_ownership_to_user(target_file, "nonexistent")  # Must not raise
+
+        mock_chown.assert_not_called()
+
+    def test_permission_error_does_not_raise(self, target_file: Path, mocker):
+        mocker.patch("pwd.getpwnam", return_value=MagicMock(pw_uid=1000, pw_gid=1000))
+        mock_chown: MagicMock = mocker.patch(
+            "os.chown", side_effect=PermissionError("Permission denied")
+        )
+        change_ownership_to_user(target_file, "alice")  # Must not raise
+
+        mock_chown.assert_called_once_with(target_file, 1000, 1000)
+
+    def test_unexpected_error_does_not_raise(self, target_file: Path, mocker):
+        mocker.patch("pwd.getpwnam", return_value=MagicMock(pw_uid=1000, pw_gid=1000))
+        mock_chown: MagicMock = mocker.patch(
+            "os.chown", side_effect=OSError("disk full")
+        )
+        change_ownership_to_user(target_file, "alice")  # Must not raise
+
+        mock_chown.assert_called_once_with(target_file, 1000, 1000)
