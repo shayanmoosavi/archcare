@@ -13,6 +13,7 @@ from archcare.utils.system import (
     _parse_active_status,
     _parse_loaded_status,
     _parse_main_pid,
+    check_filesystem_errors,
     format_bytes,
     get_system_uptime,
     get_systemd_failed_services,
@@ -396,3 +397,65 @@ class TestGetSystemdFailedServices:
         )
         result = get_systemd_failed_services()
         assert result == ["nginx.service"]
+
+
+# ---------------------------------------------------------------------------
+# check_filesystem_errors
+# ---------------------------------------------------------------------------
+
+
+class TestCheckFilesystemErrors:
+    def test_returns_empty_list_when_command_fails(self, mocker):
+        mocker.patch(
+            _PATCH_RUN_COMMAND,
+            return_value=CommandResult(
+                command="", returncode=1, stdout="", stderr="", success=False
+            ),
+        )
+        assert check_filesystem_errors() == []
+
+    def test_returns_empty_list_when_stdout_empty(self, mocker):
+        mocker.patch(
+            _PATCH_RUN_COMMAND,
+            return_value=CommandResult(
+                command="", returncode=0, stdout="", stderr="", success=True
+            ),
+        )
+        assert check_filesystem_errors() == []
+
+    def test_filters_lines_by_keyword(self, mocker):
+        stdout = (
+            "kernel: random unrelated message\n"
+            "kernel: EXT4-fs error on device sda1\n"
+            "kernel: another unrelated line\n"
+            "kernel: I/O error on device sdb\n"
+        )
+        mocker.patch(
+            _PATCH_RUN_COMMAND,
+            return_value=CommandResult(
+                command="", returncode=0, stdout=stdout, stderr="", success=True
+            ),
+        )
+
+        result = check_filesystem_errors()
+        assert len(result) == 2
+        assert all("unrelated" not in line for line in result)
+
+    def test_limits_to_last_10_errors(self, mocker):
+        """
+        Pins down errors[-10:] specifically - feeding 12 matching lines
+        must return the *last* 10, not the first 10, since an off-by-one
+        or wrong-end slice would silently drop the most recent errors.
+        """
+        lines = [f"kernel: disk error #{i}" for i in range(12)]
+        stdout = "\n".join(lines)
+        mocker.patch(
+            _PATCH_RUN_COMMAND,
+            return_value=CommandResult(
+                command="", returncode=0, stdout=stdout, stderr="", success=True
+            ),
+        )
+        result = check_filesystem_errors()
+        assert len(result) == 10
+        assert result[0] == "kernel: disk error #2"
+        assert result[-1] == "kernel: disk error #11"
