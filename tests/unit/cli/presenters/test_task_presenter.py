@@ -246,3 +246,72 @@ class TestRenderStatus:
         TaskPresenter.render_status(response)
 
         mock_panel.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# render_list
+# ---------------------------------------------------------------------------
+
+
+class TestRenderList:
+    def test_shows_header_regardless_of_content(self, mocker):
+        mock_header: MagicMock = mocker.patch(f"{_MODULE}.print_header")
+        mocker.patch(f"{_MODULE}.print_warning")
+
+        TaskPresenter.render_list(TaskListResponse(tasks={}, filtered_by=None))
+
+        mock_header.assert_called_once_with("Available Tasks")
+
+    def test_empty_tasks_shows_warning_and_returns(self, mocker):
+        mocker.patch(f"{_MODULE}.print_header")
+        mock_warning: MagicMock = mocker.patch(f"{_MODULE}.print_warning")
+        mock_console: MagicMock = mocker.patch(f"{_MODULE}.console")
+
+        TaskPresenter.render_list(TaskListResponse(tasks={}, filtered_by=None))
+
+        mock_warning.assert_called_once_with("No tasks found!")
+        mock_console.print.assert_not_called()
+
+    def test_enabled_task_uses_checkmark_icon(self, automated_task: TaskConfig, mocker):
+        mocker.patch(f"{_MODULE}.print_header")
+        mock_console: MagicMock = mocker.patch(f"{_MODULE}.console")
+
+        response = TaskListResponse(
+            tasks={automated_task.name: automated_task}, filtered_by=None
+        )
+        TaskPresenter.render_list(response)
+
+        first_line: MagicMock = mock_console.print.call_args_list[0][0][0]
+        assert "✓" in first_line
+        assert automated_task.name in first_line
+
+    def test_disabled_task_uses_cross_icon(self, disabled_task: TaskConfig, mocker):
+        mocker.patch(f"{_MODULE}.print_header")
+        mock_console: MagicMock = mocker.patch(f"{_MODULE}.console")
+
+        response = TaskListResponse(
+            tasks={disabled_task.name: disabled_task}, filtered_by=None
+        )
+        TaskPresenter.render_list(response)
+
+        first_line: MagicMock = mock_console.print.call_args_list[0][0][0]
+        assert "✗" in first_line
+
+    def test_console_print_called_twice_per_task(
+        self, automated_task: TaskConfig, mocker
+    ):
+        """
+        Pins down the name-line + description-line structure, so a future
+        refactor collapsing them into one print() silently drops the
+        description without any test noticing.
+        """
+        mocker.patch(f"{_MODULE}.print_header")
+        mock_console: MagicMock = mocker.patch(f"{_MODULE}.console")
+
+        response = TaskListResponse(
+            tasks={automated_task.name: automated_task}, filtered_by=None
+        )
+        TaskPresenter.render_list(response)
+
+        assert mock_console.print.call_count == 2
+        assert automated_task.description in mock_console.print.call_args_list[1][0][0]
