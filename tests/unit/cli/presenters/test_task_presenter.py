@@ -315,3 +315,48 @@ class TestRenderList:
 
         assert mock_console.print.call_count == 2
         assert automated_task.description in mock_console.print.call_args_list[1][0][0]
+
+
+# ---------------------------------------------------------------------------
+# Convenience Methods
+# ---------------------------------------------------------------------------
+
+
+class TestConvenienceMethods:
+    def test_not_found_includes_task_name(self, mocker):
+        mock_error: MagicMock = mocker.patch(f"{_MODULE}.print_error")
+        mocker.patch(f"{_MODULE}.print_info")
+
+        TaskPresenter.not_found("update-mirrorlist")
+
+        assert "update-mirrorlist" in mock_error.call_args.args[0]
+
+    def test_empty_calls_print_error_and_two_print_info(self, mocker):
+        mocker.patch(f"{_MODULE}.print_error")
+        mock_info: MagicMock = mocker.patch(f"{_MODULE}.print_info")
+
+        TaskPresenter.empty()
+
+        assert mock_info.call_count == 2
+
+    def test_invalid_task_type_message(self, mocker):
+        mock_error: MagicMock = mocker.patch(f"{_MODULE}.print_error")
+
+        TaskPresenter.invalid_task_type()
+
+        assert "automated" in mock_error.call_args.args[0]
+        assert "manual" in mock_error.call_args.args[0]
+
+    def test_error_passes_through_message_and_interactive_flag(self, mocker):
+        mock_error: MagicMock = mocker.patch(f"{_MODULE}.print_error")
+
+        TaskPresenter.error("boom", is_interactive=False)
+
+        mock_error.assert_called_once_with("boom", False)
+
+    def test_aborted_includes_task_name(self, mocker):
+        mock_warning: MagicMock = mocker.patch(f"{_MODULE}.print_warning")
+
+        TaskPresenter.aborted("update-mirrorlist")
+
+        assert "update-mirrorlist" in mock_warning.call_args[0][0]
