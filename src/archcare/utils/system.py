@@ -37,7 +37,7 @@ def run_command(
     check: bool = False,
     capture_output: bool = True,
     text: bool = True,
-    timeout: int | None = None,
+    timeout: int | float | None = None,
     cwd: Path | None = None,
     env: dict[str, str] | None = None,
 ) -> CommandResult:
