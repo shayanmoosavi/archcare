@@ -212,7 +212,7 @@ class BaseTask(ABC):
                 self.rollback()
                 logger.info(f"Rollback completed for {self.name}")
             except Exception as rollback_error:
-                logger.error(f"Rollback failed for {self.name}: {rollback_error}")
+                logger.critical(f"Rollback failed for {self.name}: {rollback_error}")
 
             return self.create_result(
                 failed(message=f"Task execution failed: {str(e)}", error=e)
