@@ -1,7 +1,7 @@
 """Unit tests for system utility parsing and formatting logic."""
 
 from datetime import datetime, timedelta
-from unittest.mock import patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -101,39 +101,45 @@ class TestSystemctlParsing:
         ],
     )
     def test_get_service_description_correctly_parses_found_service(
-        self, svc_name, out, desc
+        self, svc_name, out, desc, mocker
     ):
-        with patch("archcare.utils.system.run_systemctl") as mock_run:
-            mock_run.return_value = CommandResult(
+        mocker.patch(
+            "archcare.utils.system.run_systemctl",
+            return_value=CommandResult(
                 command="",
                 returncode=0,
                 stdout=out,
                 stderr="",
                 success=True,
-            )
-            assert _get_service_description(svc_name) == desc
+            ),
+        )
+        assert _get_service_description(svc_name) == desc
 
-    def test_get_service_description_correctly_parses_not_found_service(self):
-        with patch("archcare.utils.system.run_systemctl") as mock_run:
-            mock_run.return_value = CommandResult(
+    def test_get_service_description_correctly_parses_not_found_service(self, mocker):
+        mocker.patch(
+            "archcare.utils.system.run_systemctl",
+            return_value=CommandResult(
                 command="",
                 returncode=0,
                 stdout="",
                 stderr="",
                 success=True,
-            )
-            assert _get_service_description("nonexistent.service") == ""
+            ),
+        )
+        assert _get_service_description("nonexistent.service") == ""
 
-    def test_get_service_description_returns_empty_when_command_fails(self):
-        with patch("archcare.utils.system.run_systemctl") as mock_run:
-            mock_run.return_value = CommandResult(
+    def test_get_service_description_returns_empty_when_command_fails(self, mocker):
+        mocker.patch(
+            "archcare.utils.system.run_systemctl",
+            return_value=CommandResult(
                 command="",
                 returncode=1,
                 stdout="some.service loaded active running Some description",
                 stderr="unit not found",
                 success=False,
-            )
-            assert _get_service_description("some.service") == ""
+            ),
+        )
+        assert _get_service_description("some.service") == ""
 
 
 # ---------------------------------------------------------------------------
@@ -142,15 +148,15 @@ class TestSystemctlParsing:
 
 
 class TestGetBootTime:
-    def test_falls_back_to_now_on_psutil_failure(self):
+    def test_falls_back_to_now_on_psutil_failure(self, mocker):
         """
         Every other test mocks _get_boot_time() itself, so its own
         try/except around psutil.boot_time() has no coverage elsewhere.
         """
-        with patch("psutil.boot_time", side_effect=Exception("no /proc/stat")):
-            before = datetime.now()
-            result = _get_boot_time()
-            after = datetime.now()
+        mocker.patch("psutil.boot_time", side_effect=Exception("no /proc/stat"))
+        before = datetime.now()
+        result = _get_boot_time()
+        after = datetime.now()
 
         assert before <= result <= after
 
@@ -175,30 +181,29 @@ class TestFormatting:
     def test_format_bytes_scales_correctly(self, bytes_val, bytes_expected):
         assert format_bytes(bytes_val) == bytes_expected
 
-    @patch("archcare.utils.system.datetime")
-    @patch("archcare.utils.system._get_boot_time")
-    def test_uptime_formatting(self, mock_boot_time, mock_datetime):
+    @pytest.mark.parametrize(
+        "expected,uptime",
+        [
+            ("just now", timedelta(seconds=30)),  # Test just now (less than a minute)
+            (
+                "45 minutes",
+                timedelta(minutes=45),
+            ),  # Test minutes only (less than an hour)
+            (
+                "3 hours, 15 minutes",
+                timedelta(hours=3, minutes=15),
+            ),  # Test hours and minutes
+            (
+                "2 days, 5 hours",
+                timedelta(days=2, hours=5, minutes=30),
+            ),  # Test days and hours (minutes should be hidden when days > 0)
+            ("1 day, 1 hour", timedelta(days=1, hours=1)),  # Test singular phrasing
+        ],
+    )
+    def test_uptime_formatting(self, expected, uptime, mocker):
         frozen_boot = datetime(2026, 6, 20, 12, 0, 0)
-        mock_boot_time.return_value = frozen_boot
+        mocker.patch("archcare.utils.system._get_boot_time", return_value=frozen_boot)
+        mock_datetime: MagicMock = mocker.patch("archcare.utils.system.datetime")
 
-        # Test just now (less than a minute)
-        mock_datetime.now.return_value = frozen_boot + timedelta(seconds=30)
-        assert get_system_uptime() == "just now"
-
-        # Test minutes only (less than an hour)
-        mock_datetime.now.return_value = frozen_boot + timedelta(minutes=45)
-        assert get_system_uptime() == "45 minutes"
-
-        # Test hours and minutes
-        mock_datetime.now.return_value = frozen_boot + timedelta(hours=3, minutes=15)
-        assert get_system_uptime() == "3 hours, 15 minutes"
-
-        # Test days and hours (minutes should be hidden when days > 0)
-        mock_datetime.now.return_value = frozen_boot + timedelta(
-            days=2, hours=5, minutes=30
-        )
-        assert get_system_uptime() == "2 days, 5 hours"
-
-        # Test singular phrasing
-        mock_datetime.now.return_value = frozen_boot + timedelta(days=1, hours=1)
-        assert get_system_uptime() == "1 day, 1 hour"
+        mock_datetime.now.return_value = frozen_boot + uptime
+        assert get_system_uptime() == expected
