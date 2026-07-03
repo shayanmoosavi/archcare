@@ -1,6 +1,7 @@
 """Unit tests for system utility parsing and formatting logic."""
 
 from datetime import datetime, timedelta
+from subprocess import CalledProcessError, TimeoutExpired
 from unittest.mock import MagicMock
 
 import pytest
@@ -14,7 +15,18 @@ from archcare.utils.system import (
     _parse_main_pid,
     format_bytes,
     get_system_uptime,
+    get_systemd_failed_services,
+    run_command,
+    run_command_with_sudo,
 )
+
+_UTILS_SYSTEM = "archcare.utils.system"
+
+_PATCH_SUBPROCESS_RUN = f"{_UTILS_SYSTEM}.subprocess.run"
+_PATCH_IS_ROOT = f"{_UTILS_SYSTEM}.is_root"
+_PATCH_RUN_COMMAND = f"{_UTILS_SYSTEM}.run_command"
+_PATCH_RUN_SYSTEMCTL = f"{_UTILS_SYSTEM}.run_systemctl"
+
 
 # ---------------------------------------------------------------------------
 # systemctl status parsing
@@ -104,7 +116,7 @@ class TestSystemctlParsing:
         self, svc_name, out, desc, mocker
     ):
         mocker.patch(
-            "archcare.utils.system.run_systemctl",
+            f"{_UTILS_SYSTEM}.run_systemctl",
             return_value=CommandResult(
                 command="",
                 returncode=0,
@@ -117,7 +129,7 @@ class TestSystemctlParsing:
 
     def test_get_service_description_correctly_parses_not_found_service(self, mocker):
         mocker.patch(
-            "archcare.utils.system.run_systemctl",
+            f"{_UTILS_SYSTEM}.run_systemctl",
             return_value=CommandResult(
                 command="",
                 returncode=0,
@@ -130,7 +142,7 @@ class TestSystemctlParsing:
 
     def test_get_service_description_returns_empty_when_command_fails(self, mocker):
         mocker.patch(
-            "archcare.utils.system.run_systemctl",
+            f"{_UTILS_SYSTEM}.run_systemctl",
             return_value=CommandResult(
                 command="",
                 returncode=1,
@@ -202,8 +214,143 @@ class TestFormatting:
     )
     def test_uptime_formatting(self, expected, uptime, mocker):
         frozen_boot = datetime(2026, 6, 20, 12, 0, 0)
-        mocker.patch("archcare.utils.system._get_boot_time", return_value=frozen_boot)
-        mock_datetime: MagicMock = mocker.patch("archcare.utils.system.datetime")
+        mocker.patch(f"{_UTILS_SYSTEM}._get_boot_time", return_value=frozen_boot)
+        mock_datetime: MagicMock = mocker.patch(f"{_UTILS_SYSTEM}.datetime")
 
         mock_datetime.now.return_value = frozen_boot + uptime
         assert get_system_uptime() == expected
+
+
+# ---------------------------------------------------------------------------
+# run_command
+# ---------------------------------------------------------------------------
+
+
+class TestRunCommand:
+    """
+    Real subprocess calls for POSIX-guaranteed commands (echo/false/sleep) -
+    these exercise real subprocess.CompletedProcess -> CommandResult
+    construction.
+    """
+
+    def test_list_command_returns_success_result(self):
+        result = run_command(["echo", "hello"])
+        assert result.success is True
+        assert result.returncode == 0
+        assert result.stdout == "hello"
+
+    def test_string_command_is_split_and_run(self):
+        """.split() is a naive whitespace split, not shlex - fine for
+        simple commands with no quoted arguments."""
+        result = run_command("echo hello")
+        assert result.success is True
+        assert result.returncode == 0
+        assert result.stdout == "hello"
+
+    def test_non_zero_exit_without_check_returns_failure_result(self):
+        result = run_command(["false"])
+        assert result.success is False
+        assert result.returncode == 1
+
+    def test_check_true_raises_called_process_error_for_real(self):
+        """
+        Using a real failing command (rather than mocking subprocess.run)
+        proves run_command's except-and-reraise doesn't accidentally
+        swallow the exception subprocess.run raises on its own.
+        """
+        with pytest.raises(CalledProcessError):
+            run_command(["false"], check=True)
+
+    def test_timeout_raises_timeout_expired_for_real(self):
+        with pytest.raises(TimeoutExpired):
+            run_command(["sleep", "2"], timeout=0.01)
+
+    def test_systemctl_exit_code_3_counts_as_success(self, mocker):
+        """
+        systemctl status returns 3 for a failed-but-loaded service - that's
+        treated as a successful *check*, not a failed command. Mocked
+        because reproducing a real failed unit deterministically isn't
+        portable, and some CI environments don't run systemd at all.
+        """
+        mocker.patch(
+            _PATCH_SUBPROCESS_RUN,
+            return_value=MagicMock(returncode=3, stdout="", stderr=""),
+        )
+        result = run_command(["systemctl", "status", "some.service"])
+        assert result.success is True
+
+    def test_non_systemctl_exit_code_3_is_a_failure(self, mocker):
+        """
+        Contrast case: the same returncode=3 is an ordinary failure for
+        any command whose string doesn't contain 'systemctl' - pins down
+        that the substring check, not the exit code itself, drives the
+        special case above.
+        """
+        mocker.patch(
+            _PATCH_SUBPROCESS_RUN,
+            return_value=MagicMock(returncode=3, stdout="", stderr=""),
+        )
+
+        result = run_command(["some-other-command"])
+        assert result.success is False
+
+    def test_strips_whitespace_from_stdout_and_stderr(self, mocker):
+        mocker.patch(
+            _PATCH_SUBPROCESS_RUN,
+            return_value=MagicMock(
+                returncode=0, stdout="  hello  \n", stderr=" world \n"
+            ),
+        )
+        result = run_command(["some-command"])
+
+        assert result.stdout == "hello"
+        assert result.stderr == "world"
+
+
+# ---------------------------------------------------------------------------
+# run_command_with_sudo
+# ---------------------------------------------------------------------------
+
+
+class TestRunCommandWithSudo:
+    """
+    run_command itself is already covered above, so here we only mock it
+    and verify run_command_with_sudo's own logic: whether 'sudo' gets
+    prepended, and that kwargs are forwarded unchanged.
+    """
+
+    def test_prepends_sudo_when_not_root(self, mocker):
+        mocker.patch(_PATCH_IS_ROOT, return_value=False)
+        mock_run_command: MagicMock = mocker.patch(_PATCH_RUN_COMMAND)
+        run_command_with_sudo(["pacman", "-Syu"])
+
+        assert mock_run_command.call_args.args[0] == [
+            "sudo",
+            "pacman",
+            "-Syu",
+        ]
+
+    def test_does_not_prepend_sudo_when_already_root(self, mocker):
+        mocker.patch(_PATCH_IS_ROOT, return_value=True)
+        mock_run_command: MagicMock = mocker.patch(_PATCH_RUN_COMMAND)
+        run_command_with_sudo(["pacman", "-Syu"])
+
+        assert mock_run_command.call_args.args[0] == ["pacman", "-Syu"]
+
+    def test_string_command_is_converted_before_sudo_prefix(self, mocker):
+        mocker.patch(_PATCH_IS_ROOT, return_value=False)
+        mock_run_command: MagicMock = mocker.patch(_PATCH_RUN_COMMAND)
+        run_command_with_sudo("pacman -Syu")
+
+        assert mock_run_command.call_args.args[0] == [
+            "sudo",
+            "pacman",
+            "-Syu",
+        ]
+
+    def test_forwards_kwargs_to_run_command(self, mocker):
+        mocker.patch(_PATCH_IS_ROOT, return_value=True)
+        mock_run_command: MagicMock = mocker.patch(_PATCH_RUN_COMMAND)
+        run_command_with_sudo(["pacman", "-Syu"], check=True, timeout=15)
+        assert mock_run_command.call_args.kwargs["check"] is True
+        assert mock_run_command.call_args.kwargs["timeout"] == 15
