@@ -6,13 +6,13 @@ Provides consistent, beautiful output formatting for CLI.
 
 from typing import Any
 
+from rich import box
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich import box
+from rich.table import Table
 
-from archcare.core.models import TaskResult, TaskStatus, MaintenanceIssue
+from archcare.core.models import MaintenanceIssue, TaskResult, TaskStatus
 from archcare.core.scheduler import TaskScheduleInfo
 
 # Global console instance
@@ -446,28 +446,3 @@ def create_progress() -> Progress:
         TextColumn("[progress.description]{task.description}"),
         console=console,
     )
-
-
-def confirm(message: str, default: bool = False) -> bool:
-    """
-    Ask user for confirmation.
-
-    Args:
-        message: Confirmation message
-        default: Default value if user just presses Enter
-
-    Returns:
-        True if user confirmed, False otherwise
-    """
-    default_str = "Y/n" if default else "y/N"
-    response = console.input(f"{message} [{default_str}] ").strip().lower()
-
-    if not response:
-        return default
-
-    return response in ("y", "yes")
-
-
-def print_divider() -> None:
-    """Print a visual divider."""
-    console.print("─" * console.width)
