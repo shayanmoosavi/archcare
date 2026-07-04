@@ -272,30 +272,24 @@ class TestRenderList:
         mock_warning.assert_called_once_with("No tasks found!")
         mock_console.print.assert_not_called()
 
-    def test_enabled_task_uses_checkmark_icon(self, automated_task: TaskConfig, mocker):
+    @pytest.mark.parametrize(
+        "task_fixture,expected_icon",
+        [
+            ("automated_task", "✓"),
+            ("disabled_task", "✗"),
+        ],
+    )
+    def test_tasks_use_correct_icon(self, task_fixture, expected_icon, mocker, request):
         mocker.patch(f"{_MODULE}.print_header")
         mock_console: MagicMock = mocker.patch(f"{_MODULE}.console")
 
-        response = TaskListResponse(
-            tasks={automated_task.name: automated_task}, filtered_by=None
-        )
+        task: TaskConfig = request.getfixturevalue(task_fixture)
+        response = TaskListResponse(tasks={task.name: task}, filtered_by=None)
         TaskPresenter.render_list(response)
 
         first_line: MagicMock = mock_console.print.call_args_list[0][0][0]
-        assert "✓" in first_line
-        assert automated_task.name in first_line
-
-    def test_disabled_task_uses_cross_icon(self, disabled_task: TaskConfig, mocker):
-        mocker.patch(f"{_MODULE}.print_header")
-        mock_console: MagicMock = mocker.patch(f"{_MODULE}.console")
-
-        response = TaskListResponse(
-            tasks={disabled_task.name: disabled_task}, filtered_by=None
-        )
-        TaskPresenter.render_list(response)
-
-        first_line: MagicMock = mock_console.print.call_args_list[0][0][0]
-        assert "✗" in first_line
+        assert expected_icon in first_line
+        assert task.name in first_line
 
     def test_console_print_called_twice_per_task(
         self, automated_task: TaskConfig, mocker
