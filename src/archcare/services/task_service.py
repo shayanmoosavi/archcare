@@ -7,9 +7,9 @@ from loguru import logger
 from archcare.config import TaskType
 from archcare.core import TaskExecutor, TaskScheduler
 from archcare.services.exceptions import (
+    InvalidTasksFileError,
     InvalidTaskTypeError,
     TaskNotFoundError,
-    InvalidTasksFileError,
 )
 from archcare.services.responses import (
     TaskListResponse,
@@ -33,7 +33,7 @@ class TaskService:
             force: Whether to run even if not due
 
         Raises:
-            TasksFileEmptyError: If the tasks file is empty.
+            InvalidTasksFileError: If the tasks file is empty or invalid.
             TaskNotFoundError: If `task_name` is not in the task configuration.
         """
         tasks_config = self._executor.config_loader.load_tasks()
@@ -65,7 +65,7 @@ class TaskService:
             task_type: Optional type to filter tasks by (one of 'automated' or 'manual')
 
         Raises:
-            TasksFileEmptyError: If the tasks file is empty.
+            InvalidTasksFileError: If the tasks file is empty or invalid.
             InvalidTaskTypeError: If `task_type` is set but not 'automated' or 'manual'.
         """
         tasks_config = self._executor.config_loader.load_tasks()
@@ -97,7 +97,7 @@ class TaskService:
                       (default: False)
 
         Raises:
-            TasksFileEmptyError: If the tasks file is empty.
+            InvalidTasksFileError: If the tasks file is empty or invalid.
             TaskNotFoundError: If `task_name` is set but unknown.
         """
         tasks_config = self._executor.config_loader.load_tasks()

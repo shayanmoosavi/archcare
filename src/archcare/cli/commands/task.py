@@ -30,7 +30,7 @@ def run(
 
     Example:
         archcare task run failed-services
-        archcare task run system-update --forcetask
+        archcare task run system-update --force
     """
     try:
         ctx.obj.setup_logging()
