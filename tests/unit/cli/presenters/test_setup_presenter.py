@@ -322,3 +322,40 @@ class TestStaticMethods:
         SetupPresenter.error("boom")
 
         mock_error.assert_called_once_with("boom")
+
+
+# ---------------------------------------------------------------------------
+# _list_timers
+# ---------------------------------------------------------------------------
+
+
+class TestListTimers:
+    def test_enabled_timer_prints_success(self, mocker):
+        mocker.patch(f"{_MODULE}.print")
+        mocker.patch(f"{_MODULE}.print_info")
+        mock_success: MagicMock = mocker.patch(f"{_MODULE}.print_success")
+        mocker.patch(f"{_MODULE}.print_warning")
+
+        response = _timer_setup_response(
+            enabled_timers=[
+                TimerEnableResponse(timer_name="archcare@foo.timer", enabled=True)
+            ]
+        )
+        _list_timers(response)
+
+        assert "archcare@foo.timer" in mock_success.call_args.args[0]
+
+    def test_failed_timer_prints_warning(self, mocker):
+        mocker.patch(f"{_MODULE}.print")
+        mocker.patch(f"{_MODULE}.print_info")
+        mocker.patch(f"{_MODULE}.print_success")
+        mock_warning: MagicMock = mocker.patch(f"{_MODULE}.print_warning")
+
+        response = _timer_setup_response(
+            enabled_timers=[
+                TimerEnableResponse(timer_name="archcare@bar.timer", enabled=False)
+            ]
+        )
+        _list_timers(response)
+
+        assert "archcare@bar.timer" in mock_warning.call_args.args[0]
