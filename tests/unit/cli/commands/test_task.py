@@ -238,3 +238,45 @@ class TestStatus:
 
         mock_service.get_task_status.assert_called_once_with("update-mirrorlist", True)
         mock_presenter.render_status.assert_called_once_with("RESPONSE_SENTINEL")
+
+
+# ---------------------------------------------------------------------------
+# task list
+# ---------------------------------------------------------------------------
+
+
+class TestListTasks:
+    def test_invalid_tasks_file_error_shows_empty_and_exits_1(
+        self, mock_service: MagicMock, mock_presenter: MagicMock
+    ):
+        mock_service.list_tasks.side_effect = InvalidTasksFileError()
+        ctx = _make_ctx()
+
+        with pytest.raises(typer.Exit) as exc_info:
+            list_tasks(ctx)  # ty:ignore[invalid-argument-type]
+
+        mock_presenter.empty.assert_called_once()
+        assert exc_info.value.exit_code == 1
+
+    def test_invalid_task_type_shows_message_and_exits_1(
+        self, mock_service: MagicMock, mock_presenter: MagicMock
+    ):
+        mock_service.list_tasks.side_effect = InvalidTaskTypeError("weekly")
+        ctx = _make_ctx()
+
+        with pytest.raises(typer.Exit) as exc_info:
+            list_tasks(ctx, task_type="weekly")  # ty:ignore[invalid-argument-type]
+
+        mock_presenter.invalid_task_type.assert_called_once()
+        assert exc_info.value.exit_code == 1
+
+    def test_service_called_with_task_type_and_renders_list(
+        self, mock_service: MagicMock, mock_presenter: MagicMock
+    ):
+        mock_service.list_tasks.return_value = "RESPONSE_SENTINEL"
+        ctx = _make_ctx()
+
+        list_tasks(ctx, task_type="manual")  # ty:ignore[invalid-argument-type]
+
+        mock_service.list_tasks.assert_called_once_with("manual")
+        mock_presenter.render_list.assert_called_once_with("RESPONSE_SENTINEL")
