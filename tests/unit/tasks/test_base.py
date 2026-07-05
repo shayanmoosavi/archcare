@@ -1,5 +1,7 @@
 """Unit tests for BaseTask.run() method."""
 
+from dataclasses import dataclass
+
 import pytest
 
 from archcare.config import AppSettings, SkipReason, TaskConfig, TaskStatus
@@ -25,53 +27,49 @@ def app_settings(mocker, tmp_path):
 # ---------------------------------------------------------------------------
 
 
+@dataclass
+class TaskContext:
+    """A context object to inject into DummyTask"""
+
+    pre_check_result: bool = True
+    pre_check_msg: str = ""
+    should_run_result: bool = True
+    should_run_msg: str = ""
+    should_run_skip_reason: SkipReason | None = None
+    execute_exception: Exception | None = None
+    execute_result_status: TaskStatus = TaskStatus.SUCCESS
+
+
 class DummyTask(BaseTask):
     """
     A programmable dummy task to verify BaseTask's Template Method pattern.
     Records the exact order of method calls during execution.
     """
 
-    def __init__(
-        self,
-        config: TaskConfig,
-        settings: AppSettings,
-        pre_check_result: bool = True,
-        pre_check_msg: str = "",
-        should_run_result: bool = True,
-        should_run_msg: str = "",
-        should_run_skip_reason: SkipReason | None = None,
-        execute_exception: Exception | None = None,
-        execute_result_status: TaskStatus = TaskStatus.SUCCESS,
-    ):
+    def __init__(self, config: TaskConfig, settings: AppSettings, context: TaskContext):
         super().__init__(config, settings)
         self.calls: list[str] = []
-        self._pre_check_result = pre_check_result
-        self._pre_check_msg = pre_check_msg
-        self._should_run_result = should_run_result
-        self._should_run_msg = should_run_msg
-        self._should_run_skip_reason = should_run_skip_reason
-        self._execute_exception = execute_exception
-        self._execute_result_status = execute_result_status
+        self._context: TaskContext = context
 
     def pre_check(self) -> tuple[bool, str]:
         self.calls.append("pre_check")
-        return self._pre_check_result, self._pre_check_msg
+        return self._context.pre_check_result, self._context.pre_check_msg
 
     def should_run(self) -> tuple[bool, str, SkipReason | None]:
         self.calls.append("should_run")
         return (
-            self._should_run_result,
-            self._should_run_msg,
-            self._should_run_skip_reason,
+            self._context.should_run_result,
+            self._context.should_run_msg,
+            self._context.should_run_skip_reason,
         )
 
     def execute(self) -> TaskResult:
         self.calls.append("execute")
-        if self._execute_exception:
-            raise self._execute_exception
+        if self._context.execute_exception:
+            raise self._context.execute_exception
 
         result = TaskResult(
-            status=self._execute_result_status,
+            status=self._context.execute_result_status,
             message="Dummy task execution successful.",
         )
         return self.create_result(result)
@@ -93,7 +91,8 @@ class TestBaseTaskRun:
         """
         Test the happy path: pre_check passes, execute succeeds, no rollback.
         """
-        task = DummyTask(automated_task, app_settings)
+        context = TaskContext()
+        task = DummyTask(automated_task, app_settings, context)
         result = task.run()
 
         assert result.status == TaskStatus.SUCCESS
@@ -108,11 +107,13 @@ class TestBaseTaskRun:
         Test that pre_check failure skips execution with SKIPPED status
         and SkipReason.DEPENDENCY_FAILED.
         """
+        context = TaskContext(
+            pre_check_result=False, pre_check_msg="pacman not available"
+        )
         task = DummyTask(
             automated_task,
             app_settings,
-            pre_check_result=False,
-            pre_check_msg="pacman not available",
+            context,
         )
         result = task.run()
 
@@ -128,12 +129,15 @@ class TestBaseTaskRun:
         """
         Test that a false should_run result skips execution with SKIPPED status
         """
-        task = DummyTask(
-            automated_task,
-            app_settings,
+        context = TaskContext(
             should_run_result=False,
             should_run_msg="Nothing to do",
             should_run_skip_reason=SkipReason.NO_WORK_NEEDED,
+        )
+        task = DummyTask(
+            automated_task,
+            app_settings,
+            context,
         )
         result = task.run()
 
@@ -149,10 +153,13 @@ class TestBaseTaskRun:
         Test that task fails with FAILURE (or PARTIAL depending on the implementation)
         status when execute gracefully fails
         """
+        context = TaskContext(
+            execute_result_status=TaskStatus.FAILURE,
+        )
         task = DummyTask(
             automated_task,
             app_settings,
-            execute_result_status=TaskStatus.FAILURE,
+            context,
         )
         result = task.run()
 
@@ -166,18 +173,21 @@ class TestBaseTaskRun:
         """
         Test that rollback is attempted when execute raises an exception
         """
+        context = TaskContext(
+            should_run_result=True,
+            execute_exception=RuntimeError("Crash and burn"),
+        )
         task = DummyTask(
             automated_task,
             app_settings,
-            should_run_result=True,
-            execute_exception=ValueError("Simulated catastrophic failure"),
+            context,
         )
         result = task.run()
 
         # Verify result status and error message
         assert result.status == TaskStatus.FAILURE
         assert result.error is not None
-        assert "Simulated catastrophic failure" in result.message
+        assert "Crash and burn" in result.message
 
         # Verify strict order of operations
         assert task.calls == [
