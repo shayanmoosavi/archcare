@@ -12,6 +12,9 @@ poetry.lock
 .pytest_cache/
 .ruff_cache/
 
+# Pytest coverage
+.coverage
+
 # Nuitka build directories
 *.build/
 *.onefile-build/
