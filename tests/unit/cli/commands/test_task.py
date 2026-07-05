@@ -187,3 +187,54 @@ class TestRun:
         _, kwargs = mock_presenter.render_run.call_args
         assert kwargs["settings"] == "SETTINGS_SENTINEL"
         assert kwargs["verbose"] is True
+
+
+# ---------------------------------------------------------------------------
+# task status
+# ---------------------------------------------------------------------------
+
+
+class TestStatus:
+    def test_invalid_tasks_file_error_shows_empty_and_exits_1(
+        self, mock_service: MagicMock, mock_presenter: MagicMock
+    ):
+        mock_service.get_task_status.side_effect = InvalidTasksFileError()
+        ctx = _make_ctx()
+
+        with pytest.raises(typer.Exit) as exc_info:
+            status(ctx)  # ty:ignore[invalid-argument-type]
+
+        mock_presenter.empty.assert_called_once()
+        assert exc_info.value.exit_code == 1
+
+    def test_task_not_found_shows_error_with_exception_message(
+        self, mock_service: MagicMock, mock_presenter: MagicMock
+    ):
+        """
+        Unlike run()'s not_found(task_name), status() passes str(e) to
+        the generic error() presenter method - different call shape, worth
+        pinning down so a copy-paste refactor doesn't quietly merge them.
+        """
+        mock_service.get_task_status.side_effect = TaskNotFoundError("bogus-task")
+        ctx = _make_ctx()
+
+        with pytest.raises(typer.Exit) as exc_info:
+            status(ctx, task_name="bogus-task")  # ty:ignore[invalid-argument-type]
+
+        assert "bogus-task" in mock_presenter.error.call_args[0][0]
+        assert exc_info.value.exit_code == 1
+
+    def test_service_called_with_task_name_and_due_only(
+        self, mock_service: MagicMock, mock_presenter: MagicMock
+    ):
+        mock_service.get_task_status.return_value = "RESPONSE_SENTINEL"
+        ctx = _make_ctx()
+
+        status(
+            ctx,  # ty:ignore[invalid-argument-type]
+            task_name="update-mirrorlist",
+            due_only=True,
+        )
+
+        mock_service.get_task_status.assert_called_once_with("update-mirrorlist", True)
+        mock_presenter.render_status.assert_called_once_with("RESPONSE_SENTINEL")
