@@ -45,7 +45,7 @@ def main():
     except ConfigNotInitializedError as e:
         print_error(str(e))
         print_info("Run 'archcare setup config' to get started.")
-        typer.Exit(1)
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":
