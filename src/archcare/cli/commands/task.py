@@ -1,5 +1,7 @@
 """Task related Typer commands for Archcare."""
 
+from typing import Annotated
+
 import typer
 from loguru import logger
 
@@ -21,9 +23,13 @@ def _service(ctx: typer.Context) -> TaskService:
 @task_app.command()
 def run(
     ctx: typer.Context,
-    task_name: str = typer.Argument(help="Name of the task to run"),
-    force: bool = typer.Option(False, "--force", "-f", help="Run even if not due"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed output"),
+    task_name: Annotated[str, typer.Argument(help="Name of the task to run")],
+    force: Annotated[
+        bool, typer.Option("--force", "-f", help="Run even if not due")
+    ] = False,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Show detailed output")
+    ] = False,
 ):
     """
     Run a specific maintenance task.
@@ -63,8 +69,12 @@ def run(
 @task_app.command()
 def status(
     ctx: typer.Context,
-    task_name: str | None = typer.Argument(None, help="Specific task to check"),
-    due_only: bool = typer.Option(False, "--due", help="Show only due tasks"),
+    task_name: Annotated[
+        str | None, typer.Argument(help="Specific task to check")
+    ] = None,
+    due_only: Annotated[
+        bool, typer.Option("--due", help="Show only due tasks")
+    ] = False,
 ):
     """
     Show status and schedule for tasks.
@@ -90,9 +100,10 @@ def status(
 @task_app.command("list")
 def list_tasks(
     ctx: typer.Context,
-    task_type: str | None = typer.Option(
-        None, "--type", "-t", help="Filter by type: automated or manual"
-    ),
+    task_type: Annotated[
+        str | None,
+        typer.Option("--type", "-t", help="Filter by type: automated or manual"),
+    ] = None,
 ):
     """
     List all available and enabled tasks.

@@ -1,6 +1,7 @@
 """Typer CLI interface for Archcare."""
 
 from os import getenv
+from typing import Annotated
 
 import typer
 
@@ -23,12 +24,14 @@ app.add_typer(debug_app, name="debug")
 @app.callback()
 def callback(
     ctx: typer.Context,
-    devel: bool = typer.Option(
-        False,
-        "--devel",
-        help="Enable verbose console output (development mode)",
-        is_eager=True,
-    ),
+    devel: Annotated[
+        bool,
+        typer.Option(
+            "--devel",
+            help="Enable verbose console output (development mode)",
+            is_eager=True,
+        ),
+    ] = False,
 ) -> None:
     # ARCHCARE_USER is set by the systemd service unit; its absence means
     # an interactive invocation.

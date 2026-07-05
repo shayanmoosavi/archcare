@@ -1,5 +1,7 @@
 """Logs Typer command for Archcare cli."""
 
+from typing import Annotated
+
 import typer
 
 from archcare.core import TaskExecutor
@@ -11,8 +13,12 @@ logs_app = typer.Typer()
 @logs_app.callback(invoke_without_command=True)
 def logs(
     ctx: typer.Context,
-    task_name: str | None = typer.Argument(None, help="Task to show logs for"),
-    lines: int = typer.Option(50, "--lines", "-n", help="Number of lines to show"),
+    task_name: Annotated[
+        str | None, typer.Argument(help="Task to show logs for")
+    ] = None,
+    lines: Annotated[
+        int, typer.Option("--lines", "-n", help="Number of lines to show")
+    ] = 50,
 ):
     """
     Show logs for Archcare or a specific task.

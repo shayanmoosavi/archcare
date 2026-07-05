@@ -1,5 +1,7 @@
 """One-time setup Typer commands for Archcare."""
 
+from typing import Annotated
+
 import typer
 from loguru import logger
 
@@ -43,12 +45,13 @@ def setup_config():
 @setup_app.command("timers")
 def setup_timers(
     ctx: typer.Context,
-    enable: bool = typer.Option(
-        True, "--enable/--no-enable", help="Enable timers after installation"
-    ),
-    dry_run: bool = typer.Option(
-        False, "--dry-run", help="Show what would be done without doing it"
-    ),
+    enable: Annotated[
+        bool,
+        typer.Option("--enable/--no-enable", help="Enable timers after installation"),
+    ] = True,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Show what would be done without doing it")
+    ] = False,
 ):
     """
     Set up systemd timers for automated task execution.

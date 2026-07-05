@@ -1,5 +1,7 @@
 """Typer commands for debugging purposes."""
 
+from typing import Annotated
+
 import typer
 
 from archcare.cli.presenters import DebugPresenter
@@ -16,12 +18,12 @@ debug_app = typer.Typer(help="Debug commands for Archcare.")
 @debug_app.command()
 def test_notification(
     ctx: typer.Context,
-    severity: str = typer.Option(
-        "warning",
-        "--severity",
-        "-s",
-        help="Notification severity: critical, warning, or info",
-    ),
+    severity: Annotated[
+        str,
+        typer.Option(
+            "--severity", "-s", help="Notification severity: critical, warning, or info"
+        ),
+    ] = "warning",
 ):
     """
     Test desktop notifications.
