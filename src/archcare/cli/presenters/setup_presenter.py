@@ -32,7 +32,7 @@ class SetupPresenter:
     def existing_files_warning(files: list[Path]) -> None:
         print_warning("Configuration files already exist:")
         for f in files:
-            print(f"  - {f.name}")
+            console.print(f"  - {f.name}")
 
     @staticmethod
     def init_cancelled() -> None:
@@ -68,18 +68,18 @@ class SetupPresenter:
 
     @staticmethod
     def render_timer_setup(response: TimerSetupResponse) -> None:
-        print()
+        console.print()
         print_info("Available automated tasks:")
         for task_name, task_config in response.automated_tasks.items():
             status_icon = "✓" if task_config.enabled else "✗"
-            print(f"  {status_icon} {task_name}: {task_config.description}")
+            console.print(f"  {status_icon} {task_name}: {task_config.description}")
 
-        print()
+        console.print()
         print_info("To enable a timer:")
-        print("  sudo systemctl enable --now archcare@TASK.timer\n")
+        console.print("  sudo systemctl enable --now archcare@TASK.timer\n")
         print_info("Example:")
         first_task = next(iter(response.automated_tasks.keys()))
-        print(f"  sudo systemctl enable --now archcare@{first_task}.timer\n")
+        console.print(f"  sudo systemctl enable --now archcare@{first_task}.timer\n")
 
         if response.enabled_timers:
             console.print("\n" + "=" * 60, style="bold blue")
@@ -91,33 +91,33 @@ class SetupPresenter:
             console.print("=" * 60, style="bold blue")
             print_info("Timer Status")
             console.print("=" * 60, style="bold blue")
-            print(f"\n{response.timer_status}")
+            console.print(f"\n{response.timer_status}")
 
     @staticmethod
     def no_automated_tasks() -> None:
-        print()
+        console.print()
         print_warning("No automated tasks found in configuration")
         print_info("Edit ~/.config/archcare/tasks.toml to configure tasks")
 
     @staticmethod
     def useful_commands() -> None:
-        print("\n" + "=" * 60)
-        print("Useful Commands")
-        print("=" * 60)
-        print("\n# List all timers")
-        print("  systemctl list-timers 'archcare@*'")
-        print("\n# Check specific timer")
-        print("  systemctl status archcare@TASK.timer")
-        print("\n# View logs")
-        print("  journalctl -u archcare@TASK.service")
-        print("\n# Manually trigger")
-        print("  sudo systemctl start archcare@TASK.service")
-        print("\n# Disable timer")
-        print("  sudo systemctl disable --now archcare@TASK.timer")
+        console.print("\n" + "=" * 60)
+        console.print("Useful Commands")
+        console.print("=" * 60)
+        console.print("\n# List all timers")
+        console.print("  systemctl list-timers 'archcare@*'")
+        console.print("\n# Check specific timer")
+        console.print("  systemctl status archcare@TASK.timer")
+        console.print("\n# View logs")
+        console.print("  journalctl -u archcare@TASK.service")
+        console.print("\n# Manually trigger")
+        console.print("  sudo systemctl start archcare@TASK.service")
+        console.print("\n# Disable timer")
+        console.print("  sudo systemctl disable --now archcare@TASK.timer")
 
     @staticmethod
     def dry_run_notice() -> None:
-        print()
+        console.print()
         print_success(
             "Dry run complete - no changes were made. Remove --dry-run to apply changes."
         )
@@ -134,7 +134,7 @@ class SetupPresenter:
 
 
 def _list_timers(response: TimerSetupResponse):
-    print()
+    console.print()
     for timer in response.enabled_timers:
         print_info(f"Enabling {timer.timer_name}...")
         if timer.enabled:

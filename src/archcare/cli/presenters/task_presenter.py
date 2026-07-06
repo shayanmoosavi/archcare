@@ -59,7 +59,7 @@ class TaskPresenter:
                     f"Output mode was set to 'file', check the report in {report_dir}",
                     response.is_interactive,
                 )
-        print()
+        console.print()
 
         if verbose:
             print_task_details(
@@ -80,11 +80,11 @@ class TaskPresenter:
             print_success("No tasks currently due!")
             return
 
-        print()
+        console.print()
         print_schedule_table(response.schedule_info)
 
         if response.summary:
-            print()
+            console.print()
             print_summary_panel("Summary", response.summary)
 
     @staticmethod
@@ -102,7 +102,7 @@ class TaskPresenter:
 
             console.print(f"{status_icon} [bold]{name}[/bold] {type_badge} ({freq})")
             console.print(f"  {config.description}")
-            print()
+            console.print()
 
     @staticmethod
     def not_found(task_name: str) -> None:
@@ -127,5 +127,5 @@ class TaskPresenter:
 
     @staticmethod
     def aborted(task_name: str) -> None:
-        print()
+        console.print()
         print_warning(f"Task '{task_name}' execution aborted")
