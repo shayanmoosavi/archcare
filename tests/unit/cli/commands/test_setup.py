@@ -226,14 +226,6 @@ class TestSetupTimersMainFlow:
     def test_systemd_reload_error_shows_message_and_exits_1(
         self, mock_presenter: MagicMock, mock_timer_service: MagicMock
     ):
-        """
-        NOTE: TimerService.reload() actually catches SystemdReloadError
-        internally and returns success=False (per test_setup_service.py),
-        so this exception may not currently be reachable through the real
-        service.
-        TODO: Refactor TimerService.reload() to raise SystemdReloadError
-        directly
-        """
         mock_timer_service.install_templates.side_effect = SystemdReloadError()
         ctx = _make_ctx()
 

@@ -113,18 +113,6 @@ class TestRenderTemplateInstallation:
 
 
 class TestRenderSystemdReload:
-    def test_failure_prints_error_and_returns_early(self, mocker):
-        mocker.patch(f"{_MODULE}.print_info")
-        mock_error: MagicMock = mocker.patch(f"{_MODULE}.print_error")
-        mock_success: MagicMock = mocker.patch(f"{_MODULE}.print_success")
-
-        SetupPresenter.render_systemd_reload(
-            ReloadSystemdResponse(success=False), dry_run=False
-        )
-
-        mock_error.assert_called_once_with("Failed to reload systemd")
-        mock_success.assert_not_called()
-
     @pytest.mark.parametrize(
         "dry_run,expected_verb", [(True, "Would reload"), (False, "Reloaded")]
     )
@@ -132,9 +120,7 @@ class TestRenderSystemdReload:
         mocker.patch(f"{_MODULE}.print_info")
         mock_success: MagicMock = mocker.patch(f"{_MODULE}.print_success")
 
-        SetupPresenter.render_systemd_reload(
-            ReloadSystemdResponse(success=True), dry_run=dry_run
-        )
+        SetupPresenter.render_systemd_reload(ReloadSystemdResponse(dry_run=dry_run))
 
         assert expected_verb in mock_success.call_args.args[0]
 
