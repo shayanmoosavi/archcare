@@ -18,7 +18,7 @@ pytestmark = pytest.mark.usefixtures("no_task_logging")
 @pytest.fixture
 def app_settings(mocker, tmp_path):
     """Provide a minimal AppSettings instance."""
-    mocker.patch.object(AppSettings, "home_dir", return_value=tmp_path)
+    mocker.patch.object(AppSettings, "home_dir", property(lambda _: tmp_path))
     return AppSettings()
 
 
