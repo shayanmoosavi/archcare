@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from archcare.config import TaskConfig
+from archcare.services.exceptions import SystemdReloadError
 from archcare.services.setup_service import ConfigService, TimerService
 
 _PATCH_CREATE_CONFIG = "archcare.services.setup_service.create_default_config_files"
@@ -84,7 +85,7 @@ class TestConfigService:
     def test_initialize_returns_response_with_correct_config_dir(
         self, tmp_path, monkeypatch
     ):
-        monkeypatch.setattr(_PATCH_CREATE_CONFIG, lambda *a, **kw: None)
+        monkeypatch.setattr(_PATCH_CREATE_CONFIG, lambda *_, **__: None)
         result = ConfigService(config_dir=tmp_path).initialize()
         assert result.config_dir == tmp_path
 
@@ -92,7 +93,7 @@ class TestConfigService:
         calls = []
         monkeypatch.setattr(
             _PATCH_CREATE_CONFIG,
-            lambda config_dir, **kw: calls.append(config_dir),
+            lambda config_dir, **_: calls.append(config_dir),
         )
         ConfigService(config_dir=tmp_path).initialize()
         assert calls[0] == tmp_path
@@ -182,25 +183,21 @@ class TestReload:
         timer_service.reload(dry_run=True)
         assert not calls
 
-    def test_dry_run_returns_success(self, timer_service: TimerService, monkeypatch):
-        monkeypatch.setattr(_PATCH_SYSTEMCTL, lambda *_: _systemctl_result(True))
-        response = timer_service.reload(dry_run=True)
-        assert response.success is True
-
-    def test_successful_daemon_reload_returns_success(
-        self, timer_service: TimerService, monkeypatch
+    @pytest.mark.parametrize("dry_run", [True, False])
+    def test_dry_run_parameter_flows_through_reload(
+        self, timer_service: TimerService, monkeypatch, dry_run
     ):
         monkeypatch.setattr(_PATCH_SYSTEMCTL, lambda *_: _systemctl_result(True))
-        response = timer_service.reload(dry_run=False)
-        assert response.success is True
+        response = timer_service.reload(dry_run=dry_run)
+        assert response.dry_run is dry_run
 
-    def test_failed_daemon_reload_returns_failure(
+    def test_failed_daemon_reload_raises(
         self, timer_service: TimerService, monkeypatch
     ):
         """SystemdReloadError is caught internally; success=False is returned."""
         monkeypatch.setattr(_PATCH_SYSTEMCTL, lambda *_: _systemctl_result(False))
-        response = timer_service.reload(dry_run=False)
-        assert response.success is False
+        with pytest.raises(SystemdReloadError):
+            timer_service.reload(dry_run=False)
 
 
 # ---------------------------------------------------------------------------
