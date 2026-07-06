@@ -85,7 +85,7 @@ def setup_timers(
 
         print()
         reload_response = service.reload(dry_run)
-        SetupPresenter.render_systemd_reload(reload_response, dry_run)
+        SetupPresenter.render_systemd_reload(reload_response)
 
         SetupPresenter.templates_installed()
 

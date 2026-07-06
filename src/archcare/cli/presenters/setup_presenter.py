@@ -55,12 +55,9 @@ class SetupPresenter:
         print_success(f"  {verb} {response.timer_file}")
 
     @staticmethod
-    def render_systemd_reload(response: ReloadSystemdResponse, dry_run: bool) -> None:
+    def render_systemd_reload(response: ReloadSystemdResponse) -> None:
         print_info("Reloading systemd daemon...")
-        verb = "Would reload" if dry_run else "Reloaded"
-        if not response.success:
-            print_error("Failed to reload systemd")
-            return
+        verb = "Would reload" if response.dry_run else "Reloaded"
         print_success(f"  {verb} systemd daemon")
 
     @staticmethod
