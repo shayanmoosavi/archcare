@@ -54,7 +54,7 @@ class InstallTemplatesResponse:
 class ReloadSystemdResponse:
     """Outcome of reloading the systemd daemon."""
 
-    success: bool
+    dry_run: bool
 
 
 @dataclass

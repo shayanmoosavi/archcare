@@ -99,11 +99,11 @@ class TimerService:
     @staticmethod
     def reload(dry_run: bool) -> ReloadSystemdResponse:
         """Raises SystemdReloadError if `systemctl daemon-reload` fails."""
-        try:
-            _reload_systemd(dry_run)
-        except SystemdReloadError:
-            return ReloadSystemdResponse(success=False)
-        return ReloadSystemdResponse(success=True)
+        if not dry_run:
+            result = run_systemctl(["daemon-reload"])
+            if not result.success:
+                raise SystemdReloadError()
+        return ReloadSystemdResponse(dry_run=dry_run)
 
     @staticmethod
     def setup_timers(
@@ -197,10 +197,3 @@ AccuracySec=12h
 WantedBy=timers.target
 """
     return service_content, timer_content
-
-
-def _reload_systemd(dry_run: bool) -> None:
-    if not dry_run:
-        result = run_systemctl(["daemon-reload"])
-        if not result.success:
-            raise SystemdReloadError()
