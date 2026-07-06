@@ -5,11 +5,11 @@ from unittest.mock import MagicMock
 
 from archcare.utils.pacman import check_package_files, check_pacman_database
 
-_UTILS_PACMAN = "archcare.utils.pacman"
+_MODULE = "archcare.utils.pacman"
 
-_PATCH_CHECK_COMMAND = f"{_UTILS_PACMAN}.check_command_exists"
-_PATCH_RUN_COMMAND = f"{_UTILS_PACMAN}.run_command"
-
+_PATCH_CHECK_COMMAND = f"{_MODULE}.check_command_exists"
+_PATCH_RUN_COMMAND = f"{_MODULE}.run_command"
+_PATCH_RUN_COMMAND_SUDO = f"{_MODULE}.run_command_with_sudo"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -76,9 +76,7 @@ class TestCheckPackageFiles:
     def test_returns_false_when_check_command_fails(self, mocker):
         mocker.patch(_PATCH_CHECK_COMMAND, return_value=True)
 
-        mock_run_command_sudo: MagicMock = mocker.patch(
-            f"{_UTILS_PACMAN}.run_command_with_sudo"
-        )
+        mock_run_command_sudo: MagicMock = mocker.patch(_PATCH_RUN_COMMAND_SUDO)
         mock_run_command_sudo.return_value = MockResult(
             success=False, stderr="error: failed to read database"
         )
@@ -91,9 +89,7 @@ class TestCheckPackageFiles:
     def test_returns_true_when_all_package_files_present(self, mocker):
         mocker.patch(_PATCH_CHECK_COMMAND, return_value=True)
 
-        mock_run_command_sudo: MagicMock = mocker.patch(
-            f"{_UTILS_PACMAN}.run_command_with_sudo"
-        )
+        mock_run_command_sudo: MagicMock = mocker.patch(_PATCH_RUN_COMMAND_SUDO)
 
         mock_stdout = (
             "linux: 1000 total files, 0 missing files\n"
@@ -110,7 +106,7 @@ class TestCheckPackageFiles:
     def test_returns_true_when_no_packages_are_installed(self, mocker):
         mocker.patch(_PATCH_CHECK_COMMAND, return_value=True)
         mocker.patch(
-            f"{_UTILS_PACMAN}.run_command_with_sudo",
+            _PATCH_RUN_COMMAND_SUDO,
             return_value=MockResult(success=True, stdout=""),
         )
 
@@ -121,9 +117,7 @@ class TestCheckPackageFiles:
     def test_returns_false_when_package_files_missing(self, mocker):
         mocker.patch(_PATCH_CHECK_COMMAND, return_value=True)
 
-        mock_run_command_sudo: MagicMock = mocker.patch(
-            f"{_UTILS_PACMAN}.run_command_with_sudo"
-        )
+        mock_run_command_sudo: MagicMock = mocker.patch(_PATCH_RUN_COMMAND_SUDO)
 
         mock_stdout = (
             "linux: 1000 total files, 0 missing files\n"

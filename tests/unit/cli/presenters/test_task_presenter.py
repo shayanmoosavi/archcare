@@ -18,6 +18,18 @@ from archcare.services.responses import (
 
 _MODULE = "archcare.cli.presenters.task_presenter"
 
+_PATCH_HEADER = f"{_MODULE}.print_header"
+_PATCH_INFO = f"{_MODULE}.print_info"
+_PATCH_WARNING = f"{_MODULE}.print_warning"
+_PATCH_SUCCESS = f"{_MODULE}.print_success"
+_PATCH_ERROR = f"{_MODULE}.print_error"
+_PATCH_CONSOLE = f"{_MODULE}.console"
+_PATCH_TABLE = f"{_MODULE}.print_schedule_table"
+_PATCH_SUMMARY = f"{_MODULE}.print_summary_panel"
+_PATCH_TASK_RESULT = f"{_MODULE}.print_task_result"
+_PATCH_TASK_DETAILS = f"{_MODULE}.print_task_details"
+_PATCH_PRESENTER = f"{_MODULE}.MaintenanceCheckPresenter"
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -56,8 +68,8 @@ class TestRenderRun:
     def test_header_shown_when_outcome_not_skipped(
         self, settings_terminal_mode: AppSettings, mocker
     ):
-        mock_header: MagicMock = mocker.patch(f"{_MODULE}.print_header")
-        mocker.patch(f"{_MODULE}.print_task_result")
+        mock_header: MagicMock = mocker.patch(_PATCH_HEADER)
+        mocker.patch(_PATCH_TASK_RESULT)
 
         response = TaskRunResponse(
             task_name="update-mirrorlist",
@@ -71,8 +83,8 @@ class TestRenderRun:
     def test_header_skipped_when_outcome_is_skipped(
         self, settings_terminal_mode: AppSettings, mocker
     ):
-        mock_header: MagicMock = mocker.patch(f"{_MODULE}.print_header")
-        mocker.patch(f"{_MODULE}.print_task_result")
+        mock_header: MagicMock = mocker.patch(_PATCH_HEADER)
+        mocker.patch(_PATCH_TASK_RESULT)
 
         response = TaskRunResponse(
             task_name="update-mirrorlist",
@@ -86,12 +98,10 @@ class TestRenderRun:
     def test_renders_maintenance_table_when_result_present_and_not_file_mode(
         self, settings_terminal_mode: AppSettings, mocker
     ):
-        mocker.patch(f"{_MODULE}.print_header")
-        mocker.patch(f"{_MODULE}.print_task_result")
-        mocker.patch(f"{_MODULE}.print_info")
-        mock_mc_presenter: MagicMock = mocker.patch(
-            f"{_MODULE}.MaintenanceCheckPresenter"
-        )
+        mocker.patch(_PATCH_HEADER)
+        mocker.patch(_PATCH_TASK_RESULT)
+        mocker.patch(_PATCH_INFO)
+        mock_mc_presenter: MagicMock = mocker.patch(_PATCH_PRESENTER)
 
         sentinel_result = object()
         response = TaskRunResponse(
@@ -114,12 +124,10 @@ class TestRenderRun:
         reflects settings.report_dir rather than a hardcoded path, so
         this stays portable across machines/CI.
         """
-        mocker.patch(f"{_MODULE}.print_header")
-        mocker.patch(f"{_MODULE}.print_task_result")
-        mock_info: MagicMock = mocker.patch(f"{_MODULE}.print_info")
-        mock_mc_presenter: MagicMock = mocker.patch(
-            f"{_MODULE}.MaintenanceCheckPresenter"
-        )
+        mocker.patch(_PATCH_HEADER)
+        mocker.patch(_PATCH_TASK_RESULT)
+        mock_info: MagicMock = mocker.patch(_PATCH_INFO)
+        mock_mc_presenter: MagicMock = mocker.patch(_PATCH_PRESENTER)
 
         response = TaskRunResponse(
             task_name="check-maintenance",
@@ -135,12 +143,10 @@ class TestRenderRun:
     def test_no_maintenance_rendering_when_maintenance_result_absent(
         self, settings_terminal_mode: AppSettings, mocker
     ):
-        mocker.patch(f"{_MODULE}.print_header")
-        mocker.patch(f"{_MODULE}.print_task_result")
-        mock_info: MagicMock = mocker.patch(f"{_MODULE}.print_info")
-        mock_mc_presenter: MagicMock = mocker.patch(
-            f"{_MODULE}.MaintenanceCheckPresenter"
-        )
+        mocker.patch(_PATCH_HEADER)
+        mocker.patch(_PATCH_TASK_RESULT)
+        mock_info: MagicMock = mocker.patch(_PATCH_INFO)
+        mock_mc_presenter: MagicMock = mocker.patch(_PATCH_PRESENTER)
 
         response = TaskRunResponse(
             task_name="failed-services",
@@ -155,9 +161,9 @@ class TestRenderRun:
     def test_verbose_uses_print_task_details_with_show_details(
         self, settings_terminal_mode: AppSettings, mocker
     ):
-        mocker.patch(f"{_MODULE}.print_header")
-        mock_details: MagicMock = mocker.patch(f"{_MODULE}.print_task_details")
-        mock_result: MagicMock = mocker.patch(f"{_MODULE}.print_task_result")
+        mocker.patch(_PATCH_HEADER)
+        mock_details: MagicMock = mocker.patch(_PATCH_TASK_DETAILS)
+        mock_result: MagicMock = mocker.patch(_PATCH_TASK_RESULT)
 
         outcome = _make_outcome(details={})
         response = TaskRunResponse(
@@ -173,9 +179,9 @@ class TestRenderRun:
     def test_non_verbose_uses_print_task_result(
         self, settings_terminal_mode: AppSettings, mocker
     ):
-        mocker.patch(f"{_MODULE}.print_header")
-        mock_details: MagicMock = mocker.patch(f"{_MODULE}.print_task_details")
-        mock_result: MagicMock = mocker.patch(f"{_MODULE}.print_task_result")
+        mocker.patch(_PATCH_HEADER)
+        mock_details: MagicMock = mocker.patch(_PATCH_TASK_DETAILS)
+        mock_result: MagicMock = mocker.patch(_PATCH_TASK_RESULT)
 
         outcome = _make_outcome(details={})
         response = TaskRunResponse(
@@ -194,8 +200,8 @@ class TestRenderRun:
 
 class TestRenderStatus:
     def test_due_only_with_no_schedule_shows_success_and_returns_early(self, mocker):
-        mock_success: MagicMock = mocker.patch(f"{_MODULE}.print_success")
-        mock_table: MagicMock = mocker.patch(f"{_MODULE}.print_schedule_table")
+        mock_success: MagicMock = mocker.patch(_PATCH_SUCCESS)
+        mock_table: MagicMock = mocker.patch(_PATCH_TABLE)
 
         response = TaskStatusResponse(schedule_info=[], due_only=True)
         TaskPresenter.render_status(response)
@@ -204,8 +210,8 @@ class TestRenderStatus:
         mock_table.assert_not_called()
 
     def test_due_only_with_results_shows_table_not_success(self, mocker):
-        mock_success: MagicMock = mocker.patch(f"{_MODULE}.print_success")
-        mock_table: MagicMock = mocker.patch(f"{_MODULE}.print_schedule_table")
+        mock_success: MagicMock = mocker.patch(_PATCH_SUCCESS)
+        mock_table: MagicMock = mocker.patch(_PATCH_TABLE)
 
         mock_task_info = MagicMock(spec=TaskScheduleInfo)
         response = TaskStatusResponse(schedule_info=[mock_task_info], due_only=True)
@@ -215,8 +221,8 @@ class TestRenderStatus:
         mock_success.assert_not_called()
 
     def test_non_due_only_with_empty_schedule_still_shows_table(self, mocker):
-        mock_success: MagicMock = mocker.patch(f"{_MODULE}.print_success")
-        mock_table: MagicMock = mocker.patch(f"{_MODULE}.print_schedule_table")
+        mock_success: MagicMock = mocker.patch(_PATCH_SUCCESS)
+        mock_table: MagicMock = mocker.patch(_PATCH_TABLE)
 
         response = TaskStatusResponse(schedule_info=[], due_only=False)
         TaskPresenter.render_status(response)
@@ -225,8 +231,8 @@ class TestRenderStatus:
         mock_success.assert_not_called()
 
     def test_summary_panel_rendered_when_summary_present(self, mocker):
-        mocker.patch(f"{_MODULE}.print_schedule_table")
-        mock_panel: MagicMock = mocker.patch(f"{_MODULE}.print_summary_panel")
+        mocker.patch(_PATCH_TABLE)
+        mock_panel: MagicMock = mocker.patch(_PATCH_SUMMARY)
 
         summary = {"total": 3, "overdue": 1}
         response = TaskStatusResponse(
@@ -237,8 +243,8 @@ class TestRenderStatus:
         mock_panel.assert_called_once_with("Summary", summary)
 
     def test_summary_panel_not_rendered_when_no_summary(self, mocker):
-        mocker.patch(f"{_MODULE}.print_schedule_table")
-        mock_panel: MagicMock = mocker.patch(f"{_MODULE}.print_summary_panel")
+        mocker.patch(_PATCH_TABLE)
+        mock_panel: MagicMock = mocker.patch(_PATCH_SUMMARY)
 
         response = TaskStatusResponse(
             schedule_info=[MagicMock(spec=TaskScheduleInfo)], summary=None
@@ -255,17 +261,17 @@ class TestRenderStatus:
 
 class TestRenderList:
     def test_shows_header_regardless_of_content(self, mocker):
-        mock_header: MagicMock = mocker.patch(f"{_MODULE}.print_header")
-        mocker.patch(f"{_MODULE}.print_warning")
+        mock_header: MagicMock = mocker.patch(_PATCH_HEADER)
+        mocker.patch(_PATCH_WARNING)
 
         TaskPresenter.render_list(TaskListResponse(tasks={}, filtered_by=None))
 
         mock_header.assert_called_once_with("Available Tasks")
 
     def test_empty_tasks_shows_warning_and_returns(self, mocker):
-        mocker.patch(f"{_MODULE}.print_header")
-        mock_warning: MagicMock = mocker.patch(f"{_MODULE}.print_warning")
-        mock_console: MagicMock = mocker.patch(f"{_MODULE}.console")
+        mocker.patch(_PATCH_HEADER)
+        mock_warning: MagicMock = mocker.patch(_PATCH_WARNING)
+        mock_console: MagicMock = mocker.patch(_PATCH_CONSOLE)
 
         TaskPresenter.render_list(TaskListResponse(tasks={}, filtered_by=None))
 
@@ -280,8 +286,8 @@ class TestRenderList:
         ],
     )
     def test_tasks_use_correct_icon(self, task_fixture, expected_icon, mocker, request):
-        mocker.patch(f"{_MODULE}.print_header")
-        mock_console: MagicMock = mocker.patch(f"{_MODULE}.console")
+        mocker.patch(_PATCH_HEADER)
+        mock_console: MagicMock = mocker.patch(_PATCH_CONSOLE)
 
         task: TaskConfig = request.getfixturevalue(task_fixture)
         response = TaskListResponse(tasks={task.name: task}, filtered_by=None)
@@ -299,8 +305,8 @@ class TestRenderList:
         refactor collapsing them into one print() silently drops the
         description without any test noticing.
         """
-        mocker.patch(f"{_MODULE}.print_header")
-        mock_console: MagicMock = mocker.patch(f"{_MODULE}.console")
+        mocker.patch(_PATCH_HEADER)
+        mock_console: MagicMock = mocker.patch(_PATCH_CONSOLE)
 
         response = TaskListResponse(
             tasks={automated_task.name: automated_task}, filtered_by=None
@@ -320,23 +326,23 @@ class TestRenderList:
 
 class TestConvenienceMethods:
     def test_not_found_includes_task_name(self, mocker):
-        mock_error: MagicMock = mocker.patch(f"{_MODULE}.print_error")
-        mocker.patch(f"{_MODULE}.print_info")
+        mock_error: MagicMock = mocker.patch(_PATCH_ERROR)
+        mocker.patch(_PATCH_INFO)
 
         TaskPresenter.not_found("update-mirrorlist")
 
         assert "update-mirrorlist" in mock_error.call_args.args[0]
 
     def test_empty_calls_print_error_and_two_print_info(self, mocker):
-        mocker.patch(f"{_MODULE}.print_error")
-        mock_info: MagicMock = mocker.patch(f"{_MODULE}.print_info")
+        mocker.patch(_PATCH_ERROR)
+        mock_info: MagicMock = mocker.patch(_PATCH_INFO)
 
         TaskPresenter.empty()
 
         assert mock_info.call_count == 2
 
     def test_invalid_task_type_message(self, mocker):
-        mock_error: MagicMock = mocker.patch(f"{_MODULE}.print_error")
+        mock_error: MagicMock = mocker.patch(_PATCH_ERROR)
 
         TaskPresenter.invalid_task_type()
 
@@ -344,14 +350,14 @@ class TestConvenienceMethods:
         assert "manual" in mock_error.call_args.args[0]
 
     def test_error_passes_through_message_and_interactive_flag(self, mocker):
-        mock_error: MagicMock = mocker.patch(f"{_MODULE}.print_error")
+        mock_error: MagicMock = mocker.patch(_PATCH_ERROR)
 
         TaskPresenter.error("boom", is_interactive=False)
 
         mock_error.assert_called_once_with("boom", False)
 
     def test_aborted_includes_task_name(self, mocker):
-        mock_warning: MagicMock = mocker.patch(f"{_MODULE}.print_warning")
+        mock_warning: MagicMock = mocker.patch(_PATCH_WARNING)
 
         TaskPresenter.aborted("update-mirrorlist")
 

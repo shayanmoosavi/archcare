@@ -23,12 +23,12 @@ from archcare.utils.system import (
     run_command_with_sudo,
 )
 
-_UTILS_SYSTEM = "archcare.utils.system"
+_MODULE = "archcare.utils.system"
 
-_PATCH_SUBPROCESS_RUN = f"{_UTILS_SYSTEM}.subprocess.run"
-_PATCH_IS_ROOT = f"{_UTILS_SYSTEM}.is_root"
-_PATCH_RUN_COMMAND = f"{_UTILS_SYSTEM}.run_command"
-_PATCH_RUN_SYSTEMCTL = f"{_UTILS_SYSTEM}.run_systemctl"
+_PATCH_SUBPROCESS_RUN = f"{_MODULE}.subprocess.run"
+_PATCH_IS_ROOT = f"{_MODULE}.is_root"
+_PATCH_RUN_COMMAND = f"{_MODULE}.run_command"
+_PATCH_RUN_SYSTEMCTL = f"{_MODULE}.run_systemctl"
 
 
 # ---------------------------------------------------------------------------
@@ -131,7 +131,7 @@ class TestSystemctlParsing:
         self, svc_name, out, desc, mocker
     ):
         mocker.patch(
-            f"{_UTILS_SYSTEM}.run_systemctl",
+            f"{_MODULE}.run_systemctl",
             return_value=CommandResult(
                 command="",
                 returncode=0,
@@ -144,7 +144,7 @@ class TestSystemctlParsing:
 
     def test_get_service_description_correctly_parses_not_found_service(self, mocker):
         mocker.patch(
-            f"{_UTILS_SYSTEM}.run_systemctl",
+            f"{_MODULE}.run_systemctl",
             return_value=CommandResult(
                 command="",
                 returncode=0,
@@ -157,7 +157,7 @@ class TestSystemctlParsing:
 
     def test_get_service_description_returns_empty_when_command_fails(self, mocker):
         mocker.patch(
-            f"{_UTILS_SYSTEM}.run_systemctl",
+            f"{_MODULE}.run_systemctl",
             return_value=CommandResult(
                 command="",
                 returncode=1,
@@ -229,8 +229,8 @@ class TestFormatting:
     )
     def test_uptime_formatting(self, expected, uptime, mocker):
         frozen_boot = datetime(2026, 6, 20, 12, 0, 0)
-        mocker.patch(f"{_UTILS_SYSTEM}._get_boot_time", return_value=frozen_boot)
-        mock_datetime: MagicMock = mocker.patch(f"{_UTILS_SYSTEM}.datetime")
+        mocker.patch(f"{_MODULE}._get_boot_time", return_value=frozen_boot)
+        mock_datetime: MagicMock = mocker.patch(f"{_MODULE}.datetime")
 
         mock_datetime.now.return_value = frozen_boot + uptime
         assert get_system_uptime() == expected

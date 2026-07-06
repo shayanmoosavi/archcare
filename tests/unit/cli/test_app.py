@@ -10,7 +10,7 @@ from archcare.cli.app import callback, main
 from archcare.services.exceptions import ConfigNotInitializedError
 
 _MODULE = "archcare.cli.app"
-
+_PATCH_APP = f"{_MODULE}.app"
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -20,6 +20,16 @@ _MODULE = "archcare.cli.app"
 @pytest.fixture
 def mock_context(mocker) -> MagicMock:
     return mocker.patch(f"{_MODULE}.AppContext")
+
+
+@pytest.fixture
+def mock_info(mocker) -> MagicMock:
+    return mocker.patch(f"{_MODULE}.print_info")
+
+
+@pytest.fixture
+def mock_error(mocker) -> MagicMock:
+    return mocker.patch(f"{_MODULE}.print_error")
 
 
 # ---------------------------------------------------------------------------
@@ -67,20 +77,20 @@ class TestCallback:
 
 
 class TestMain:
-    def test_success_path_does_not_raise_or_print(self, mocker):
-        mocker.patch(f"{_MODULE}.app")
-        mock_error: MagicMock = mocker.patch(f"{_MODULE}.print_error")
-        mock_info: MagicMock = mocker.patch(f"{_MODULE}.print_info")
+    def test_success_path_does_not_raise_or_print(
+        self, mocker, mock_info: MagicMock, mock_error: MagicMock
+    ):
+        mocker.patch(_PATCH_APP)
 
         main()  # must not raise
 
         mock_error.assert_not_called()
         mock_info.assert_not_called()
 
-    def test_config_not_initialized_shows_messages_and_exits_1(self, mocker):
-        mocker.patch(f"{_MODULE}.app", side_effect=ConfigNotInitializedError())
-        mock_error = mocker.patch(f"{_MODULE}.print_error")
-        mock_info = mocker.patch(f"{_MODULE}.print_info")
+    def test_config_not_initialized_shows_messages_and_exits_1(
+        self, mocker, mock_info: MagicMock, mock_error: MagicMock
+    ):
+        mocker.patch(_PATCH_APP, side_effect=ConfigNotInitializedError())
 
         with pytest.raises(typer.Exit) as exc_info:
             main()

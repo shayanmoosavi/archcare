@@ -17,6 +17,13 @@ from archcare.services.responses import (
 
 _MODULE = "archcare.cli.presenters.setup_presenter"
 
+_PATCH_INFO = f"{_MODULE}.print_info"
+_PATCH_WARNINGS = f"{_MODULE}.print_warning"
+_PATCH_SUCCESS = f"{_MODULE}.print_success"
+_PATCH_ERROR = f"{_MODULE}.print_error"
+_PATCH_CONSOLE = f"{_MODULE}.console"
+_PATCH_CONSOLE_PRINT = f"{_MODULE}.console.print"
+_PATCH_LIST_TIMERS = f"{_MODULE}._list_timers"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -46,16 +53,16 @@ def _was_called_with(mock, *args, **kwargs) -> bool:
 
 class TestExistingFilesWarning:
     def test_prints_warning_header(self, mocker):
-        mock_warning: MagicMock = mocker.patch(f"{_MODULE}.print_warning")
-        mocker.patch(f"{_MODULE}.console.print")
+        mock_warning: MagicMock = mocker.patch(_PATCH_WARNINGS)
+        mocker.patch(_PATCH_CONSOLE_PRINT)
 
         SetupPresenter.existing_files_warning([])
 
         mock_warning.assert_called_once_with("Configuration files already exist:")
 
     def test_prints_each_file_name(self, tmp_path, mocker):
-        mocker.patch(f"{_MODULE}.print_warning")
-        mock_print: MagicMock = mocker.patch(f"{_MODULE}.console.print")
+        mocker.patch(_PATCH_WARNINGS)
+        mock_print: MagicMock = mocker.patch(_PATCH_CONSOLE_PRINT)
 
         files = [tmp_path / "settings.toml", tmp_path / "tasks.toml"]
         SetupPresenter.existing_files_warning(files)
@@ -65,8 +72,8 @@ class TestExistingFilesWarning:
         assert "tasks.toml" in mock_print.call_args_list[1].args[0]
 
     def test_no_file_lines_when_list_empty(self, mocker):
-        mocker.patch(f"{_MODULE}.print_warning")
-        mock_print: MagicMock = mocker.patch(f"{_MODULE}.console.print")
+        mocker.patch(_PATCH_WARNINGS)
+        mock_print: MagicMock = mocker.patch(_PATCH_CONSOLE_PRINT)
 
         SetupPresenter.existing_files_warning([])
 
@@ -83,8 +90,8 @@ class TestRenderTemplateInstallation:
         "dry_run,expected_verb", [(True, "Would create"), (False, "Created")]
     )
     def test_verb_matches_dry_run_flag(self, tmp_path, dry_run, expected_verb, mocker):
-        mocker.patch(f"{_MODULE}.print_info")
-        mock_success: MagicMock = mocker.patch(f"{_MODULE}.print_success")
+        mocker.patch(_PATCH_INFO)
+        mock_success: MagicMock = mocker.patch(_PATCH_SUCCESS)
 
         response = InstallTemplatesResponse(
             service_file=tmp_path / "archcare.service",
@@ -97,8 +104,8 @@ class TestRenderTemplateInstallation:
         assert expected_verb in mock_success.call_args_list[1].args[0]
 
     def test_mentions_both_file_paths(self, tmp_path, mocker):
-        mock_info: MagicMock = mocker.patch(f"{_MODULE}.print_info")
-        mocker.patch(f"{_MODULE}.print_success")
+        mock_info: MagicMock = mocker.patch(_PATCH_INFO)
+        mocker.patch(_PATCH_SUCCESS)
 
         response = InstallTemplatesResponse(
             service_file=tmp_path / "archcare.service",
@@ -116,8 +123,8 @@ class TestRenderSystemdReload:
         "dry_run,expected_verb", [(True, "Would reload"), (False, "Reloaded")]
     )
     def test_success_verbs_match_dry_run_flag(self, dry_run, expected_verb, mocker):
-        mocker.patch(f"{_MODULE}.print_info")
-        mock_success: MagicMock = mocker.patch(f"{_MODULE}.print_success")
+        mocker.patch(_PATCH_INFO)
+        mock_success: MagicMock = mocker.patch(_PATCH_SUCCESS)
 
         SetupPresenter.render_systemd_reload(ReloadSystemdResponse(dry_run=dry_run))
 
@@ -146,8 +153,8 @@ class TestRenderTimerSetup:
     def test_tasks_show_correct_icon(
         self, task_fixture, expected_icon, mocker, request
     ):
-        mocker.patch(f"{_MODULE}.print_info")
-        mock_print: MagicMock = mocker.patch(f"{_MODULE}.console.print")
+        mocker.patch(_PATCH_INFO)
+        mock_print: MagicMock = mocker.patch(_PATCH_CONSOLE_PRINT)
 
         task: TaskConfig = request.getfixturevalue(task_fixture)
         response = _timer_setup_response(automated_tasks={task.name: task})
@@ -162,8 +169,8 @@ class TestRenderTimerSetup:
     def test_example_command_uses_first_task_name(
         self, automated_task: TaskConfig, mocker
     ):
-        mocker.patch(f"{_MODULE}.print_info")
-        mock_print: MagicMock = mocker.patch(f"{_MODULE}.console.print")
+        mocker.patch(_PATCH_INFO)
+        mock_print: MagicMock = mocker.patch(_PATCH_CONSOLE_PRINT)
 
         response = _timer_setup_response(
             automated_tasks={automated_task.name: automated_task}
@@ -176,10 +183,10 @@ class TestRenderTimerSetup:
     def test_list_timers_called_when_enabled_timers_present(
         self, automated_task: TaskConfig, mocker
     ):
-        mocker.patch(f"{_MODULE}.print_info")
-        mocker.patch(f"{_MODULE}.console.print")
-        mocker.patch(f"{_MODULE}.console")
-        mock_list_timers = mocker.patch(f"{_MODULE}._list_timers")
+        mocker.patch(_PATCH_INFO)
+        mocker.patch(_PATCH_CONSOLE_PRINT)
+        mocker.patch(_PATCH_CONSOLE)
+        mock_list_timers = mocker.patch(_PATCH_LIST_TIMERS)
 
         enabled = [TimerEnableResponse(timer_name="archcare@x.timer", enabled=True)]
         response = _timer_setup_response(
@@ -193,9 +200,9 @@ class TestRenderTimerSetup:
     def test_list_timers_not_called_when_enabled_timers_empty(
         self, automated_task: TaskConfig, mocker
     ):
-        mocker.patch(f"{_MODULE}.print_info")
-        mocker.patch(f"{_MODULE}.console.print")
-        mock_list_timers: MagicMock = mocker.patch(f"{_MODULE}._list_timers")
+        mocker.patch(_PATCH_INFO)
+        mocker.patch(_PATCH_CONSOLE_PRINT)
+        mock_list_timers: MagicMock = mocker.patch(_PATCH_LIST_TIMERS)
 
         response = _timer_setup_response(
             automated_tasks={automated_task.name: automated_task}, enabled_timers=[]
@@ -207,9 +214,9 @@ class TestRenderTimerSetup:
     def test_timer_status_block_shown_when_present(
         self, automated_task: TaskConfig, mocker
     ):
-        mock_info: MagicMock = mocker.patch(f"{_MODULE}.print_info")
-        mocker.patch(f"{_MODULE}.console.print")
-        mocker.patch(f"{_MODULE}.console")
+        mock_info: MagicMock = mocker.patch(_PATCH_INFO)
+        mocker.patch(_PATCH_CONSOLE_PRINT)
+        mocker.patch(_PATCH_CONSOLE)
 
         response = _timer_setup_response(
             automated_tasks={automated_task.name: automated_task},
@@ -222,8 +229,8 @@ class TestRenderTimerSetup:
     def test_timer_status_block_skipped_when_absent(
         self, automated_task: TaskConfig, mocker
     ):
-        mock_info: MagicMock = mocker.patch(f"{_MODULE}.print_info")
-        mocker.patch(f"{_MODULE}.console.print")
+        mock_info: MagicMock = mocker.patch(_PATCH_INFO)
+        mocker.patch(_PATCH_CONSOLE_PRINT)
 
         response = _timer_setup_response(
             automated_tasks={automated_task.name: automated_task}, timer_status=None
@@ -241,68 +248,68 @@ class TestRenderTimerSetup:
 class TestStaticMethods:
     def test_config_header(self, tmp_path, mocker):
         mocker.patch(f"{_MODULE}.print_header")
-        mock_info: MagicMock = mocker.patch(f"{_MODULE}.print_info")
+        mock_info: MagicMock = mocker.patch(_PATCH_INFO)
 
         SetupPresenter.config_header(tmp_path)
 
         assert str(tmp_path) in mock_info.call_args.args[0]
 
     def test_init_cancelled(self, mocker):
-        mock_info: MagicMock = mocker.patch(f"{_MODULE}.print_info")
+        mock_info: MagicMock = mocker.patch(_PATCH_INFO)
 
         SetupPresenter.init_cancelled()
 
         mock_info.assert_called_once_with("Initialization cancelled")
 
     def test_render_config_init(self, mocker, tmp_path):
-        mocker.patch(f"{_MODULE}.print_success")
-        mock_info: MagicMock = mocker.patch(f"{_MODULE}.print_info")
+        mocker.patch(_PATCH_SUCCESS)
+        mock_info: MagicMock = mocker.patch(_PATCH_INFO)
 
         SetupPresenter.render_config_init(ConfigInitResponse(config_dir=tmp_path))
 
         assert str(tmp_path) in mock_info.call_args_list[0].args[0]
 
     def test_templates_installed(self, mocker):
-        mocker.patch(f"{_MODULE}.console")
-        mock_success: MagicMock = mocker.patch(f"{_MODULE}.print_success")
+        mocker.patch(_PATCH_CONSOLE)
+        mock_success: MagicMock = mocker.patch(_PATCH_SUCCESS)
 
         SetupPresenter.templates_installed()
 
         mock_success.assert_called_once()
 
     def test_no_automated_tasks(self, mocker):
-        mocker.patch(f"{_MODULE}.console.print")
-        mock_warning: MagicMock = mocker.patch(f"{_MODULE}.print_warning")
-        mocker.patch(f"{_MODULE}.print_info")
+        mocker.patch(_PATCH_CONSOLE_PRINT)
+        mock_warning: MagicMock = mocker.patch(_PATCH_WARNINGS)
+        mocker.patch(_PATCH_INFO)
 
         SetupPresenter.no_automated_tasks()
 
         mock_warning.assert_called_once()
 
     def test_useful_commands(self, mocker):
-        mock_print: MagicMock = mocker.patch(f"{_MODULE}.console.print")
+        mock_print: MagicMock = mocker.patch(_PATCH_CONSOLE_PRINT)
 
         SetupPresenter.useful_commands()
 
         assert mock_print.call_count > 0
 
     def test_dry_run_notice(self, mocker):
-        mocker.patch(f"{_MODULE}.console.print")
-        mock_success: MagicMock = mocker.patch(f"{_MODULE}.print_success")
+        mocker.patch(_PATCH_CONSOLE_PRINT)
+        mock_success: MagicMock = mocker.patch(_PATCH_SUCCESS)
 
         SetupPresenter.dry_run_notice()
 
         mock_success.assert_called_once()
 
     def test_not_root_message(self, mocker):
-        mock_error: MagicMock = mocker.patch(f"{_MODULE}.print_error")
+        mock_error: MagicMock = mocker.patch(_PATCH_ERROR)
 
         SetupPresenter.not_root()
 
         assert "sudo" in mock_error.call_args[0][0]
 
     def test_error_passes_through_message(self, mocker):
-        mock_error: MagicMock = mocker.patch(f"{_MODULE}.print_error")
+        mock_error: MagicMock = mocker.patch(_PATCH_ERROR)
 
         SetupPresenter.error("boom")
 
@@ -316,10 +323,10 @@ class TestStaticMethods:
 
 class TestListTimers:
     def test_enabled_timer_prints_success(self, mocker):
-        mocker.patch(f"{_MODULE}.console.print")
-        mocker.patch(f"{_MODULE}.print_info")
-        mock_success: MagicMock = mocker.patch(f"{_MODULE}.print_success")
-        mocker.patch(f"{_MODULE}.print_warning")
+        mocker.patch(_PATCH_CONSOLE_PRINT)
+        mocker.patch(_PATCH_INFO)
+        mock_success: MagicMock = mocker.patch(_PATCH_SUCCESS)
+        mocker.patch(_PATCH_WARNINGS)
 
         response = _timer_setup_response(
             enabled_timers=[
@@ -331,10 +338,10 @@ class TestListTimers:
         assert "archcare@foo.timer" in mock_success.call_args.args[0]
 
     def test_failed_timer_prints_warning(self, mocker):
-        mocker.patch(f"{_MODULE}.console.print")
-        mocker.patch(f"{_MODULE}.print_info")
-        mocker.patch(f"{_MODULE}.print_success")
-        mock_warning: MagicMock = mocker.patch(f"{_MODULE}.print_warning")
+        mocker.patch(_PATCH_CONSOLE_PRINT)
+        mocker.patch(_PATCH_INFO)
+        mocker.patch(_PATCH_SUCCESS)
+        mock_warning: MagicMock = mocker.patch(_PATCH_WARNINGS)
 
         response = _timer_setup_response(
             enabled_timers=[

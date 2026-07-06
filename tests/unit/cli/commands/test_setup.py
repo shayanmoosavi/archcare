@@ -15,6 +15,8 @@ from archcare.services.exceptions import (
 
 _MODULE = "archcare.cli.commands.setup"
 
+_PATCH_CONFIRM = f"{_MODULE}.typer.confirm"
+_PATCH_RESOLVE_USER = f"{_MODULE}.resolve_systemd_target_user"
 
 # ---------------------------------------------------------------------------
 # Fixtures and Helpers
@@ -49,7 +51,7 @@ class TestSetupConfig:
     def test_no_existing_files_initializes_without_prompting(
         self, mocker, mock_presenter: MagicMock, mock_config_service: MagicMock
     ):
-        mock_confirm: MagicMock = mocker.patch(f"{_MODULE}.typer.confirm")
+        mock_confirm: MagicMock = mocker.patch(_PATCH_CONFIRM)
         mock_config_service.check_existing.return_value = []
         mock_config_service.initialize.return_value = "RESULT_SENTINEL"
 
@@ -72,7 +74,7 @@ class TestSetupConfig:
     def test_existing_files_confirmed_still_initializes(
         self, mocker, mock_presenter: MagicMock, mock_config_service: MagicMock
     ):
-        mocker.patch(f"{_MODULE}.typer.confirm", return_value=True)
+        mocker.patch(_PATCH_CONFIRM, return_value=True)
         mock_config_service.check_existing.return_value = ["settings.toml"]
 
         setup_config()
@@ -84,7 +86,7 @@ class TestSetupConfig:
     def test_existing_files_declined_cancels_without_initializing(
         self, mocker, mock_presenter: MagicMock, mock_config_service: MagicMock
     ):
-        mocker.patch(f"{_MODULE}.typer.confirm", return_value=False)
+        mocker.patch(_PATCH_CONFIRM, return_value=False)
         mock_config_service.check_existing.return_value = ["settings.toml"]
 
         with pytest.raises(typer.Exit) as exc_info:
@@ -104,9 +106,7 @@ class TestSetupTimersUserResolution:
     def test_not_root_error_shows_not_root_and_exits_1(
         self, mocker, mock_presenter: MagicMock
     ):
-        mocker.patch(
-            f"{_MODULE}.resolve_systemd_target_user", side_effect=NotRootError()
-        )
+        mocker.patch(_PATCH_RESOLVE_USER, side_effect=NotRootError())
         ctx = _make_ctx()
 
         with pytest.raises(typer.Exit) as exc_info:
@@ -119,7 +119,7 @@ class TestSetupTimersUserResolution:
         self, mocker, mock_presenter: MagicMock
     ):
         mocker.patch(
-            f"{_MODULE}.resolve_systemd_target_user",
+            _PATCH_RESOLVE_USER,
             side_effect=UserDetectionError("SUDO_USER not set"),
         )
         ctx = _make_ctx()
@@ -141,7 +141,7 @@ class TestSetupTimersMainFlow:
     def resolved_user(self, mocker):
         """Every test in this class needs user resolution to succeed."""
         mocker.patch(
-            f"{_MODULE}.resolve_systemd_target_user",
+            _PATCH_RESOLVE_USER,
             return_value=("alice", "/home/alice"),
         )
 

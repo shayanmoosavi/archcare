@@ -10,6 +10,7 @@ import typer
 from archcare.cli.commands.logs import logs
 
 _MODULE = "archcare.cli.commands.logs"
+_PATCH_HEADER = f"{_MODULE}.print_header"
 
 
 def _make_ctx(invoked_subcommand=None) -> SimpleNamespace:
@@ -18,7 +19,7 @@ def _make_ctx(invoked_subcommand=None) -> SimpleNamespace:
 
 class TestLogsCallback:
     def test_returns_early_when_subcommand_invoked(self, mocker):
-        mocker.patch(f"{_MODULE}.print_header")
+        mocker.patch(_PATCH_HEADER)
         ctx = _make_ctx(invoked_subcommand="clear")
 
         logs(ctx)  # ty:ignore[invalid-argument-type]
@@ -26,7 +27,7 @@ class TestLogsCallback:
         ctx.obj.setup_logging.assert_not_called()
 
     def test_main_log_used_when_no_task_name(self, tmp_path: Path, mocker):
-        mocker.patch(f"{_MODULE}.print_header")
+        mocker.patch(_PATCH_HEADER)
         ctx = _make_ctx()
         ctx.obj.executor.settings.log_dir = tmp_path
         (tmp_path / "archcare.log").write_text("line1\nline2\n")
@@ -35,7 +36,7 @@ class TestLogsCallback:
         logs(ctx)  # ty:ignore[invalid-argument-type]
 
     def test_task_log_used_when_task_name_given(self, tmp_path: Path, mocker):
-        mocker.patch(f"{_MODULE}.print_header")
+        mocker.patch(_PATCH_HEADER)
         ctx = _make_ctx()
         ctx.obj.executor.settings.log_dir = tmp_path
         task_log_dir = tmp_path / "tasks"
@@ -57,7 +58,7 @@ class TestLogsCallback:
         assert exc_info.value.exit_code == 1
 
     def test_prints_header_with_log_filename(self, tmp_path: Path, mocker):
-        mock_header: MagicMock = mocker.patch(f"{_MODULE}.print_header")
+        mock_header: MagicMock = mocker.patch(_PATCH_HEADER)
         ctx = _make_ctx()
         ctx.obj.executor.settings.log_dir = tmp_path
         (tmp_path / "archcare.log").write_text("line1\n")
@@ -67,7 +68,7 @@ class TestLogsCallback:
         mock_header.assert_called_once_with("Logs: archcare.log")
 
     def test_shows_last_n_lines_only(self, tmp_path: Path, capsys, mocker):
-        mocker.patch(f"{_MODULE}.print_header")
+        mocker.patch(_PATCH_HEADER)
         ctx = _make_ctx()
         ctx.obj.executor.settings.log_dir = tmp_path
         (tmp_path / "archcare.log").write_text("line1\nline2\nline3\nline4\nline5\n")
@@ -85,7 +86,7 @@ class TestLogsCallback:
         Confirming the app doesn't crash or drop lines
         when a log file is shorter than the requested tail length.
         """
-        mocker.patch(f"{_MODULE}.print_header")
+        mocker.patch(_PATCH_HEADER)
         ctx = _make_ctx()
         ctx.obj.executor.settings.log_dir = tmp_path
         (tmp_path / "archcare.log").write_text("line1\nline2\n")

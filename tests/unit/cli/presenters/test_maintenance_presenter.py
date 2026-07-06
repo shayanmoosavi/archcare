@@ -11,6 +11,8 @@ from archcare.core.models import IssueSeverity, MaintenanceCheckResult, Maintena
 
 _MODULE = "archcare.cli.presenters.maintenance_presenter"
 
+_PATCH_TABLE = f"{_MODULE}.Table"
+_PATCH_PANEL = f"{_MODULE}.Panel"
 
 # ---------------------------------------------------------------------------
 # Fixtures and Helpers
@@ -66,7 +68,7 @@ def mock_console(mocker) -> MagicMock:
 @pytest.fixture
 def mock_table(mocker) -> MagicMock:
     """The instance `table = Table()` resolves to inside _render_issues_table()."""
-    return mocker.patch(f"{_MODULE}.Table").return_value
+    return mocker.patch(_PATCH_TABLE).return_value
 
 
 # ---------------------------------------------------------------------------
@@ -76,7 +78,7 @@ def mock_table(mocker) -> MagicMock:
 
 class TestRenderNoIssues:
     def test_shows_healthy_panel(self, mock_console: MagicMock, mocker):
-        mock_panel: MagicMock = mocker.patch(f"{_MODULE}.Panel")
+        mock_panel: MagicMock = mocker.patch(_PATCH_PANEL)
 
         MaintenanceCheckPresenter.render(_result())
 
@@ -88,7 +90,7 @@ class TestRenderNoIssues:
 
     @pytest.mark.usefixtures("mock_console")
     def test_returns_before_rendering_issue_tables(self, mocker):
-        mocker.patch(f"{_MODULE}.Panel")
+        mocker.patch(_PATCH_PANEL)
         mock_render_table: MagicMock = mocker.patch.object(
             MaintenanceCheckPresenter, "_render_issues_table"
         )
@@ -98,7 +100,7 @@ class TestRenderNoIssues:
         mock_render_table.assert_not_called()
 
     def test_never_shows_acknowledgment_prompt(self, mock_console: MagicMock, mocker):
-        mocker.patch(f"{_MODULE}.Panel")
+        mocker.patch(_PATCH_PANEL)
 
         MaintenanceCheckPresenter.render(
             _result(), is_interactive=True, require_acknowledgment=True
