@@ -287,15 +287,15 @@ class TestRenderList:
         response = TaskListResponse(tasks={task.name: task}, filtered_by=None)
         TaskPresenter.render_list(response)
 
-        first_line: MagicMock = mock_console.print.call_args_list[0][0][0]
+        first_line: MagicMock = mock_console.print.call_args_list[0].args[0]
         assert expected_icon in first_line
         assert task.name in first_line
 
-    def test_console_print_called_twice_per_task(
+    def test_console_print_called_thrice_per_task(
         self, automated_task: TaskConfig, mocker
     ):
         """
-        Pins down the name-line + description-line structure, so a future
+        Pins down the name-line + description-line + blank-line structure, so a future
         refactor collapsing them into one print() silently drops the
         description without any test noticing.
         """
@@ -307,8 +307,10 @@ class TestRenderList:
         )
         TaskPresenter.render_list(response)
 
-        assert mock_console.print.call_count == 2
-        assert automated_task.description in mock_console.print.call_args_list[1][0][0]
+        assert mock_console.print.call_count == 3
+        assert (
+            automated_task.description in mock_console.print.call_args_list[1].args[0]
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -353,4 +355,4 @@ class TestConvenienceMethods:
 
         TaskPresenter.aborted("update-mirrorlist")
 
-        assert "update-mirrorlist" in mock_warning.call_args[0][0]
+        assert "update-mirrorlist" in mock_warning.call_args.args[0]
