@@ -39,10 +39,10 @@ class BaseTask(ABC):
         self.config = config
         self.settings = settings
         self.name = config.name
-        self._start_time: float = 0.0
+        self._start_time: int | float = 0.0
 
-    def set_start_time(self, start_time: float = time.time()):
-        self._start_time = start_time
+    def set_start_time(self, start_time: int | float | None = None):
+        self._start_time = start_time or time.time()
 
     @abstractmethod
     def execute(self) -> TaskResult:
