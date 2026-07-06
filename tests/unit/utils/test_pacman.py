@@ -3,16 +3,17 @@
 from dataclasses import dataclass
 from unittest.mock import MagicMock
 
+import pytest
+
 from archcare.utils.pacman import check_package_files, check_pacman_database
 
 _MODULE = "archcare.utils.pacman"
 
 _PATCH_CHECK_COMMAND = f"{_MODULE}.check_command_exists"
-_PATCH_RUN_COMMAND = f"{_MODULE}.run_command"
 _PATCH_RUN_COMMAND_SUDO = f"{_MODULE}.run_command_with_sudo"
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Fixtures and Helpers
 # ---------------------------------------------------------------------------
 
 
@@ -23,6 +24,16 @@ class MockResult:
     success: bool = True
     stdout: str = ""
     stderr: str = ""
+
+
+@pytest.fixture
+def mock_run_command(mocker) -> MagicMock:
+    return mocker.patch(f"{_MODULE}.run_command")
+
+
+@pytest.fixture
+def mock_run_command_sudo(mocker) -> MagicMock:
+    return mocker.patch(_PATCH_RUN_COMMAND_SUDO)
 
 
 # ---------------------------------------------------------------------------
@@ -37,10 +48,9 @@ class TestCheckPacmanDatabase:
         assert not is_healthy
         assert "not found" in msg
 
-    def test_returns_false_when_database_check_fails(self, mocker):
+    def test_returns_false_when_database_check_fails(self, mocker, mock_run_command):
         mocker.patch(_PATCH_CHECK_COMMAND, return_value=True)
 
-        mock_run_command: MagicMock = mocker.patch(_PATCH_RUN_COMMAND)
         mock_run_command.return_value = MockResult(
             success=False, stderr="data corrupted"
         )
@@ -50,10 +60,9 @@ class TestCheckPacmanDatabase:
         assert "integrity check failed" in msg
         assert "corrupted" in msg
 
-    def test_returns_true_when_database_check_succeeds(self, mocker):
+    def test_returns_true_when_database_check_succeeds(self, mocker, mock_run_command):
         mocker.patch(_PATCH_CHECK_COMMAND, return_value=True)
 
-        mock_run_command: MagicMock = mocker.patch(_PATCH_RUN_COMMAND)
         mock_run_command.return_value = MockResult(success=True)
 
         is_healthy, msg = check_pacman_database()
@@ -73,10 +82,10 @@ class TestCheckPackageFiles:
         assert not all_present
         assert "not found" in msg
 
-    def test_returns_false_when_check_command_fails(self, mocker):
+    def test_returns_false_when_check_command_fails(
+        self, mocker, mock_run_command_sudo: MagicMock
+    ):
         mocker.patch(_PATCH_CHECK_COMMAND, return_value=True)
-
-        mock_run_command_sudo: MagicMock = mocker.patch(_PATCH_RUN_COMMAND_SUDO)
         mock_run_command_sudo.return_value = MockResult(
             success=False, stderr="error: failed to read database"
         )
@@ -86,10 +95,10 @@ class TestCheckPackageFiles:
         assert "file check failed" in msg
         assert "failed to read database" in msg
 
-    def test_returns_true_when_all_package_files_present(self, mocker):
+    def test_returns_true_when_all_package_files_present(
+        self, mocker, mock_run_command_sudo: MagicMock
+    ):
         mocker.patch(_PATCH_CHECK_COMMAND, return_value=True)
-
-        mock_run_command_sudo: MagicMock = mocker.patch(_PATCH_RUN_COMMAND_SUDO)
 
         mock_stdout = (
             "linux: 1000 total files, 0 missing files\n"
@@ -114,10 +123,10 @@ class TestCheckPackageFiles:
         assert all_present
         assert "files are present" in msg
 
-    def test_returns_false_when_package_files_missing(self, mocker):
+    def test_returns_false_when_package_files_missing(
+        self, mocker, mock_run_command_sudo: MagicMock
+    ):
         mocker.patch(_PATCH_CHECK_COMMAND, return_value=True)
-
-        mock_run_command_sudo: MagicMock = mocker.patch(_PATCH_RUN_COMMAND_SUDO)
 
         mock_stdout = (
             "linux: 1000 total files, 0 missing files\n"

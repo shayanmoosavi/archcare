@@ -43,6 +43,11 @@ def target_file(tmp_path) -> Path:
     return target
 
 
+@pytest.fixture
+def mock_run_command(mocker) -> MagicMock:
+    return mocker.patch(_PATCH_RUN_COMMAND)
+
+
 # ---------------------------------------------------------------------------
 # systemctl status parsing
 # ---------------------------------------------------------------------------
@@ -334,9 +339,8 @@ class TestRunCommandWithSudo:
     prepended, and that kwargs are forwarded unchanged.
     """
 
-    def test_prepends_sudo_when_not_root(self, mocker):
+    def test_prepends_sudo_when_not_root(self, mocker, mock_run_command: MagicMock):
         mocker.patch(_PATCH_IS_ROOT, return_value=False)
-        mock_run_command: MagicMock = mocker.patch(_PATCH_RUN_COMMAND)
         run_command_with_sudo(["pacman", "-Syu"])
 
         assert mock_run_command.call_args.args[0] == [
@@ -345,16 +349,18 @@ class TestRunCommandWithSudo:
             "-Syu",
         ]
 
-    def test_does_not_prepend_sudo_when_already_root(self, mocker):
+    def test_does_not_prepend_sudo_when_already_root(
+        self, mocker, mock_run_command: MagicMock
+    ):
         mocker.patch(_PATCH_IS_ROOT, return_value=True)
-        mock_run_command: MagicMock = mocker.patch(_PATCH_RUN_COMMAND)
         run_command_with_sudo(["pacman", "-Syu"])
 
         assert mock_run_command.call_args.args[0] == ["pacman", "-Syu"]
 
-    def test_string_command_is_converted_before_sudo_prefix(self, mocker):
+    def test_string_command_is_converted_before_sudo_prefix(
+        self, mocker, mock_run_command: MagicMock
+    ):
         mocker.patch(_PATCH_IS_ROOT, return_value=False)
-        mock_run_command: MagicMock = mocker.patch(_PATCH_RUN_COMMAND)
         run_command_with_sudo("pacman -Syu")
 
         assert mock_run_command.call_args.args[0] == [
@@ -363,9 +369,8 @@ class TestRunCommandWithSudo:
             "-Syu",
         ]
 
-    def test_forwards_kwargs_to_run_command(self, mocker):
+    def test_forwards_kwargs_to_run_command(self, mocker, mock_run_command: MagicMock):
         mocker.patch(_PATCH_IS_ROOT, return_value=True)
-        mock_run_command: MagicMock = mocker.patch(_PATCH_RUN_COMMAND)
         run_command_with_sudo(["pacman", "-Syu"], check=True, timeout=15)
         assert mock_run_command.call_args.kwargs["check"] is True
         assert mock_run_command.call_args.kwargs["timeout"] == 15
