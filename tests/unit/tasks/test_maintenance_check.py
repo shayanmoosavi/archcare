@@ -252,3 +252,72 @@ class TestDetermineSeverity:
 
     def test_above_critical_threshold_returns_critical(self, task_with_thresholds):
         assert task_with_thresholds._determine_severity(20) == IssueSeverity.CRITICAL
+
+
+# ---------------------------------------------------------------------------
+# _check_failed_automated_task
+# ---------------------------------------------------------------------------
+
+
+class TestCheckFailedAutomatedTask:
+    def test_due_appends_warning_issue(self, task):
+        issues: list[MaintenanceIssue] = []
+        state = AppState()
+        state.update_task_state(
+            task_name="update-mirrorlist", status=TaskStatus.FAILURE
+        )
+        schedule_info = _schedule_info("update-mirrorlist", is_due=True)
+
+        task._check_failed_automated_task(
+            days_overdue=2,
+            issues=issues,
+            schedule_info=schedule_info,
+            task_name="update-mirrorlist",
+            task_state=state.get_task_state("update-mirrorlist"),
+        )
+
+        assert len(issues) == 1
+        assert issues[0].severity == IssueSeverity.WARNING
+
+    def test_not_due_appends_nothing(self, task):
+        issues: list[MaintenanceIssue] = []
+        state = AppState()
+        state.update_task_state(
+            task_name="update-mirrorlist", status=TaskStatus.FAILURE
+        )
+        schedule_info = _schedule_info("update-mirrorlist", is_due=False)
+
+        task._check_failed_automated_task(
+            days_overdue=None,
+            issues=issues,
+            schedule_info=schedule_info,
+            task_name="update-mirrorlist",
+            task_state=state.get_task_state("update-mirrorlist"),
+        )
+
+        assert not issues
+
+
+# ---------------------------------------------------------------------------
+# _categorize_issues
+# ---------------------------------------------------------------------------
+
+
+class TestCategorizeIssues:
+    @pytest.mark.parametrize(
+        "severity,list_attr",
+        [
+            (IssueSeverity.CRITICAL, "critical_issues"),
+            (IssueSeverity.WARNING, "warning_issues"),
+            (IssueSeverity.INFO, "info_issues"),
+        ],
+    )
+    def test_routes_to_correct_list(self, severity, list_attr):
+        issue = MaintenanceIssue(
+            task_name="x", severity=severity, description="d", recommendation="r"
+        )
+        result = MaintenanceCheckResult(status=TaskStatus.SUCCESS)
+
+        MaintenanceCheckTask._categorize_issues([issue], result)
+
+        assert getattr(result, list_attr) == [issue]
