@@ -164,3 +164,91 @@ class TestFormatOverdueDescription:
     def test_multiple_days_plural(self, automated_task):
         result = MaintenanceCheckTask._format_overdue_description(automated_task, 5)
         assert result == f"Task `{automated_task.name}` is overdue by 5 days"
+
+
+# ---------------------------------------------------------------------------
+# _check_broken_timer
+# ---------------------------------------------------------------------------
+
+
+class TestCheckBrokenTimer:
+    def test_none_raises_value_error(self):
+        with pytest.raises(ValueError):
+            MaintenanceCheckTask._check_broken_timer(
+                None,
+                [],
+                timer_threshold_days=10,
+                task_name="test-task",
+                task_state=AppState().get_task_state("test-task"),
+            )
+
+    def test_zero_days_overdue_does_not_raise_or_append(self):
+        """
+        0 days overdue is completely valid (just due today) and
+        shouldn't raise an error and shouldn't append to issues.
+        """
+        issues: list[MaintenanceIssue] = []
+        MaintenanceCheckTask._check_broken_timer(
+            0,
+            issues,
+            timer_threshold_days=10,
+            task_name="test-task",
+            task_state=AppState().get_task_state("test-task"),
+        )
+        assert not issues
+
+    def test_below_threshold_appends_nothing(self):
+        issues: list[MaintenanceIssue] = []
+        MaintenanceCheckTask._check_broken_timer(
+            5,
+            issues,
+            timer_threshold_days=10,
+            task_name="test-task",
+            task_state=AppState().get_task_state("test-task"),
+        )
+        assert not issues
+
+    def test_above_threshold_appends_critical_issue(self):
+        issues: list[MaintenanceIssue] = []
+        state = AppState()
+        state.update_task_state(
+            task_name="update-mirrorlist", status=TaskStatus.FAILURE
+        )
+
+        MaintenanceCheckTask._check_broken_timer(
+            20,
+            issues,
+            timer_threshold_days=10,
+            task_name="update-mirrorlist",
+            task_state=state.get_task_state("update-mirrorlist"),
+        )
+
+        assert len(issues) == 1
+        assert issues[0].severity == IssueSeverity.CRITICAL
+        assert issues[0].task_name == "update-mirrorlist"
+        assert issues[0].days_overdue == 20
+
+
+# ---------------------------------------------------------------------------
+# _determine_severity
+# ---------------------------------------------------------------------------
+
+
+class TestDetermineSeverity:
+    def test_none_returns_info(self, task_with_thresholds):
+        assert task_with_thresholds._determine_severity(None) == IssueSeverity.INFO
+
+    def test_zero_returns_info(self, task_with_thresholds):
+        assert task_with_thresholds._determine_severity(0) == IssueSeverity.INFO
+
+    def test_below_warning_threshold_returns_info(self, task_with_thresholds):
+        assert task_with_thresholds._determine_severity(2) == IssueSeverity.INFO
+
+    def test_at_warning_threshold_returns_warning(self, task_with_thresholds):
+        assert task_with_thresholds._determine_severity(5) == IssueSeverity.WARNING
+
+    def test_at_critical_threshold_returns_critical(self, task_with_thresholds):
+        assert task_with_thresholds._determine_severity(10) == IssueSeverity.CRITICAL
+
+    def test_above_critical_threshold_returns_critical(self, task_with_thresholds):
+        assert task_with_thresholds._determine_severity(20) == IssueSeverity.CRITICAL
