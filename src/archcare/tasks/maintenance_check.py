@@ -255,7 +255,7 @@ class MaintenanceCheckTask(BaseTask):
             ValueError: If days_overdue is None
         """
 
-        if days_overdue:
+        if days_overdue is not None:
             if days_overdue > timer_threshold_days:
                 issues.append(
                     MaintenanceIssue(
@@ -357,7 +357,7 @@ class MaintenanceCheckTask(BaseTask):
         Raises:
             ValueError: If days_overdue is None
         """
-        if days_overdue:
+        if days_overdue is not None:
             if days_overdue == 0:
                 return f"Task `{task_config.name}` is due today"
             elif days_overdue == 1:
