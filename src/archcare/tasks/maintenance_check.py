@@ -187,11 +187,11 @@ class MaintenanceCheckTask(BaseTask):
                     days_overdue, issues, schedule_info, task_name, task_state
                 )
 
-                # Check for broken timer (overdue beyond reasonable threshold)
-                timer_threshold_days = task_config.frequency * 1.5
-                self._check_broken_timer(
-                    days_overdue, issues, timer_threshold_days, task_name, task_state
-                )
+            # Check for broken timer (overdue beyond reasonable threshold)
+            timer_threshold_days = task_config.frequency * 1.5
+            self._check_broken_timer(
+                days_overdue, issues, timer_threshold_days, task_name, task_state
+            )
 
         return issues
 
