@@ -8,18 +8,29 @@ _cleanup_old_reports() are a separate, natural follow-up pass.
 
 """
 
+import os
 from datetime import datetime, timedelta
+from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
 from archcare.config import AppSettings, AppState, TaskConfig, TasksConfig, TaskStatus
 from archcare.config.models import MaintenanceCheckSettings
-from archcare.core.models import IssueSeverity, MaintenanceCheckResult, MaintenanceIssue
+from archcare.core.models import (
+    IssueSeverity,
+    MaintenanceCheckResult,
+    MaintenanceIssue,
+    TaskResult,
+)
 from archcare.core.scheduler import TaskScheduleInfo, TaskScheduler
 from archcare.tasks.maintenance_check import MaintenanceCheckTask
 
 _MODULE = "archcare.tasks.maintenance_check"
 _PATCH_CONFIG_LOADER = f"{_MODULE}.ConfigLoader"
+_PATCH_GET_NOTIFICATION_MANAGER = (
+    "archcare.utils.notifications.get_notification_manager"
+)
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
@@ -70,7 +81,9 @@ def settings() -> AppSettings:
 
 
 @pytest.fixture
-def task(maintenance_config, settings, mocker) -> MaintenanceCheckTask:
+def task(
+    maintenance_config: TaskConfig, settings: AppSettings, mocker
+) -> MaintenanceCheckTask:
     """
     A minimal task instance - sufficient for the helper-method tests below,
     none of which read self.state/self.tasks_config/self.scheduler.
@@ -80,7 +93,9 @@ def task(maintenance_config, settings, mocker) -> MaintenanceCheckTask:
 
 
 @pytest.fixture
-def task_with_thresholds(maintenance_config, mocker) -> MaintenanceCheckTask:
+def task_with_thresholds(
+    maintenance_config: TaskConfig, mocker
+) -> MaintenanceCheckTask:
     """
     Custom, non-default thresholds - the real defaults (critical=7,
     warning=0) make it impossible to ever reach the INFO/WARNING branches
@@ -97,20 +112,45 @@ def task_with_thresholds(maintenance_config, mocker) -> MaintenanceCheckTask:
 
 
 @pytest.fixture
-def make_task(maintenance_config, settings, mocker):
+def make_task(maintenance_config: TaskConfig, settings: AppSettings, mocker):
     """Builds a task and swaps in real tasks_config/state/scheduler."""
 
     def _make(
-        tasks_config: TasksConfig | None = None, state: AppState | None = None
+        tasks_config: TasksConfig | None = None,
+        state: AppState | None = None,
+        task_settings: AppSettings | None = None,
     ) -> MaintenanceCheckTask:
         mocker.patch(_PATCH_CONFIG_LOADER)
-        built = MaintenanceCheckTask(maintenance_config, settings)
+        built = MaintenanceCheckTask(maintenance_config, task_settings or settings)
         built.tasks_config = tasks_config or TasksConfig(tasks={})
         built.state = state or AppState()
         built.scheduler = TaskScheduler(built.tasks_config, built.state)
         return built
 
     return _make
+
+
+def _settings(
+    show_notifications: bool = True,
+    output_mode: str = "terminal",
+    notification_level: str = "warning",
+) -> AppSettings:
+    return AppSettings(
+        maintenance_check=MaintenanceCheckSettings(
+            show_notifications=show_notifications,
+            output_mode=output_mode,
+            notification_level=notification_level,
+        )
+    )
+
+
+@pytest.fixture
+def settings_with_tmp_reports(mocker, tmp_path) -> AppSettings:
+    """Real report_dir under tmp_path, for genuine file I/O tests."""
+    mocker.patch.object(AppSettings, "home_dir", property(lambda _: tmp_path))
+    settings = AppSettings()
+    settings.ensure_directories()
+    return settings
 
 
 # ---------------------------------------------------------------------------
@@ -144,11 +184,11 @@ class TestFormatTimeAgo:
 
 
 class TestFormatOverdueDescription:
-    def test_none_raises_value_error(self, automated_task):
+    def test_none_raises_value_error(self, automated_task: TaskConfig):
         with pytest.raises(ValueError):
             MaintenanceCheckTask._format_overdue_description(automated_task, None)
 
-    def test_zero_days_is_due_today(self, automated_task):
+    def test_zero_days_is_due_today(self, automated_task: TaskConfig):
         """
         Regression test for the fix: previously unreachable, since the
         outer truthy check excluded 0 before this branch could run,
@@ -157,11 +197,11 @@ class TestFormatOverdueDescription:
         result = MaintenanceCheckTask._format_overdue_description(automated_task, 0)
         assert result == f"Task `{automated_task.name}` is due today"
 
-    def test_one_day_singular(self, automated_task):
+    def test_one_day_singular(self, automated_task: TaskConfig):
         result = MaintenanceCheckTask._format_overdue_description(automated_task, 1)
         assert result == f"Task `{automated_task.name}` is overdue by 1 day"
 
-    def test_multiple_days_plural(self, automated_task):
+    def test_multiple_days_plural(self, automated_task: TaskConfig):
         result = MaintenanceCheckTask._format_overdue_description(automated_task, 5)
         assert result == f"Task `{automated_task.name}` is overdue by 5 days"
 
@@ -235,22 +275,30 @@ class TestCheckBrokenTimer:
 
 
 class TestDetermineSeverity:
-    def test_none_returns_info(self, task_with_thresholds):
+    def test_none_returns_info(self, task_with_thresholds: MaintenanceCheckTask):
         assert task_with_thresholds._determine_severity(None) == IssueSeverity.INFO
 
-    def test_zero_returns_info(self, task_with_thresholds):
+    def test_zero_returns_info(self, task_with_thresholds: MaintenanceCheckTask):
         assert task_with_thresholds._determine_severity(0) == IssueSeverity.INFO
 
-    def test_below_warning_threshold_returns_info(self, task_with_thresholds):
+    def test_below_warning_threshold_returns_info(
+        self, task_with_thresholds: MaintenanceCheckTask
+    ):
         assert task_with_thresholds._determine_severity(2) == IssueSeverity.INFO
 
-    def test_at_warning_threshold_returns_warning(self, task_with_thresholds):
+    def test_at_warning_threshold_returns_warning(
+        self, task_with_thresholds: MaintenanceCheckTask
+    ):
         assert task_with_thresholds._determine_severity(5) == IssueSeverity.WARNING
 
-    def test_at_critical_threshold_returns_critical(self, task_with_thresholds):
+    def test_at_critical_threshold_returns_critical(
+        self, task_with_thresholds: MaintenanceCheckTask
+    ):
         assert task_with_thresholds._determine_severity(10) == IssueSeverity.CRITICAL
 
-    def test_above_critical_threshold_returns_critical(self, task_with_thresholds):
+    def test_above_critical_threshold_returns_critical(
+        self, task_with_thresholds: MaintenanceCheckTask
+    ):
         assert task_with_thresholds._determine_severity(20) == IssueSeverity.CRITICAL
 
 
@@ -260,7 +308,7 @@ class TestDetermineSeverity:
 
 
 class TestCheckFailedAutomatedTask:
-    def test_due_appends_warning_issue(self, task):
+    def test_due_appends_warning_issue(self, task: MaintenanceCheckTask):
         issues: list[MaintenanceIssue] = []
         state = AppState()
         state.update_task_state(
@@ -279,7 +327,7 @@ class TestCheckFailedAutomatedTask:
         assert len(issues) == 1
         assert issues[0].severity == IssueSeverity.WARNING
 
-    def test_not_due_appends_nothing(self, task):
+    def test_not_due_appends_nothing(self, task: MaintenanceCheckTask):
         issues: list[MaintenanceIssue] = []
         state = AppState()
         state.update_task_state(
@@ -439,3 +487,98 @@ class TestCheckTask:
         assert len(issues) == 1
         assert issues[0].severity == IssueSeverity.WARNING
         assert "failed" in issues[0].description
+
+
+# ---------------------------------------------------------------------------
+# execute
+# ---------------------------------------------------------------------------
+
+
+class TestExecute:
+    def test_no_issues_returns_success(self, make_task):
+        config = _task_config("config-backup", "backup-config", "manual", frequency=30)
+        tasks_config = TasksConfig(tasks={config.name: config})
+        state = AppState()
+        state.update_task_state(
+            task_name=config.name,
+            status=TaskStatus.SUCCESS,
+            next_due=datetime.now() + timedelta(days=10),
+        )
+        task = make_task(tasks_config=tasks_config, state=state)
+
+        task_result = task.execute()
+
+        assert task_result.status == TaskStatus.SUCCESS
+        assert task.maintenance_check_result.total_tasks_monitored == 1
+        assert not task.maintenance_check_result.has_issues
+
+    def test_skips_checking_itself(self, make_task, maintenance_config: TaskConfig):
+        """
+        The maintenance-check task itself must never appear in its own
+        issue list, even though it's an enabled task like any other - a
+        fresh (never-run) state would otherwise produce an INFO issue.
+        """
+        tasks_config = TasksConfig(tasks={maintenance_config.name: maintenance_config})
+        task = make_task(tasks_config=tasks_config)
+
+        task.execute()
+
+        assert task.maintenance_check_result.total_tasks_monitored == 1
+        assert not task.maintenance_check_result.has_issues
+
+    def test_critical_issue_sets_failure_status(self, make_task):
+        config = _task_config(
+            "mirrorlist-update", "update-mirrorlist", "automated", frequency=7
+        )
+        tasks_config = TasksConfig(tasks={config.name: config})
+        state = AppState()
+        state.update_task_state(
+            task_name=config.name,
+            status=TaskStatus.FAILURE,
+            next_due=datetime.now() - timedelta(days=20),
+        )
+        task = make_task(tasks_config=tasks_config, state=state)
+
+        task_result = task.execute()
+
+        assert task_result.status == TaskStatus.FAILURE
+        assert task.maintenance_check_result.error_message is not None
+
+    def test_warning_only_sets_partial_status(self, make_task):
+        config = _task_config(
+            "mirrorlist-update", "update-mirrorlist", "automated", frequency=7
+        )
+        tasks_config = TasksConfig(tasks={config.name: config})
+        state = AppState()
+        state.update_task_state(
+            task_name=config.name,
+            status=TaskStatus.FAILURE,
+            next_due=datetime.now() - timedelta(days=2),
+        )
+        task = make_task(tasks_config=tasks_config, state=state)
+
+        task_result = task.execute()
+
+        assert task_result.status == TaskStatus.PARTIAL
+
+    def test_info_only_sets_success_status(self, make_task):
+        """A never-run task produces only an INFO issue - status stays SUCCESS."""
+        config = _task_config(
+            "mirrorlist-update", "update-mirrorlist", "automated", frequency=7
+        )
+        tasks_config = TasksConfig(tasks={config.name: config})
+        task = make_task(tasks_config=tasks_config)
+
+        task_result = task.execute()
+
+        assert task_result.status == TaskStatus.SUCCESS
+        assert task.maintenance_check_result.info_issues
+
+    def test_details_carries_maintenance_result(self, make_task):
+        task = make_task()
+
+        task_result = task.execute()
+
+        assert (
+            task_result.details["maintenance_result"] is task.maintenance_check_result
+        )
