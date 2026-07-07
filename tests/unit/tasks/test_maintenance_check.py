@@ -321,3 +321,121 @@ class TestCategorizeIssues:
         MaintenanceCheckTask._categorize_issues([issue], result)
 
         assert getattr(result, list_attr) == [issue]
+
+
+# ---------------------------------------------------------------------------
+# _check_task
+# ---------------------------------------------------------------------------
+
+
+class TestCheckTask:
+    def test_never_run_task_returns_single_info_issue(self, make_task):
+        config = _task_config("test-task", "test-task", "automated")
+        tasks_config = TasksConfig(tasks={config.name: config})
+        task = make_task(tasks_config=tasks_config)  # fresh AppState -> never run
+
+        issues = task._check_task(config.name, config)
+
+        assert len(issues) == 1
+        assert issues[0].severity == IssueSeverity.INFO
+        assert "never been executed" in issues[0].description
+
+    def test_manual_task_not_due_returns_no_issues(self, make_task):
+        config = _task_config("test-task", "test-task", "manual", frequency=30)
+        tasks_config = TasksConfig(tasks={config.name: config})
+        state = AppState()
+        state.update_task_state(
+            task_name=config.name,
+            status=TaskStatus.SUCCESS,
+            next_due=datetime.now() + timedelta(days=10),
+        )
+        task = make_task(tasks_config=tasks_config, state=state)
+
+        assert task._check_task(config.name, config) == []
+
+    def test_manual_task_due_returns_warning_issue(self, make_task):
+        config = _task_config("test-task", "test-task", "manual", frequency=30)
+        tasks_config = TasksConfig(tasks={config.name: config})
+        state = AppState()
+        state.update_task_state(
+            task_name=config.name,
+            status=TaskStatus.SUCCESS,
+            next_due=datetime.now() - timedelta(days=3),
+        )
+        task = make_task(tasks_config=tasks_config, state=state)
+
+        issues = task._check_task(config.name, config)
+
+        assert len(issues) == 1
+        assert issues[0].severity == IssueSeverity.WARNING
+        assert issues[0].task_name == config.name
+
+    @pytest.mark.parametrize(
+        "status",
+        [
+            TaskStatus.SUCCESS,
+            TaskStatus.PARTIAL,
+            TaskStatus.SKIPPED,
+        ],
+    )
+    def test_automated_task_overdue_but_not_failed_returns_single_issue(
+        self, make_task, status
+    ):
+
+        config = _task_config("test-task", "test-task", "automated", frequency=7)
+        tasks_config = TasksConfig(tasks={config.name: config})
+        state = AppState()
+        state.update_task_state(
+            task_name=config.name,
+            status=status,
+            next_due=datetime.now() - timedelta(days=15),
+        )
+        task: MaintenanceCheckTask = make_task(tasks_config=tasks_config, state=state)
+
+        issues = task._check_task(config.name, config)
+
+        assert len(issues) == 1
+        assert issues[0].severity == IssueSeverity.CRITICAL
+        assert issues[0].task_name == config.name
+        assert "overdue" in issues[0].description
+
+    def test_automated_task_overdue_and_failed_returns_both_issues(self, make_task):
+        """
+        An automated task that is overdue and failed should return two issues; One
+        WARNING for failed automated task, and one CRITICAL for broken timer.
+        """
+        config = _task_config("test-task", "test-task", "automated", frequency=7)
+        tasks_config = TasksConfig(tasks={config.name: config})
+        state = AppState()
+        state.update_task_state(
+            task_name=config.name,
+            status=TaskStatus.FAILURE,
+            next_due=datetime.now() - timedelta(days=20),  # beyond 7*1.5=10.5 threshold
+        )
+        task: MaintenanceCheckTask = make_task(tasks_config=tasks_config, state=state)
+
+        issues = task._check_task(config.name, config)
+
+        assert len(issues) == 2
+        assert issues[0].severity == IssueSeverity.WARNING
+        assert issues[1].severity == IssueSeverity.CRITICAL
+        assert "failed" in issues[0].description
+        assert "broken" in issues[1].description
+
+    def test_automated_task_failed_and_due_returns_warning_issue(self, make_task):
+        config = _task_config("test-task", "test-task", "automated", frequency=7)
+        tasks_config = TasksConfig(tasks={config.name: config})
+        state = AppState()
+        state.update_task_state(
+            task_name=config.name,
+            status=TaskStatus.FAILURE,
+            next_due=datetime.now()
+            - timedelta(days=2),  # due, below 7*1.5=10.5 threshold
+        )
+        task: MaintenanceCheckTask = make_task(tasks_config=tasks_config, state=state)
+
+        issues = task._check_task(config.name, config)
+
+        assert len(issues) == 1
+        assert issues[0].severity == IssueSeverity.WARNING
+        assert "failed" in issues[0].description
