@@ -816,3 +816,136 @@ class TestSaveReport:
         task._save_report(result)
 
         mock_cleanup.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# _format_issue_text
+# ---------------------------------------------------------------------------
+
+
+class TestFormatIssueText:
+    def test_includes_all_optional_fields_when_present(self):
+        issue = MaintenanceIssue(
+            task_name="update-mirrorlist",
+            severity=IssueSeverity.WARNING,
+            description="overdue",
+            days_overdue=3,
+            last_run=datetime(2026, 6, 1, 10, 0, 0),
+            last_status=TaskStatus.FAILURE,
+            recommendation="run it",
+        )
+
+        text = "\n".join(MaintenanceCheckTask._format_issue_text(issue))
+
+        assert "Days Overdue: 3" in text
+        assert "Last Run: 2026-06-01 10:00:00" in text
+        assert "Last Status: failure" in text
+        assert "Recommendation: run it" in text
+
+    def test_omits_optional_fields_when_absent(self):
+        issue = MaintenanceIssue(
+            task_name="x",
+            severity=IssueSeverity.INFO,
+            description="d",
+            recommendation="r",
+        )
+
+        text = "\n".join(MaintenanceCheckTask._format_issue_text(issue))
+
+        assert "Days Overdue" not in text
+        assert "Last Run" not in text
+        assert "Last Status" not in text
+
+    def test_days_overdue_zero_is_still_shown(self):
+        issue = MaintenanceIssue(
+            task_name="x",
+            severity=IssueSeverity.INFO,
+            description="d",
+            days_overdue=0,
+            recommendation="r",
+        )
+
+        text = "\n".join(MaintenanceCheckTask._format_issue_text(issue))
+
+        assert "Days Overdue: 0" in text
+
+
+# ---------------------------------------------------------------------------
+# _cleanup_old_reports
+# ---------------------------------------------------------------------------
+
+
+class TestCleanupOldReports:
+    def test_returns_early_if_report_dir_missing(self, make_task, mocker, tmp_path):
+        mocker.patch.object(
+            AppSettings, "home_dir", property(lambda _: tmp_path / "does-not-exist")
+        )
+        task: MaintenanceCheckTask = make_task(task_settings=AppSettings())
+
+        task._cleanup_old_reports()  # must not raise
+
+    def test_deletes_files_older_than_retention(
+        self, make_task, settings_with_tmp_reports: AppSettings
+    ):
+        old_file = settings_with_tmp_reports.report_dir / "maintenance-check_old.txt"
+        old_file.write_text("old")
+        retention = settings_with_tmp_reports.maintenance_check.report_retention_days
+        old_time = (datetime.now() - timedelta(days=retention + 5)).timestamp()
+        os.utime(old_file, (old_time, old_time))
+        task = make_task(task_settings=settings_with_tmp_reports)
+
+        task._cleanup_old_reports()
+
+        assert not old_file.exists()
+
+    def test_keeps_files_within_retention(
+        self, make_task, settings_with_tmp_reports: AppSettings
+    ):
+        recent_file = (
+            settings_with_tmp_reports.report_dir / "maintenance-check_recent.txt"
+        )
+        recent_file.write_text("recent")  # mtime defaults to now - within retention
+        task: MaintenanceCheckTask = make_task(task_settings=settings_with_tmp_reports)
+
+        task._cleanup_old_reports()
+
+        assert recent_file.exists()
+
+    def test_ignores_non_matching_filenames(
+        self, make_task, settings_with_tmp_reports: AppSettings
+    ):
+        other_file: Path = settings_with_tmp_reports.report_dir / "unrelated.txt"
+        other_file.write_text("x")
+        old_time = (datetime.now() - timedelta(days=999)).timestamp()
+        os.utime(other_file, (old_time, old_time))
+        task: MaintenanceCheckTask = make_task(task_settings=settings_with_tmp_reports)
+
+        task._cleanup_old_reports()
+
+        assert other_file.exists()  # glob only matches "maintenance-check_*.txt"
+
+    def test_per_file_failure_does_not_stop_cleanup_of_others(
+        self, make_task, settings_with_tmp_reports: AppSettings, mocker
+    ):
+        old1: Path = settings_with_tmp_reports.report_dir / "maintenance-check_a.txt"
+        old2: Path = settings_with_tmp_reports.report_dir / "maintenance-check_b.txt"
+        old1.write_text("a")
+        old2.write_text("b")
+        old_time = (datetime.now() - timedelta(days=999)).timestamp()
+        os.utime(old1, (old_time, old_time))
+        os.utime(old2, (old_time, old_time))
+
+        original_unlink = Path.unlink
+
+        def flaky_unlink(self, *args, **kwargs):
+            if self.name == "maintenance-check_a.txt":
+                raise PermissionError("nope")
+            return original_unlink(self, *args, **kwargs)
+
+        mocker.patch.object(Path, "unlink", flaky_unlink)
+        task: MaintenanceCheckTask = make_task(task_settings=settings_with_tmp_reports)
+
+        task._cleanup_old_reports()  # must not raise
+
+        assert old1.exists()  # failed to delete, still present
+        assert not old2.exists()  # successfully deleted
