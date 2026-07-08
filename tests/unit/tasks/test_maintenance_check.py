@@ -733,3 +733,86 @@ class TestSendNotification:
         task._send_notification(result)
 
         mock_manager.send_maintenance_notification.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# _save_report
+# ---------------------------------------------------------------------------
+
+
+class TestSaveReport:
+    def test_creates_report_file(
+        self, make_task, settings_with_tmp_reports: AppSettings
+    ):
+        task: MaintenanceCheckTask = make_task(task_settings=settings_with_tmp_reports)
+        result = MaintenanceCheckResult(status=TaskStatus.SUCCESS)
+
+        task._save_report(result)
+
+        report_files = list(
+            settings_with_tmp_reports.report_dir.glob("maintenance-check_*.txt")
+        )
+        assert len(report_files) == 1
+
+    def test_healthy_report_shows_no_issues_message(
+        self, make_task, settings_with_tmp_reports: AppSettings
+    ):
+        task: MaintenanceCheckTask = make_task(task_settings=settings_with_tmp_reports)
+        result = MaintenanceCheckResult(status=TaskStatus.SUCCESS)
+
+        task._save_report(result)
+
+        content = next(settings_with_tmp_reports.report_dir.glob("*.txt")).read_text()
+        assert "No maintenance issues found" in content
+
+    def test_report_includes_issue_sections_by_severity(
+        self, make_task, settings_with_tmp_reports: AppSettings
+    ):
+        task: MaintenanceCheckTask = make_task(task_settings=settings_with_tmp_reports)
+        issue = MaintenanceIssue(
+            task_name="update-mirrorlist",
+            severity=IssueSeverity.CRITICAL,
+            description="severely overdue",
+            recommendation="run it now",
+        )
+        result = MaintenanceCheckResult(
+            status=TaskStatus.FAILURE, critical_issues=[issue]
+        )
+
+        task._save_report(result)
+
+        content = next(settings_with_tmp_reports.report_dir.glob("*.txt")).read_text()
+        assert "CRITICAL ISSUES" in content
+        assert "update-mirrorlist" in content
+        assert "severely overdue" in content
+        assert "run it now" in content
+
+    def test_report_omits_absent_severity_sections(
+        self, make_task, settings_with_tmp_reports: AppSettings
+    ):
+        task: MaintenanceCheckTask = make_task(task_settings=settings_with_tmp_reports)
+        issue = MaintenanceIssue(
+            task_name="x",
+            severity=IssueSeverity.INFO,
+            description="d",
+            recommendation="r",
+        )
+        result = MaintenanceCheckResult(status=TaskStatus.SUCCESS, info_issues=[issue])
+
+        task._save_report(result)
+
+        content = next(settings_with_tmp_reports.report_dir.glob("*.txt")).read_text()
+        assert "CRITICAL ISSUES" not in content
+        assert "WARNING ISSUES" not in content
+        assert "INFORMATION" in content
+
+    def test_calls_cleanup_old_reports(
+        self, make_task, settings_with_tmp_reports: AppSettings, mocker
+    ):
+        task: MaintenanceCheckTask = make_task(task_settings=settings_with_tmp_reports)
+        mock_cleanup: MagicMock = mocker.patch.object(task, "_cleanup_old_reports")
+        result = MaintenanceCheckResult(status=TaskStatus.SUCCESS)
+
+        task._save_report(result)
+
+        mock_cleanup.assert_called_once()
