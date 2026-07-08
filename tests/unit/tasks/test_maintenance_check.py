@@ -582,3 +582,154 @@ class TestExecute:
         assert (
             task_result.details["maintenance_result"] is task.maintenance_check_result
         )
+
+
+# ---------------------------------------------------------------------------
+# post_execute
+# ---------------------------------------------------------------------------
+
+
+class TestPostExecute:
+    def test_raises_when_maintenance_check_result_is_none(
+        self, task: MaintenanceCheckTask
+    ):
+        task.maintenance_check_result = None
+
+        with pytest.raises(ValueError):
+            task.post_execute(MagicMock(spec=TaskResult))
+
+    def test_sends_notification_when_show_notifications_true(self, make_task, mocker):
+        task: MaintenanceCheckTask = make_task(
+            task_settings=_settings(show_notifications=True)
+        )
+        task.maintenance_check_result = MaintenanceCheckResult(
+            status=TaskStatus.SUCCESS
+        )
+        mock_notify: MagicMock = mocker.patch.object(task, "_send_notification")
+        mocker.patch.object(task, "_save_report")
+
+        task.post_execute(MagicMock(spec=TaskResult))
+
+        mock_notify.assert_called_once_with(task.maintenance_check_result)
+
+    def test_skips_notification_when_show_notifications_false(self, make_task, mocker):
+        task = make_task(task_settings=_settings(show_notifications=False))
+        task.maintenance_check_result = MaintenanceCheckResult(
+            status=TaskStatus.SUCCESS
+        )
+        mock_notify = mocker.patch.object(task, "_send_notification")
+        mocker.patch.object(task, "_save_report")
+
+        task.post_execute(MagicMock(spec=TaskResult))
+
+        mock_notify.assert_not_called()
+
+    @pytest.mark.parametrize("output_mode", ["file", "both"])
+    def test_saves_report_when_output_mode_requires_it(
+        self, make_task, mocker, output_mode
+    ):
+        task = make_task(
+            task_settings=_settings(show_notifications=False, output_mode=output_mode)
+        )
+        task.maintenance_check_result = MaintenanceCheckResult(
+            status=TaskStatus.SUCCESS
+        )
+        mocker.patch.object(task, "_send_notification")
+        mock_save = mocker.patch.object(task, "_save_report")
+
+        task.post_execute(MagicMock())
+
+        mock_save.assert_called_once_with(task.maintenance_check_result)
+
+    def test_skips_report_when_output_mode_is_terminal(self, make_task, mocker):
+        task = make_task(
+            task_settings=_settings(show_notifications=False, output_mode="terminal")
+        )
+        task.maintenance_check_result = MaintenanceCheckResult(
+            status=TaskStatus.SUCCESS
+        )
+        mocker.patch.object(task, "_send_notification")
+        mock_save = mocker.patch.object(task, "_save_report")
+
+        task.post_execute(MagicMock(spec=TaskResult))
+
+        mock_save.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# _send_notification
+# ---------------------------------------------------------------------------
+
+
+class TestSendNotification:
+    def test_no_issues_does_not_notify(self, make_task, mocker):
+        mock_get_manager: MagicMock = mocker.patch(_PATCH_GET_NOTIFICATION_MANAGER)
+        task: MaintenanceCheckTask = make_task()
+        result = MaintenanceCheckResult(status=TaskStatus.SUCCESS)
+
+        task._send_notification(result)
+
+        mock_get_manager.assert_not_called()
+
+    def test_info_issue_below_warning_threshold_does_not_notify(
+        self, make_task, mocker
+    ):
+        """Default notification_level='warning' - an INFO-only result sits
+        below that threshold and should not trigger a notification."""
+        mock_get_manager: MagicMock = mocker.patch(_PATCH_GET_NOTIFICATION_MANAGER)
+        task: MaintenanceCheckTask = make_task(
+            task_settings=_settings(notification_level="warning")
+        )
+        issue = MaintenanceIssue(
+            task_name="x",
+            severity=IssueSeverity.INFO,
+            description="d",
+            recommendation="r",
+        )
+        result = MaintenanceCheckResult(status=TaskStatus.SUCCESS, info_issues=[issue])
+
+        task._send_notification(result)
+
+        mock_get_manager.assert_not_called()
+
+    def test_issue_at_notification_threshold_notifies(self, make_task, mocker):
+        mock_manager: MagicMock = mocker.patch(
+            _PATCH_GET_NOTIFICATION_MANAGER
+        ).return_value
+        task: MaintenanceCheckTask = make_task(
+            task_settings=_settings(notification_level="warning")
+        )
+        issue = MaintenanceIssue(
+            task_name="x",
+            severity=IssueSeverity.WARNING,
+            description="d",
+            recommendation="r",
+        )
+        result = MaintenanceCheckResult(
+            status=TaskStatus.PARTIAL, warning_issues=[issue]
+        )
+
+        task._send_notification(result)
+
+        mock_manager.send_maintenance_notification.assert_called_once_with(
+            severity=IssueSeverity.WARNING,
+            tasks_count=1,
+            summary=result.summary_message,
+        )
+
+    def test_critical_issue_notifies_even_at_highest_threshold(self, make_task, mocker):
+        mock_manager = mocker.patch(_PATCH_GET_NOTIFICATION_MANAGER).return_value
+        task = make_task(task_settings=_settings(notification_level="critical"))
+        issue = MaintenanceIssue(
+            task_name="x",
+            severity=IssueSeverity.CRITICAL,
+            description="d",
+            recommendation="r",
+        )
+        result = MaintenanceCheckResult(
+            status=TaskStatus.FAILURE, critical_issues=[issue]
+        )
+
+        task._send_notification(result)
+
+        mock_manager.send_maintenance_notification.assert_called_once()
