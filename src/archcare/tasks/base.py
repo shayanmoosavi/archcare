@@ -12,6 +12,7 @@ from loguru import logger
 from archcare.config import AppSettings, SkipReason, TaskConfig
 from archcare.core import TaskResult, TaskStep, failed, skipped
 from archcare.utils.logging import setup_task_logging
+from archcare.utils.notifications import NotificationManager
 
 
 class BaseTask(ABC):
@@ -28,16 +29,25 @@ class BaseTask(ABC):
     - should_run(): Additional logic to determine if task should run
     """
 
-    def __init__(self, config: TaskConfig, settings: AppSettings):
+    def __init__(
+        self,
+        config: TaskConfig,
+        settings: AppSettings,
+        notification_manager: NotificationManager | None = None,
+    ):
         """
         Initialize base task.
 
         Args:
             config: Task-specific configuration
             settings: Application settings
+            notification_manager: Injected by TaskExecutor. Optional so
+                tasks can still be constructed directly in tests without
+                needing a real notify-send availability check.
         """
         self.config = config
         self.settings = settings
+        self.notification_manager = notification_manager
         self.name = config.name
         self._start_time: int | float = 0.0
 
