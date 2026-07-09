@@ -20,6 +20,7 @@ from archcare.config import (
 )
 from archcare.tasks import BaseTask
 from archcare.utils import change_ownership_to_user, is_root
+from archcare.utils.notifications import NotificationManager
 
 from .interaction import NonInteractive, TaskInteraction
 from .models import TaskResult, skipped
@@ -44,6 +45,7 @@ class TaskExecutor:
         state: AppState,
         task_registry: dict[str, type[BaseTask]] | None = None,
         interaction: TaskInteraction | None = None,
+        notification_manager: NotificationManager | None = None,
     ):
         """
         Initialize task executor.
@@ -56,12 +58,23 @@ class TaskExecutor:
             interaction: Port for user notifications/confirmations during execution
              (e.g. "task is disabled, run anyway?"). Defaults to NonInteractive,
             which never confirms - safe for systemd and tests.
+            notification_manager: Desktop notification sender, threaded down
+             to every task it creates. Lazily constructed on first access if
+             not provided, since NotificationManager.__init__() does a real
+             notify-send availability check.
         """
         self.config_loader = config_loader
         self.settings = settings
         self.state = state
         self.task_registry = task_registry or {}
         self.interaction = interaction or NonInteractive()
+        self._notification_manager = notification_manager
+
+    @property
+    def notification_manager(self) -> NotificationManager:
+        if self._notification_manager is None:
+            self._notification_manager = NotificationManager()
+        return self._notification_manager
 
     def register_task(self, command: str, task_class: type[BaseTask]) -> None:
         """
@@ -98,7 +111,11 @@ class TaskExecutor:
                 f"Available commands: {list(self.task_registry.keys())}"
             )
 
-        return task_class(config=task_config, settings=self.settings)
+        return task_class(
+            config=task_config,
+            settings=self.settings,
+            notification_manager=self.notification_manager,
+        )
 
     def execute_task(self, task_name: str, force: bool = False) -> TaskResult:
         """
