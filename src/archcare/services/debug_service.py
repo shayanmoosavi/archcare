@@ -10,9 +10,8 @@ from archcare.services.exceptions import (
 from archcare.services.responses import NotificationTestResponse
 from archcare.utils.notifications import (
     NotificationIcon,
+    NotificationManager,
     NotificationUrgency,
-    is_notification_available,
-    send_notification,
 )
 
 _SEVERITY_CONFIG: dict[str, dict[str, Any]] = {
@@ -37,8 +36,10 @@ _SEVERITY_CONFIG: dict[str, dict[str, Any]] = {
 class DebugService:
     """Business logic for the `debug` command group."""
 
-    @staticmethod
-    def test_notification(severity: str = "warning") -> NotificationTestResponse:
+    def __init__(self, notification_manager: NotificationManager):
+        self.notification_manager = notification_manager
+
+    def test_notification(self, severity: str = "warning") -> NotificationTestResponse:
         """
         Send a test desktop notification.
 
@@ -51,10 +52,10 @@ class DebugService:
         if config is None:
             raise InvalidSeverityError(severity, valid=list(_SEVERITY_CONFIG))
 
-        if not is_notification_available():
+        if not self.notification_manager.is_available():
             raise NotificationUnavailableError()
 
-        sent = send_notification(
+        sent = self.notification_manager.send_notification(
             title=config["title"],
             message=(
                 "This is a test notification from archcare.\n"
