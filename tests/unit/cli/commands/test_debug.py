@@ -109,3 +109,16 @@ class TestTestNotification:
 
         mock_presenter.notification_send_failed.assert_called_once()
         assert exc_info.value.exit_code == 1
+
+    def test_generic_exception_shows_message_and_exits_1(
+        self, mocker, mock_service: MagicMock
+    ):
+        mock_error: MagicMock = mocker.patch(f"{_MODULE}.print_error")
+        mock_service.test_notification.side_effect = Exception("test")
+        ctx = _make_ctx()
+
+        with pytest.raises(typer.Exit) as exc_info:
+            notification(ctx)  # ty:ignore[invalid-argument-type]
+
+        mock_error.assert_called_once()
+        assert exc_info.value.exit_code == 1

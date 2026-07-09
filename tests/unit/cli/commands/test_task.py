@@ -221,7 +221,19 @@ class TestStatus:
         with pytest.raises(typer.Exit) as exc_info:
             status(ctx, task_name="bogus-task")  # ty:ignore[invalid-argument-type]
 
-        assert "bogus-task" in mock_presenter.error.call_args[0][0]
+        assert "bogus-task" in mock_presenter.error.call_args.args[0]
+        assert exc_info.value.exit_code == 1
+
+    def test_generic_exception_shows_error_and_exits_1(
+        self, mock_service: MagicMock, mock_presenter: MagicMock
+    ):
+        mock_service.get_task_status.side_effect = RuntimeError("CPU melted")
+        ctx = _make_ctx()
+
+        with pytest.raises(typer.Exit) as exc_info:
+            status(ctx)  # ty:ignore[invalid-argument-type]
+
+        assert "CPU melted" in mock_presenter.error.call_args.args[0]
         assert exc_info.value.exit_code == 1
 
     def test_service_called_with_task_name_and_due_only(
