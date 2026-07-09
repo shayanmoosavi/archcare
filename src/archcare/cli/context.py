@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 from archcare.cli.interaction import CliInteraction
 from archcare.config import AppSettings, ConfigLoader
-from archcare.core import TaskExecutor
+from archcare.core.executor import TaskExecutor
 from archcare.services.exceptions import ConfigNotInitializedError
 from archcare.tasks import (
     BaseTask,

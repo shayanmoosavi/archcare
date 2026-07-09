@@ -13,7 +13,7 @@ from archcare.config import (
     TaskConfig,
     TasksConfig,
 )
-from archcare.core import TaskExecutor
+from archcare.core.executor import TaskExecutor
 from archcare.core.models import TaskResult, success
 from archcare.tasks import BaseTask
 

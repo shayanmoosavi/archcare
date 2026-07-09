@@ -4,7 +4,7 @@ from typing import Annotated
 
 import typer
 
-from archcare.core import TaskExecutor
+from archcare.core.executor import TaskExecutor
 from archcare.utils.output import print_error, print_header
 
 logs_app = typer.Typer()

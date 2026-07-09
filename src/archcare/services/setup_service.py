@@ -5,7 +5,7 @@ from os import getenv
 from pathlib import Path
 
 from archcare.config import TaskConfig, create_default_config_files
-from archcare.core import TaskExecutor
+from archcare.core.executor import TaskExecutor
 from archcare.services.exceptions import (
     NotRootError,
     SystemdReloadError,

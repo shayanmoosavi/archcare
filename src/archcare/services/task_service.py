@@ -5,7 +5,8 @@ from os import getenv
 from loguru import logger
 
 from archcare.config import TaskType
-from archcare.core import TaskExecutor, TaskScheduler
+from archcare.core import TaskScheduler
+from archcare.core.executor import TaskExecutor
 from archcare.services.exceptions import (
     InvalidTasksFileError,
     InvalidTaskTypeError,
