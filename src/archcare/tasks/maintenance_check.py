@@ -39,7 +39,13 @@ class MaintenanceCheckTask(BaseTask):
     - Tasks that have never been run
     """
 
-    def __init__(self, config: TaskConfig, settings: AppSettings):
+    def __init__(
+        self,
+        config: TaskConfig,
+        settings: AppSettings,
+        *args,
+        **kwargs,
+    ):
         """
         Initialize maintenance check task.
 
@@ -47,7 +53,7 @@ class MaintenanceCheckTask(BaseTask):
             config: Task configuration
             settings: Application settings
         """
-        super().__init__(config, settings)
+        super().__init__(config, settings, *args, **kwargs)
 
         # MaintenanceCheckResult instance to store the necessary information, initialized to None
         self.maintenance_check_result: MaintenanceCheckResult | None = None
@@ -431,7 +437,6 @@ class MaintenanceCheckTask(BaseTask):
         Args:
             check_result: Maintenance check result
         """
-        from archcare.utils.notifications import get_notification_manager
 
         notification_level = self.settings.maintenance_check.notification_level
 
@@ -467,12 +472,12 @@ class MaintenanceCheckTask(BaseTask):
             return
 
         # Send notification
-        manager = get_notification_manager()
-        manager.send_maintenance_notification(
-            severity=severity,
-            tasks_count=len(check_result.all_issues),
-            summary=check_result.summary_message,
-        )
+        if self.notification_manager:
+            self.notification_manager.send_maintenance_notification(
+                severity=severity,
+                tasks_count=len(check_result.all_issues),
+                summary=check_result.summary_message,
+            )
 
     def _save_report(self, result: MaintenanceCheckResult):
         """
