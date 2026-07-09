@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import pytest
 
 from archcare.config import AppSettings, SkipReason, TaskConfig, TaskStatus
-from archcare.core.models import TaskResult
+from archcare.core import TaskResult
 from archcare.tasks import BaseTask
 
 pytestmark = pytest.mark.usefixtures("no_task_logging")

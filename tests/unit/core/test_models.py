@@ -3,7 +3,7 @@
 import pytest
 
 from archcare.config import SkipReason, TaskStatus
-from archcare.core.models import (
+from archcare.core import (
     IssueSeverity,
     MaintenanceCheckResult,
     MaintenanceIssue,

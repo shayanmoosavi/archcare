@@ -5,7 +5,7 @@ Failed services task implementation for archcare.
 from loguru import logger
 
 from archcare.config import ConfigLoader, SkipReason
-from archcare.core.models import TaskResult, success, partial
+from archcare.core import TaskResult, partial, success
 from archcare.tasks import BaseTask
 from archcare.utils import (
     check_command_exists,

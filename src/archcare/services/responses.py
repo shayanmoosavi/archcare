@@ -4,8 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from archcare.config import TaskConfig
-from archcare.core import TaskScheduleInfo
-from archcare.core.models import TaskResult
+from archcare.core import TaskResult, TaskScheduleInfo
 
 
 @dataclass

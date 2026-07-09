@@ -8,8 +8,7 @@ import pytest
 from archcare.cli.presenters.task_presenter import TaskPresenter
 from archcare.config import AppSettings, TaskConfig
 from archcare.config.models import MaintenanceCheckSettings
-from archcare.core import TaskScheduleInfo
-from archcare.core.models import TaskResult
+from archcare.core import TaskResult, TaskScheduleInfo
 from archcare.services.responses import (
     TaskListResponse,
     TaskRunResponse,

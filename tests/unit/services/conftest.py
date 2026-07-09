@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, Mock
 import pytest
 
 from archcare.config import AppState, TasksConfig, TaskStatus
-from archcare.core.models import TaskResult
+from archcare.core import TaskResult
 
 
 @pytest.fixture

@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from loguru import logger
 
 from archcare.config import AppSettings, SkipReason, TaskConfig
-from archcare.core.models import TaskResult, TaskStep, failed, skipped
+from archcare.core import TaskResult, TaskStep, failed, skipped
 from archcare.utils.logging import setup_task_logging
 
 

@@ -12,8 +12,9 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
+from archcare.config import TaskStatus
 from archcare.core import TaskScheduleInfo
-from archcare.core.models import MaintenanceIssue, TaskResult, TaskStatus
+from archcare.core.models import MaintenanceIssue, TaskResult
 
 # Global console instance
 console = Console()

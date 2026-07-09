@@ -16,13 +16,14 @@ from archcare.config import (
     TaskStatus,
     TaskType,
 )
-from archcare.core.models import (
+from archcare.core import (
     IssueSeverity,
     MaintenanceCheckResult,
     MaintenanceIssue,
     TaskResult,
+    TaskScheduleInfo,
+    TaskScheduler,
 )
-from archcare.core.scheduler import TaskScheduleInfo, TaskScheduler
 
 from .base import BaseTask
 

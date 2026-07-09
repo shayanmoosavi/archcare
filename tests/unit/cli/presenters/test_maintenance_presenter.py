@@ -6,8 +6,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from archcare.cli.presenters.maintenance_presenter import MaintenanceCheckPresenter
-from archcare.config.models import TaskStatus
-from archcare.core.models import IssueSeverity, MaintenanceCheckResult, MaintenanceIssue
+from archcare.config import TaskStatus
+from archcare.core import IssueSeverity, MaintenanceCheckResult, MaintenanceIssue
 
 _MODULE = "archcare.cli.presenters.maintenance_presenter"
 

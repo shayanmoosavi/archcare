@@ -7,7 +7,7 @@ from typing import Any
 
 from loguru import logger
 
-from archcare.core.models import TaskResult, failed, success
+from archcare.core import TaskResult, failed, success
 from archcare.tasks import BaseTask
 from archcare.utils import (
     backup_file,

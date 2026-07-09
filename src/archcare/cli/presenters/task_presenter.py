@@ -5,7 +5,7 @@ Owns all terminal rendering for TaskService results.
 """
 
 from archcare.config import AppSettings
-from archcare.core.models import MaintenanceCheckResult
+from archcare.core import MaintenanceCheckResult
 from archcare.services.responses import (
     TaskListResponse,
     TaskRunResponse,

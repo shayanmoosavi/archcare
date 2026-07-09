@@ -17,13 +17,14 @@ import pytest
 
 from archcare.config import AppSettings, AppState, TaskConfig, TasksConfig, TaskStatus
 from archcare.config.models import MaintenanceCheckSettings
-from archcare.core.models import (
+from archcare.core import (
     IssueSeverity,
     MaintenanceCheckResult,
     MaintenanceIssue,
     TaskResult,
+    TaskScheduleInfo,
+    TaskScheduler,
 )
-from archcare.core.scheduler import TaskScheduleInfo, TaskScheduler
 from archcare.tasks.maintenance_check import MaintenanceCheckTask
 
 _MODULE = "archcare.tasks.maintenance_check"

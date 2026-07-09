@@ -6,12 +6,12 @@ from typing import Any
 
 from loguru import logger
 
-from archcare.core.models import TaskResult, partial, success, failed
+from archcare.core import TaskResult, failed, partial, success
 from archcare.tasks.base import BaseTask
 from archcare.utils import (
     check_filesystem_errors,
-    check_pacman_database,
     check_package_files,
+    check_pacman_database,
     format_bytes,
     get_cpu_info,
     get_disk_usage,
