@@ -93,6 +93,9 @@ def status(
     except TaskNotFoundError as e:
         TaskPresenter.error(str(e))
         raise typer.Exit(1)
+    except Exception as e:
+        TaskPresenter.error(str(e))
+        raise typer.Exit(1)
 
     TaskPresenter.render_status(response)
 

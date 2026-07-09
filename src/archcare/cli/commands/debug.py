@@ -11,6 +11,7 @@ from archcare.services.exceptions import (
     NotificationSendError,
     NotificationUnavailableError,
 )
+from archcare.utils.output import print_error
 
 debug_app = typer.Typer(help="Debug commands for Archcare.")
 
@@ -47,6 +48,9 @@ def test_notification(
         raise typer.Exit(1)
     except NotificationSendError:
         DebugPresenter.notification_send_failed()
+        raise typer.Exit(1)
+    except Exception as e:
+        print_error(str(e))
         raise typer.Exit(1)
 
     DebugPresenter.render_test_notification(response)
