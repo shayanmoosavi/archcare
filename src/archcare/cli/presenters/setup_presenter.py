@@ -35,11 +35,17 @@ class SetupPresenter:
             console.print(f"  - {f.name}")
 
     @staticmethod
-    def init_cancelled() -> None:
-        print_info("Initialization cancelled")
-
-    @staticmethod
     def render_config_init(response: ConfigInitResponse) -> None:
+        if response.created_files:
+            print_success("Configuration files created:")
+            for f in response.created_files:
+                console.print(f"  ✓ {f.name}")
+
+        if response.skipped_files:
+            print_info("Already present, left untouched:")
+            for f in response.skipped_files:
+                console.print(f"  - {f.name}")
+
         print_success("Configuration initialized!")
         print_info(f"Edit config files in: {response.config_dir}")
         print_info("Run 'archcare task list' to see available tasks")

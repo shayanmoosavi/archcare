@@ -31,14 +31,13 @@ def setup_config():
 
     SetupPresenter.config_header(service.config_dir)
 
+    force = False
     existing = service.check_existing()
     if existing:
         SetupPresenter.existing_files_warning(existing)
-        if not typer.confirm("Overwrite existing files?"):
-            SetupPresenter.init_cancelled()
-            raise typer.Exit(0)
+        force = typer.confirm("Overwrite existing files?")
 
-    result = service.initialize()
+    result = service.initialize(force=force)
     SetupPresenter.render_config_init(result)
 
 

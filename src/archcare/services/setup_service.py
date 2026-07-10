@@ -60,10 +60,19 @@ class ConfigService:
             return []
         return list(self.config_dir.glob("*.toml"))
 
-    def initialize(self) -> ConfigInitResponse:
-        """Write default configuration files, overwriting any existing ones."""
-        create_default_config_files(self.config_dir, force=True)
-        return ConfigInitResponse(config_dir=self.config_dir)
+    def initialize(self, force: bool = False) -> ConfigInitResponse:
+        """
+        Write default configuration files.
+
+        Args:
+            force (bool): Whether to overwrite existing files. Defaults to False.
+        """
+        created, skipped = create_default_config_files(self.config_dir, force=force)
+        return ConfigInitResponse(
+            config_dir=self.config_dir,
+            created_files=created,
+            skipped_files=skipped,
+        )
 
 
 class TimerService:
