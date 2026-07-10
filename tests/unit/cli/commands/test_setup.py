@@ -80,7 +80,7 @@ class TestSetupConfig:
         setup_config()
 
         mock_presenter.existing_files_warning.assert_called_once_with(["settings.toml"])
-        mock_config_service.initialize.assert_called_once()
+        mock_config_service.initialize.assert_called_once_with(force=True)
         mock_presenter.render_config_init.assert_called_once()
 
     def test_existing_files_declined_passes_force_false(
