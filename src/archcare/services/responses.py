@@ -38,6 +38,8 @@ class ConfigInitResponse:
     """Outcome of initializing default configuration files."""
 
     config_dir: Path
+    created_files: list[Path]
+    skipped_files: list[Path]
 
 
 @dataclass
