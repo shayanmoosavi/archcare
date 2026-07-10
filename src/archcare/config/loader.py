@@ -295,49 +295,42 @@ class ConfigLoader:
             json.dump(data, f, indent=4)
 
 
-def create_default_config_files(config_dir: Path, force: bool = False) -> None:
+def create_default_config_files(
+    config_dir: Path, force: bool = False
+) -> tuple[list[Path], list[Path]]:
     """
-    Create default configuration files if they don't exist.
+    Create default configuration files for any that don't already exist.
 
-    This is a helper function to bootstrap a new installation.
+    This is a helper function to bootstrap a new installation, or to fill
+    in whatever's missing from a partially-configured one.
 
     Args:
         config_dir: Directory to create config files in
-        force: Whether to overwrite existing files (default: False)
+        force: Whether to overwrite existing files (default: False - only
+            fills in what's missing, never touches customized files)
+
+    Returns:
+        Tuple of (created_files, skipped_files). skipped_files are those
+        that already existed and force was False.
     """
-    # TODO: Improve initialization behaviour to automatically create the missing
-    # TODO: files when only some files (e.g., tasks.toml) are missing
-    from archcare.utils.output import print_info
 
     config_dir.mkdir(parents=True, exist_ok=True)
     default_config_dir = Path(__file__).parent
 
-    # Create default tasks.toml
-    tasks_path = config_dir / "tasks.toml"
-    if not tasks_path.exists() or force:
-        with open(default_config_dir / "tasks.toml", "rb") as f:
+    created: list[Path] = []
+    skipped: list[Path] = []
+
+    for filename in ("tasks.toml", "ignored-services.toml", "settings.toml"):
+        target_path = config_dir / filename
+
+        if target_path.exists() and not force:
+            skipped.append(target_path)
+            continue
+
+        with open(default_config_dir / filename, "rb") as f:
             data = tomllib.load(f)
 
-        default_tasks = tomli_w.dumps(data)
-        tasks_path.write_text(default_tasks)
-        print_info(f"Created default tasks.toml at {tasks_path}")
+        target_path.write_text(tomli_w.dumps(data))
+        created.append(target_path)
 
-    # Create default ignored-services.toml
-    services_path = config_dir / "ignored-services.toml"
-    if not services_path.exists() or force:
-        with open(default_config_dir / "ignored-services.toml", "rb") as f:
-            data = tomllib.load(f)
-
-        default_services = tomli_w.dumps(data)
-        services_path.write_text(default_services)
-        print_info(f"Created default ignored-services.toml at {services_path}")
-
-    # Create default settings.toml
-    settings_path = config_dir / "settings.toml"
-    if not settings_path.exists() or force:
-        with open(default_config_dir / "settings.toml", "rb") as f:
-            data = tomllib.load(f)
-
-        default_settings = tomli_w.dumps(data)
-        settings_path.write_text(default_settings)
-        print_info(f"Created default settings.toml at {settings_path}")
+    return created, skipped
