@@ -194,7 +194,6 @@ class TestReload:
     def test_failed_daemon_reload_raises(
         self, timer_service: TimerService, monkeypatch
     ):
-        """SystemdReloadError is caught internally; success=False is returned."""
         monkeypatch.setattr(_PATCH_SYSTEMCTL, lambda *_: _systemctl_result(False))
         with pytest.raises(SystemdReloadError):
             timer_service.reload(dry_run=False)
