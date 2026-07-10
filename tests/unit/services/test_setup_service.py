@@ -9,9 +9,8 @@ from archcare.config import TaskConfig
 from archcare.services.exceptions import SystemdReloadError
 from archcare.services.setup_service import ConfigService, TimerService
 
-_PATCH_CREATE_CONFIG = "archcare.services.setup_service.create_default_config_files"
-_PATCH_SYSTEMCTL = "archcare.services.setup_service.run_systemctl"
-
+_MODULE = "archcare.services.setup_service"
+_PATCH_SYSTEMCTL = f"{_MODULE}.run_systemctl"
 
 # ---------------------------------------------------------------------------
 # Helpers and fixtures
@@ -37,6 +36,14 @@ def timer_service(tmp_path, mock_executor: MagicMock, monkeypatch) -> TimerServi
     """
     monkeypatch.setattr(TimerService, "SYSTEMD_DIR", tmp_path)
     return TimerService(mock_executor, user="alice", home_dir=str(tmp_path / "home"))
+
+
+@pytest.fixture
+def mock_create_config(mocker) -> MagicMock:
+    return mocker.patch(
+        f"{_MODULE}.create_default_config_files",
+        return_value=(["settings", "tasks", "ignored"], []),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -82,31 +89,24 @@ class TestConfigService:
         found = service.check_existing()
         assert all(f.suffix == ".toml" for f in found)
 
-    def test_initialize_returns_response_with_correct_config_dir(
-        self, tmp_path, monkeypatch
-    ):
-        monkeypatch.setattr(_PATCH_CREATE_CONFIG, lambda *_, **__: None)
+    @pytest.mark.usefixtures("mock_create_config")
+    def test_initialize_returns_response_with_correct_values(self, tmp_path):
         result = ConfigService(config_dir=tmp_path).initialize()
         assert result.config_dir == tmp_path
+        assert result.created_files == ["settings", "tasks", "ignored"]
+        assert result.skipped_files == []
 
-    def test_initialize_calls_create_with_correct_dir(self, tmp_path, monkeypatch):
-        calls = []
-        monkeypatch.setattr(
-            _PATCH_CREATE_CONFIG,
-            lambda config_dir, **_: calls.append(config_dir),
-        )
+    def test_initialize_calls_create_with_correct_dir(
+        self, tmp_path, mock_create_config: MagicMock
+    ):
         ConfigService(config_dir=tmp_path).initialize()
-        assert calls[0] == tmp_path
+        mock_create_config.assert_called_once_with(tmp_path, force=False)
 
-    def test_initialize_always_passes_force_true(self, tmp_path, monkeypatch):
-        """initialize() must overwrite existing files unconditionally."""
-        calls = []
-        monkeypatch.setattr(
-            _PATCH_CREATE_CONFIG,
-            lambda _, force=False: calls.append(force),
-        )
-        ConfigService(config_dir=tmp_path).initialize()
-        assert calls[0] is True
+    def test_initialize_reflects_force_flag(
+        self, tmp_path, mock_create_config: MagicMock
+    ):
+        ConfigService(config_dir=tmp_path).initialize(force=True)
+        assert mock_create_config.call_args.kwargs["force"] is True
 
 
 # ---------------------------------------------------------------------------

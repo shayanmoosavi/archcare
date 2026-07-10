@@ -405,28 +405,51 @@ class TestStateManagement:
 
 
 class TestCreateDefaultConfigFiles:
-    def test_creates_settings_toml(self, tmp_path):
+    def test_creates_all_default_files_when_they_are_absent(self, tmp_path):
         create_default_config_files(tmp_path)
+
+        assert (tmp_path / "tasks.toml").exists()
+        assert (tmp_path / "ignored-services.toml").exists()
         assert (tmp_path / "settings.toml").exists()
 
-    def test_creates_tasks_toml(self, tmp_path):
-        create_default_config_files(tmp_path)
-        assert (tmp_path / "tasks.toml").exists()
+    def test_created_files_are_returned(self, tmp_path):
+        created, _ = create_default_config_files(tmp_path)
+        assert len(created) == 3
+        assert tmp_path / "tasks.toml" in created
+        assert tmp_path / "ignored-services.toml" in created
+        assert tmp_path / "settings.toml" in created
 
-    def test_creates_ignored_services_toml(self, tmp_path):
+    def test_created_files_are_skipped(self, tmp_path):
+        # Delibrately calling it twice
         create_default_config_files(tmp_path)
-        assert (tmp_path / "ignored-services.toml").exists()
+        _, skipped = create_default_config_files(tmp_path)
 
-    def test_does_not_overwrite_existing_files_without_force(self, tmp_path):
+        assert len(skipped) == 3
+        assert tmp_path / "tasks.toml" in skipped
+        assert tmp_path / "ignored-services.toml" in skipped
+        assert tmp_path / "settings.toml" in skipped
+
+    @pytest.mark.parametrize(
+        "filename", ["tasks.toml", "ignored-services.toml", "settings.toml"]
+    )
+    def test_does_not_overwrite_existing_files_without_force(self, tmp_path, filename):
         sentinel = "sentinel content"
-        (tmp_path / "settings.toml").write_text(sentinel)
-        create_default_config_files(tmp_path, force=False)
-        assert (tmp_path / "settings.toml").read_text() == sentinel
+        (tmp_path / filename).write_text(sentinel)
+        created, skipped = create_default_config_files(tmp_path, force=False)
 
-    def test_overwrites_existing_files_with_force(self, tmp_path):
-        (tmp_path / "settings.toml").write_text("sentinel content")
+        assert (tmp_path / filename).read_text() == sentinel
+        assert tmp_path / filename not in created
+        assert tmp_path / filename in skipped
+
+    @pytest.mark.parametrize(
+        "filename", ["tasks.toml", "ignored-services.toml", "settings.toml"]
+    )
+    def test_overwrites_existing_files_with_force(self, tmp_path, filename):
+        sentinel = "sentinel content"
+        (tmp_path / filename).write_text(sentinel)
         create_default_config_files(tmp_path, force=True)
-        assert (tmp_path / "settings.toml").read_text() != "sentinel content"
+
+        assert (tmp_path / filename).read_text() != sentinel
 
     def test_creates_config_dir_when_absent(self, tmp_path):
         config_dir = tmp_path / "new" / "archcare"
@@ -446,5 +469,13 @@ class TestCreateDefaultConfigFiles:
 
         create_default_config_files(tmp_path)
         with open(tmp_path / "tasks.toml", "rb") as f:
+            data = tomllib.load(f)
+        assert isinstance(data, dict)
+
+    def test_created_ignored_services_toml_is_valid_toml(self, tmp_path):
+        import tomllib
+
+        create_default_config_files(tmp_path)
+        with open(tmp_path / "ignored-services.toml", "rb") as f:
             data = tomllib.load(f)
         assert isinstance(data, dict)

@@ -68,7 +68,7 @@ def mock_print(mocker) -> MagicMock:
 
 
 class TestExistingFilesWarning:
-    def test_prints_warning_header(self, mocker, mock_warning: MagicMock):
+    def test_prints_warning_header(self, mock_warning: MagicMock):
 
         SetupPresenter.existing_files_warning([])
 
@@ -90,6 +90,47 @@ class TestExistingFilesWarning:
         SetupPresenter.existing_files_warning([])
 
         mock_print.assert_not_called()
+
+
+class TestRenderConfigInit:
+    @pytest.mark.usefixtures("mock_success")
+    def test_prints_created_files(self, tmp_path, mock_print: MagicMock):
+
+        SetupPresenter.render_config_init(
+            ConfigInitResponse(
+                config_dir=tmp_path,
+                created_files=[tmp_path / "settings.toml"],
+                skipped_files=[],
+            )
+        )
+
+        assert "settings.toml" in mock_print.call_args_list[0].args[0]
+
+    def test_prints_skipped_files(self, tmp_path, mock_print: MagicMock):
+        SetupPresenter.render_config_init(
+            ConfigInitResponse(
+                config_dir=tmp_path,
+                created_files=[],
+                skipped_files=[tmp_path / "tasks.toml"],
+            )
+        )
+
+        assert "tasks.toml" in mock_print.call_args_list[0].args[0]
+
+    @pytest.mark.usefixtures("mock_success")
+    def test_prints_both_created_and_skipped_files(
+        self, tmp_path, mock_print: MagicMock
+    ):
+        SetupPresenter.render_config_init(
+            ConfigInitResponse(
+                config_dir=tmp_path,
+                created_files=[tmp_path / "settings.toml"],
+                skipped_files=[tmp_path / "tasks.toml"],
+            )
+        )
+
+        assert "settings.toml" in mock_print.call_args_list[0].args[0]
+        assert "tasks.toml" in mock_print.call_args_list[1].args[0]
 
 
 # ---------------------------------------------------------------------------
@@ -259,18 +300,6 @@ class TestStaticMethods:
         SetupPresenter.config_header(tmp_path)
 
         assert str(tmp_path) in mock_info.call_args.args[0]
-
-    def test_init_cancelled(self, mock_info: MagicMock):
-        SetupPresenter.init_cancelled()
-
-        mock_info.assert_called_once_with("Initialization cancelled")
-
-    def test_render_config_init(self, mocker, tmp_path, mock_info: MagicMock):
-        mocker.patch(_PATCH_SUCCESS)
-
-        SetupPresenter.render_config_init(ConfigInitResponse(config_dir=tmp_path))
-
-        assert str(tmp_path) in mock_info.call_args_list[0].args[0]
 
     def test_templates_installed(self, mocker, mock_success: MagicMock):
         mocker.patch(_PATCH_CONSOLE)

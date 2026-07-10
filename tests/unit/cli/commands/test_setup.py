@@ -81,20 +81,18 @@ class TestSetupConfig:
 
         mock_presenter.existing_files_warning.assert_called_once_with(["settings.toml"])
         mock_config_service.initialize.assert_called_once()
-        mock_presenter.init_cancelled.assert_not_called()
+        mock_presenter.render_config_init.assert_called_once()
 
-    def test_existing_files_declined_cancels_without_initializing(
+    def test_existing_files_declined_passes_force_false(
         self, mocker, mock_presenter: MagicMock, mock_config_service: MagicMock
     ):
         mocker.patch(_PATCH_CONFIRM, return_value=False)
         mock_config_service.check_existing.return_value = ["settings.toml"]
 
-        with pytest.raises(typer.Exit) as exc_info:
-            setup_config()
+        setup_config()
 
-        mock_presenter.init_cancelled.assert_called_once()
-        mock_config_service.initialize.assert_not_called()
-        assert exc_info.value.exit_code == 0
+        mock_config_service.initialize.assert_called_once_with(force=False)
+        mock_presenter.render_config_init.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
