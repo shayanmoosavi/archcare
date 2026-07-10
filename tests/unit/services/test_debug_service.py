@@ -1,5 +1,7 @@
 """Unit tests for DebugService."""
 
+from unittest.mock import MagicMock
+
 import pytest
 
 from archcare.services import DebugService
@@ -8,11 +10,7 @@ from archcare.services.exceptions import (
     NotificationSendError,
     NotificationUnavailableError,
 )
-
-_PATCH_AVAILABLE = "archcare.services.debug_service.is_notification_available"
-_PATCH_SEND = "archcare.services.debug_service.send_notification"
-
-pytestmark = pytest.mark.usefixtures("reset_notification_manager")
+from archcare.utils.notifications import NotificationManager
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -21,7 +19,8 @@ pytestmark = pytest.mark.usefixtures("reset_notification_manager")
 
 @pytest.fixture
 def service() -> DebugService:
-    return DebugService()
+    mock_manager: MagicMock = MagicMock(spec=NotificationManager)
+    return DebugService(mock_manager)
 
 
 # ---------------------------------------------------------------------------
@@ -32,10 +31,12 @@ def service() -> DebugService:
 class TestSeverityValidation:
     @pytest.mark.parametrize("severity", ["critical", "warning", "info"])
     def test_valid_severities_are_accepted(
-        self, service: DebugService, severity, monkeypatch
+        self, service: DebugService, severity, mocker
     ):
-        monkeypatch.setattr(_PATCH_AVAILABLE, lambda: True)
-        monkeypatch.setattr(_PATCH_SEND, lambda **_: True)
+        mock_manager = service.notification_manager
+        mocker.patch.object(mock_manager, "is_available", return_value=True)
+        mocker.patch.object(mock_manager, "send_notification", return_value=True)
+
         result = service.test_notification(severity)
         assert result.severity == severity
 
@@ -57,18 +58,18 @@ class TestSeverityValidation:
 
 
 class TestNotificationAvailability:
-    def test_raises_when_notify_send_unavailable(
-        self, service: DebugService, monkeypatch
-    ):
-        monkeypatch.setattr(_PATCH_AVAILABLE, lambda: False)
+    def test_raises_when_notify_send_unavailable(self, service: DebugService, mocker):
+        mocker.patch.object(
+            service.notification_manager, "is_available", return_value=False
+        )
         with pytest.raises(NotificationUnavailableError):
             service.test_notification("warning")
 
-    def test_proceeds_when_notify_send_available(
-        self, service: DebugService, monkeypatch
-    ):
-        monkeypatch.setattr(_PATCH_AVAILABLE, lambda: True)
-        monkeypatch.setattr(_PATCH_SEND, lambda **_: True)
+    def test_proceeds_when_notify_send_available(self, service: DebugService, mocker):
+        mock_manager = service.notification_manager
+        mocker.patch.object(mock_manager, "is_available", return_value=True)
+        mocker.patch.object(mock_manager, "send_notification", return_value=True)
+
         result = service.test_notification("warning")
         assert result is not None
 
@@ -79,28 +80,36 @@ class TestNotificationAvailability:
 
 
 class TestSendNotification:
-    def test_raises_on_send_failure(self, service: DebugService, monkeypatch):
-        monkeypatch.setattr(_PATCH_AVAILABLE, lambda: True)
-        monkeypatch.setattr(_PATCH_SEND, lambda **_: False)
+    def test_raises_on_send_failure(self, service: DebugService, mocker):
+        mock_manager = service.notification_manager
+        mocker.patch.object(mock_manager, "is_available", return_value=True)
+        mocker.patch.object(mock_manager, "send_notification", return_value=False)
+
         with pytest.raises(NotificationSendError) as exc_info:
             service.test_notification("critical")
         assert exc_info.value.severity == "critical"
 
     @pytest.mark.parametrize("severity", ["critical", "warning", "info"])
     def test_send_called_with_matching_title(
-        self, service: DebugService, monkeypatch, severity
+        self, service: DebugService, mocker, severity
     ):
         calls = []
-        monkeypatch.setattr(_PATCH_AVAILABLE, lambda: True)
-        monkeypatch.setattr(_PATCH_SEND, lambda **kwargs: calls.append(kwargs) or True)
+        mock_manager = service.notification_manager
+        mocker.patch.object(mock_manager, "is_available", return_value=True)
+        mocker.patch.object(
+            mock_manager,
+            "send_notification",
+            lambda **kwargs: calls.append(kwargs) or True,
+        )
+
         service.test_notification(severity)
         assert calls[0]["title"] == f"Testing severity `{severity}`"
 
-    def test_response_carries_severity_and_title(
-        self, service: DebugService, monkeypatch
-    ):
-        monkeypatch.setattr(_PATCH_AVAILABLE, lambda: True)
-        monkeypatch.setattr(_PATCH_SEND, lambda **_: True)
+    def test_response_carries_severity_and_title(self, service: DebugService, mocker):
+        mock_manager = service.notification_manager
+        mocker.patch.object(mock_manager, "is_available", return_value=True)
+        mocker.patch.object(mock_manager, "send_notification", return_value=True)
+
         result = service.test_notification("warning")
         assert result.severity == "warning"
         assert "warning" in result.title.lower()

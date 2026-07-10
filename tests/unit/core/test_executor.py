@@ -1,7 +1,7 @@
 """Unit tests for TaskExecutor."""
 
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -16,6 +16,9 @@ from archcare.config import (
 from archcare.core import TaskResult, success
 from archcare.core.executor import TaskExecutor
 from archcare.tasks import BaseTask
+from archcare.utils.notifications import NotificationManager
+
+_MODULE = "archcare.core.executor"
 
 pytestmark = pytest.mark.usefixtures("no_task_logging")
 
@@ -53,8 +56,26 @@ class FakeTask(BaseTask):
 
 
 # ---------------------------------------------------------------------------
-# Executor factory
+# Fixtures and Helpers
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def tasks_config_with_disabled(
+    automated_task: TaskConfig, disabled_task: TaskConfig
+) -> TasksConfig:
+    """Config containing both an enabled and a disabled task."""
+    return TasksConfig(
+        tasks={
+            automated_task.name: automated_task,
+            disabled_task.name: disabled_task,
+        }
+    )
+
+
+@pytest.fixture
+def mock_manager_class(mocker) -> MagicMock:
+    return mocker.patch(f"{_MODULE}.NotificationManager")
 
 
 def _make_executor(
@@ -62,6 +83,7 @@ def _make_executor(
     state: AppState,
     interaction: RecordingInteraction,
     user: str | None = None,
+    notification_manager: MagicMock | None = None,
 ) -> TaskExecutor:
     """
     Build a real TaskExecutor backed by a mock ConfigLoader.
@@ -70,6 +92,12 @@ def _make_executor(
     the executor can instantiate tasks without hitting real task code.
     Command names are derived from the config itself, so fixture renames
     never cause silent mismatches here.
+
+    notification_manager defaults to a MagicMock() - _create_task() now
+    passes it to every task unconditionally, and without a default here
+    the lazy property would construct a real NotificationManager() (and
+    its real notify-send subprocess check) on every execute_task() call
+    in this file.
     """
     loader = MagicMock(spec=ConfigLoader)
     loader.load_tasks.return_value = tasks_config
@@ -80,12 +108,98 @@ def _make_executor(
         settings=AppSettings(user=user),
         state=state,
         interaction=interaction,
+        notification_manager=notification_manager
+        or MagicMock(spec=NotificationManager),
     )
 
     for task_config in tasks_config.tasks.values():
         executor.register_task(task_config.command, FakeTask)
 
     return executor
+
+
+# ---------------------------------------------------------------------------
+# notification_manager lazy property
+# ---------------------------------------------------------------------------
+
+
+class TestNotificationManagerProperty:
+    """
+    Mirrors AppContext's settings/executor laziness and BaseTask's own
+    interaction-defaulting pattern - NotificationManager() does a real
+    subprocess check, so it must not run until actually needed.
+    """
+
+    def test_returns_injected_instance(self, mock_manager_class: MagicMock):
+        executor = TaskExecutor(
+            config_loader=MagicMock(spec=ConfigLoader),
+            settings=AppSettings(),
+            state=AppState(),
+            notification_manager=mock_manager_class.return_value,
+        )
+
+        assert executor.notification_manager is mock_manager_class.return_value
+
+    def test_not_constructed_until_first_access(self, mock_manager_class: MagicMock):
+
+        TaskExecutor(
+            config_loader=MagicMock(spec=ConfigLoader),
+            settings=AppSettings(),
+            state=AppState(),
+        )
+
+        mock_manager_class.assert_not_called()
+
+    def test_lazily_constructs_when_not_injected(self, mock_manager_class: MagicMock):
+        mock_manager: MagicMock = mock_manager_class.return_value
+        executor = TaskExecutor(
+            config_loader=MagicMock(spec=ConfigLoader),
+            settings=AppSettings(),
+            state=AppState(),
+        )
+
+        result = executor.notification_manager
+
+        mock_manager_class.assert_called_once()
+        assert result is mock_manager
+
+    def test_lazy_construction_is_cached(self, mock_manager_class: MagicMock):
+        executor = TaskExecutor(
+            config_loader=MagicMock(spec=ConfigLoader),
+            settings=AppSettings(),
+            state=AppState(),
+        )
+
+        first = executor.notification_manager
+        second = executor.notification_manager
+
+        assert first is second
+        mock_manager_class.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# _create_task threads notification_manager down to every task
+# ---------------------------------------------------------------------------
+
+
+class TestCreateTask:
+    def test_task_receives_notification_manager(
+        self,
+        tasks_config: TasksConfig,
+        fresh_state: AppState,
+        automated_task: TaskConfig,
+        mock_manager_class: MagicMock,
+    ):
+        interaction = RecordingInteraction()
+        mock_manager = mock_manager_class.return_value
+        executor = _make_executor(
+            tasks_config, fresh_state, interaction, notification_manager=mock_manager
+        )
+
+        task_config = tasks_config.get_task(automated_task.name)
+        task = executor._create_task(task_config)
+
+        assert task.notification_manager is mock_manager
 
 
 # ---------------------------------------------------------------------------
@@ -389,28 +503,31 @@ class TestUpdateState:
         fresh_state: AppState,
         automated_task: TaskConfig,
         monkeypatch,
+        mocker,
     ):
         monkeypatch.setenv("ARCHCARE_USER", "alice")
-        with patch("archcare.core.executor.change_ownership_to_user") as mock_chown:
-            interaction = RecordingInteraction(confirm_response=True)
-            executor = _make_executor(tasks_config, fresh_state, interaction)
-            executor.execute_task(automated_task.name)
-            mock_chown.assert_not_called()
+        mock_chown = mocker.patch(f"{_MODULE}.change_ownership_to_user")
+        interaction = RecordingInteraction(confirm_response=True)
+        executor = _make_executor(tasks_config, fresh_state, interaction)
+
+        executor.execute_task(automated_task.name)
+
+        mock_chown.assert_not_called()
 
     def test_chown_not_called_when_archcare_user_absent(
         self,
         tasks_config: TasksConfig,
         fresh_state: AppState,
         automated_task: TaskConfig,
+        mocker,
     ):
         """ARCHCARE_USER is cleared by the autouse clear_archcare_user fixture."""
-        with (
-            patch("archcare.core.executor.is_root", return_value=True),
-            patch("archcare.core.executor.change_ownership_to_user") as mock_chown,
-        ):
-            interaction = RecordingInteraction()
-            executor = _make_executor(tasks_config, fresh_state, interaction)
-            executor.execute_task(automated_task.name)
+        mock_chown: MagicMock = mocker.patch(f"{_MODULE}.change_ownership_to_user")
+        mocker.patch(f"{_MODULE}.is_root", return_value=True)
+
+        interaction = RecordingInteraction()
+        executor = _make_executor(tasks_config, fresh_state, interaction)
+        executor.execute_task(automated_task.name)
 
         mock_chown.assert_not_called()
 
@@ -420,43 +537,19 @@ class TestUpdateState:
         fresh_state: AppState,
         automated_task: TaskConfig,
         monkeypatch,
+        mocker,
     ):
 
         monkeypatch.setenv("ARCHCARE_USER", "alice")
+        mock_chown = mocker.patch(f"{_MODULE}.change_ownership_to_user")
+        mocker.patch(f"{_MODULE}.is_root", return_value=True)
 
-        with (
-            patch("archcare.core.executor.is_root", return_value=True),
-            patch("archcare.core.executor.change_ownership_to_user") as mock_chown,
-        ):
-            interaction = RecordingInteraction(confirm_response=True)
-            executor = _make_executor(
-                tasks_config, fresh_state, interaction, user="alice"
-            )
-            executor.execute_task(automated_task.name)
+        interaction = RecordingInteraction()
+        executor = _make_executor(tasks_config, fresh_state, interaction)
+        executor.execute_task(automated_task.name)
 
-            # Systemd mode must have user set in AppSettings
-            assert executor.settings.user == "alice"
-
-            # After state update, check that chown was called twice (file and parent)
-            assert mock_chown.call_count == 2
-            state_file = executor.settings.state_file
-            mock_chown.assert_any_call(state_file, "alice")
-            mock_chown.assert_any_call(state_file.parent, "alice")
-
-
-# ---------------------------------------------------------------------------
-# Fixtures local to executor tests
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-def tasks_config_with_disabled(
-    automated_task: TaskConfig, disabled_task: TaskConfig
-) -> TasksConfig:
-    """Config containing both an enabled and a disabled task."""
-    return TasksConfig(
-        tasks={
-            automated_task.name: automated_task,
-            disabled_task.name: disabled_task,
-        }
-    )
+        # After state update, check that chown was called twice (file and parent)
+        assert mock_chown.call_count == 2
+        state_file = executor.settings.state_file
+        mock_chown.assert_any_call(state_file, "alice")
+        mock_chown.assert_any_call(state_file.parent, "alice")

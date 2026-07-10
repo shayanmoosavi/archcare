@@ -26,12 +26,10 @@ from archcare.core import (
     TaskScheduler,
 )
 from archcare.tasks.maintenance_check import MaintenanceCheckTask
+from archcare.utils.notifications import NotificationManager
 
 _MODULE = "archcare.tasks.maintenance_check"
 _PATCH_CONFIG_LOADER = f"{_MODULE}.ConfigLoader"
-_PATCH_GET_NOTIFICATION_MANAGER = (
-    "archcare.utils.notifications.get_notification_manager"
-)
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
@@ -664,22 +662,28 @@ class TestPostExecute:
 
 class TestSendNotification:
     def test_no_issues_does_not_notify(self, make_task, mocker):
-        mock_get_manager: MagicMock = mocker.patch(_PATCH_GET_NOTIFICATION_MANAGER)
         task: MaintenanceCheckTask = make_task()
+        task.notification_manager = MagicMock(spec=NotificationManager)
+        mock_send: MagicMock = mocker.patch.object(
+            task.notification_manager, "send_maintenance_notification"
+        )
         result = MaintenanceCheckResult(status=TaskStatus.SUCCESS)
 
         task._send_notification(result)
 
-        mock_get_manager.assert_not_called()
+        mock_send.assert_not_called()
 
     def test_info_issue_below_warning_threshold_does_not_notify(
         self, make_task, mocker
     ):
         """Default notification_level='warning' - an INFO-only result sits
         below that threshold and should not trigger a notification."""
-        mock_get_manager: MagicMock = mocker.patch(_PATCH_GET_NOTIFICATION_MANAGER)
         task: MaintenanceCheckTask = make_task(
             task_settings=_settings(notification_level="warning")
+        )
+        task.notification_manager = MagicMock(spec=NotificationManager)
+        mock_send: MagicMock = mocker.patch.object(
+            task.notification_manager, "send_maintenance_notification"
         )
         issue = MaintenanceIssue(
             task_name="x",
@@ -691,15 +695,14 @@ class TestSendNotification:
 
         task._send_notification(result)
 
-        mock_get_manager.assert_not_called()
+        mock_send.assert_not_called()
 
-    def test_issue_at_notification_threshold_notifies(self, make_task, mocker):
-        mock_manager: MagicMock = mocker.patch(
-            _PATCH_GET_NOTIFICATION_MANAGER
-        ).return_value
+    def test_issue_at_notification_threshold_notifies(self, make_task):
         task: MaintenanceCheckTask = make_task(
             task_settings=_settings(notification_level="warning")
         )
+        task.notification_manager = MagicMock(spec=NotificationManager)
+        mock_manager: MagicMock = task.notification_manager
         issue = MaintenanceIssue(
             task_name="x",
             severity=IssueSeverity.WARNING,
@@ -718,9 +721,12 @@ class TestSendNotification:
             summary=result.summary_message,
         )
 
-    def test_critical_issue_notifies_even_at_highest_threshold(self, make_task, mocker):
-        mock_manager = mocker.patch(_PATCH_GET_NOTIFICATION_MANAGER).return_value
-        task = make_task(task_settings=_settings(notification_level="critical"))
+    def test_critical_issue_notifies_even_at_highest_threshold(self, make_task):
+        task: MaintenanceCheckTask = make_task(
+            task_settings=_settings(notification_level="critical")
+        )
+        task.notification_manager = MagicMock(spec=NotificationManager)
+        mock_manager: MagicMock = task.notification_manager
         issue = MaintenanceIssue(
             task_name="x",
             severity=IssueSeverity.CRITICAL,
