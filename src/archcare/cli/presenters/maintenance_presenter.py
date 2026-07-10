@@ -5,6 +5,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from archcare.core import MaintenanceCheckResult, MaintenanceIssue
+from archcare.utils.output import console
 
 
 class MaintenanceCheckPresenter:
@@ -26,7 +27,6 @@ class MaintenanceCheckPresenter:
             require_acknowledgment: Whether to block on user acknowledgment
                 when critical issues are found (from settings).
         """
-        console = Console()
 
         if not result.has_issues:
             msg = "✓ No maintenance issues found! Your system is healthy :)"
