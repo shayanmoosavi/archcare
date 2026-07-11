@@ -61,8 +61,7 @@ def _result(**overrides) -> MaintenanceCheckResult:
 
 @pytest.fixture
 def mock_console(mocker) -> MagicMock:
-    """The instance `console = Console()` resolves to inside render()."""
-    return mocker.patch(f"{_MODULE}.Console").return_value
+    return mocker.patch(f"{_MODULE}.console")
 
 
 @pytest.fixture
