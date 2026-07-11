@@ -53,21 +53,14 @@ class TestRunTask:
         response = _service(mock_executor).run_task("test-manual-task")
         assert response.outcome is mock_task_result
 
-    def test_is_interactive_without_archcare_user(
-        self, mock_executor: MagicMock, mock_task_result: Mock, monkeypatch
+    @pytest.mark.parametrize("is_interactive", [True, False])
+    def test_is_interactive_reflects_user_context(
+        self, mock_executor: MagicMock, mock_task_result: Mock, is_interactive: bool
     ):
-        monkeypatch.delenv("ARCHCARE_USER", raising=False)
+        mock_executor.user_context.is_interactive = is_interactive
         mock_executor.execute_task.return_value = mock_task_result
         response = _service(mock_executor).run_task("test-auto-task")
-        assert response.is_interactive is True
-
-    def test_not_interactive_when_archcare_user_is_set(
-        self, mock_executor: MagicMock, mock_task_result: Mock, monkeypatch
-    ):
-        monkeypatch.setenv("ARCHCARE_USER", "alice")
-        mock_executor.execute_task.return_value = mock_task_result
-        response = _service(mock_executor).run_task("test-auto-task")
-        assert response.is_interactive is False
+        assert response.is_interactive is is_interactive
 
     def test_force_flag_is_forwarded_to_executor(
         self, mock_executor: MagicMock, mock_task_result: Mock

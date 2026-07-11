@@ -11,6 +11,8 @@ from archcare.config import AppSettings, LogLevel
 from archcare.core.executor import TaskExecutor
 from archcare.services.exceptions import ConfigNotInitializedError
 
+_MODULE = "archcare.cli.context"
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -78,23 +80,51 @@ def tasks_toml(config_dir: Path) -> Path:
 @pytest.fixture(autouse=True)
 def mock_setup_logging(mocker) -> MagicMock:
     """Patches the setup_logging() function (not AppContext's method)."""
-    return mocker.patch("archcare.cli.context.setup_logging")
+    return mocker.patch(f"{_MODULE}.setup_logging")
 
 
 @pytest.fixture
 def mock_config_loader_class(mocker) -> MagicMock:
     """The patched ConfigLoader class itself — use for call-count/call-args assertions."""
-    return mocker.patch("archcare.cli.context.ConfigLoader")
+    return mocker.patch(f"{_MODULE}.ConfigLoader")
 
 
 @pytest.fixture
-def mock_config_loader(mock_config_loader_class) -> MagicMock:
+def mock_config_loader(mock_config_loader_class: MagicMock) -> MagicMock:
     """The instance ConfigLoader() returns — use for stubbing load_settings()/load_state()."""
     return mock_config_loader_class.return_value
 
 
+@pytest.fixture
+def mock_executor(mocker) -> MagicMock:
+    return mocker.patch(f"{_MODULE}.TaskExecutor")
+
+
 # ---------------------------------------------------------------------------
-# is_interactive
+# user_context property
+# ---------------------------------------------------------------------------
+
+
+class TestUserContext:
+    def test_built_from_self_user(self):
+        context = AppContext(devel=False, user="alice")
+        assert context.user_context.archcare_user == "alice"
+        assert context.user == context.user_context.archcare_user
+
+    def test_caches_after_first_access(self, context: AppContext, mocker):
+        mock_user_context: MagicMock = mocker.patch(f"{_MODULE}.UserContext")
+
+        # Access context twice
+        first = context.user_context
+        second = context.user_context
+
+        # Ensure it was called once (cached)
+        assert first is second
+        mock_user_context.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# is_interactive property
 # ---------------------------------------------------------------------------
 
 
@@ -138,19 +168,19 @@ class TestSettingsProperty:
 
 
 class TestExecutorProperty:
-    def test_returns_built_executor(self, context: AppContext, mocker):
-        mock_executor: MagicMock = mocker.patch(
-            "archcare.cli.context.TaskExecutor"
-        ).return_value
-        assert context.executor is mock_executor
+    def test_returns_built_executor(
+        self, context: AppContext, mock_executor: MagicMock
+    ):
+        assert context.executor is mock_executor.return_value
 
     def test_builds_with_loader_settings_and_state(
-        self, mock_config_loader: MagicMock, mocker, context: AppContext
+        self,
+        mock_config_loader: MagicMock,
+        mock_executor: MagicMock,
+        context: AppContext,
     ):
         mock_config_loader.load_settings.return_value = "SETTINGS"
         mock_config_loader.load_state.return_value = "STATE"
-
-        mock_executor: MagicMock = mocker.patch("archcare.cli.context.TaskExecutor")
 
         context.executor
 
@@ -159,9 +189,9 @@ class TestExecutorProperty:
         assert kwargs["settings"] == "SETTINGS"
         assert kwargs["state"] == "STATE"
 
-    def test_builds_with_interactive_cli_interaction(self, mocker, context: AppContext):
-        mock_executor: MagicMock = mocker.patch("archcare.cli.context.TaskExecutor")
-
+    def test_builds_with_interactive_cli_interaction(
+        self, mock_executor: MagicMock, context: AppContext
+    ):
         context.executor
 
         _, kwargs = mock_executor.call_args
@@ -176,9 +206,9 @@ class TestExecutorProperty:
 
         assert register_task.call_count == len(_TASK_REGISTRY)
 
-    def test_caches_after_first_access(self, mocker, context: AppContext):
-        mock_executor: MagicMock = mocker.patch("archcare.cli.context.TaskExecutor")
-
+    def test_caches_after_first_access(
+        self, mock_executor: MagicMock, context: AppContext
+    ):
         first = context.executor
         second = context.executor
 
@@ -250,21 +280,21 @@ class TestSetupLogging:
             settings, reconfigure=True, devel_mode=False
         )
 
-    def test_defaults_to_self_user_when_no_user_param(self, mocker):
-        mock_loader: MagicMock = mocker.patch("archcare.cli.context.ConfigLoader")
-
+    def test_defaults_to_self_user_when_no_user_param(
+        self, mock_config_loader_class: MagicMock
+    ):
         ctx = AppContext(devel=False, user="bob")
         ctx.setup_logging()
 
-        assert mock_loader.call_args.kwargs["user"] == "bob"
+        assert mock_config_loader_class.call_args.kwargs["user"] == "bob"
 
-    def test_passes_explicit_user_to_loader_over_self_user(self, mocker):
-        mock_loader: MagicMock = mocker.patch("archcare.cli.context.ConfigLoader")
-
+    def test_passes_explicit_user_to_loader_over_self_user(
+        self, mock_config_loader_class: MagicMock
+    ):
         ctx = AppContext(devel=False, user="root")
         ctx.setup_logging(user="alice")
 
-        assert mock_loader.call_args.kwargs["user"] == "alice"
+        assert mock_config_loader_class.call_args.kwargs["user"] == "alice"
 
 
 # ---------------------------------------------------------------------------
@@ -290,12 +320,14 @@ class TestExecutorForUser:
         return config_dir
 
     def test_resolves_target_user_via_sudo_user_env(
-        self, per_user_home_dir: Path, monkeypatch, mocker, context: AppContext
+        self,
+        per_user_home_dir: Path,
+        monkeypatch,
+        mock_executor: MagicMock,
+        context: AppContext,
     ):
         monkeypatch.setenv("SUDO_USER", "alice")
         self._init_target_user_config(per_user_home_dir, "alice")
-
-        mock_executor: MagicMock = mocker.patch("archcare.cli.context.TaskExecutor")
 
         result: TaskExecutor = context.executor_for_user("alice")
 
@@ -312,7 +344,7 @@ class TestExecutorForUser:
             context.executor_for_user("alice")
 
     def test_does_not_pass_interaction_kwarg(
-        self, per_user_home_dir: Path, monkeypatch, mocker
+        self, per_user_home_dir: Path, monkeypatch, mock_executor: MagicMock
     ):
         """
         Unlike the `executor` property, executor_for_user() omits
@@ -322,8 +354,6 @@ class TestExecutorForUser:
         """
         monkeypatch.setenv("SUDO_USER", "alice")
         self._init_target_user_config(per_user_home_dir, "alice")
-
-        mock_executor: MagicMock = mocker.patch("archcare.cli.context.TaskExecutor")
 
         ctx = AppContext(devel=False, user=None)
         ctx.executor_for_user("alice")
@@ -344,13 +374,16 @@ class TestExecutorForUser:
         assert register_task.call_count == len(_TASK_REGISTRY)
 
     def test_builds_a_fresh_instance_each_call(
-        self, monkeypatch, per_user_home_dir: Path, mocker, context: AppContext
+        self,
+        monkeypatch,
+        per_user_home_dir: Path,
+        mock_executor: MagicMock,
+        context: AppContext,
     ):
         monkeypatch.setenv("SUDO_USER", "alice")
         self._init_target_user_config(per_user_home_dir, "alice")
 
         # Instruct the mock to return a brand new MagicMock on every instantiation
-        mock_executor: MagicMock = mocker.patch("archcare.cli.context.TaskExecutor")
         mock_executor.side_effect = [MagicMock(), MagicMock()]
 
         # Generate a targeted executor

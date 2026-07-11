@@ -16,6 +16,7 @@ from archcare.config import (
 from archcare.core import TaskResult, success
 from archcare.core.executor import TaskExecutor
 from archcare.tasks import BaseTask
+from archcare.utils import UserContext
 from archcare.utils.notifications import NotificationManager
 
 _MODULE = "archcare.core.executor"
@@ -84,6 +85,7 @@ def _make_executor(
     interaction: RecordingInteraction,
     user: str | None = None,
     notification_manager: MagicMock | None = None,
+    user_context: MagicMock | None = None,
 ) -> TaskExecutor:
     """
     Build a real TaskExecutor backed by a mock ConfigLoader.
@@ -110,6 +112,7 @@ def _make_executor(
         interaction=interaction,
         notification_manager=notification_manager
         or MagicMock(spec=NotificationManager),
+        user_context=user_context or MagicMock(spec=UserContext),
     )
 
     for task_config in tasks_config.tasks.values():
@@ -175,6 +178,36 @@ class TestNotificationManagerProperty:
 
         assert first is second
         mock_manager_class.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# user_context construction
+# ---------------------------------------------------------------------------
+
+
+class TestUserContextConstruction:
+    def test_uses_injected_user_context(self):
+        mock_user_context = MagicMock(spec=UserContext)
+        executor = TaskExecutor(
+            config_loader=MagicMock(spec=ConfigLoader),
+            settings=AppSettings(),
+            state=AppState(),
+            user_context=mock_user_context,
+        )
+
+        assert executor.user_context is mock_user_context
+
+    def test_defaults_to_user_context_from_env(self, mocker):
+        mock_user_context_class: MagicMock = mocker.patch(f"{_MODULE}.UserContext")
+
+        executor = TaskExecutor(
+            config_loader=MagicMock(spec=ConfigLoader),
+            settings=AppSettings(),
+            state=AppState(),
+        )
+
+        mock_user_context_class.from_env.assert_called_once()
+        assert executor.user_context is mock_user_context_class.from_env.return_value
 
 
 # ---------------------------------------------------------------------------
@@ -495,61 +528,23 @@ class TestUpdateState:
         task_state = fresh_state.get_task_state(disabled_task.name)
         assert task_state.next_due is None
 
-    # -- chown guard ---------------------------------------------------------
+    # -- chown delegation ----------------------------------------------------
 
-    def test_chown_not_called_when_not_root(
+    def test_chown_if_root_called_with_state_file_and_parent(
         self,
         tasks_config: TasksConfig,
         fresh_state: AppState,
         automated_task: TaskConfig,
-        monkeypatch,
-        mocker,
     ):
-        monkeypatch.setenv("ARCHCARE_USER", "alice")
-        mock_chown = mocker.patch(f"{_MODULE}.change_ownership_to_user")
-        interaction = RecordingInteraction(confirm_response=True)
-        executor = _make_executor(tasks_config, fresh_state, interaction)
-
-        executor.execute_task(automated_task.name)
-
-        mock_chown.assert_not_called()
-
-    def test_chown_not_called_when_archcare_user_absent(
-        self,
-        tasks_config: TasksConfig,
-        fresh_state: AppState,
-        automated_task: TaskConfig,
-        mocker,
-    ):
-        """ARCHCARE_USER is cleared by the autouse clear_archcare_user fixture."""
-        mock_chown: MagicMock = mocker.patch(f"{_MODULE}.change_ownership_to_user")
-        mocker.patch(f"{_MODULE}.is_root", return_value=True)
-
+        mock_user_context = MagicMock(spec=UserContext)
         interaction = RecordingInteraction()
-        executor = _make_executor(tasks_config, fresh_state, interaction)
+        executor = _make_executor(
+            tasks_config, fresh_state, interaction, user_context=mock_user_context
+        )
+
         executor.execute_task(automated_task.name)
 
-        mock_chown.assert_not_called()
-
-    def test_chown_called_for_state_file_and_parent_when_root_via_systemd(
-        self,
-        tasks_config: TasksConfig,
-        fresh_state: AppState,
-        automated_task: TaskConfig,
-        monkeypatch,
-        mocker,
-    ):
-
-        monkeypatch.setenv("ARCHCARE_USER", "alice")
-        mock_chown = mocker.patch(f"{_MODULE}.change_ownership_to_user")
-        mocker.patch(f"{_MODULE}.is_root", return_value=True)
-
-        interaction = RecordingInteraction()
-        executor = _make_executor(tasks_config, fresh_state, interaction)
-        executor.execute_task(automated_task.name)
-
-        # After state update, check that chown was called twice (file and parent)
-        assert mock_chown.call_count == 2
         state_file = executor.settings.state_file
-        mock_chown.assert_any_call(state_file, "alice")
-        mock_chown.assert_any_call(state_file.parent, "alice")
+        mock_user_context.chown_if_root.assert_called_once_with(
+            state_file, state_file.parent
+        )
