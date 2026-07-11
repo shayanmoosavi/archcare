@@ -25,8 +25,11 @@ from .system import (
     run_command_with_sudo,
     run_systemctl,
 )
+from .user import UserContext
 
 __all__ = [
+    # User context
+    "UserContext",
     # Command execution
     "run_command",
     "run_command_with_sudo",
