@@ -4,14 +4,13 @@ Logging configuration for archcare.
 Sets up loguru for structured logging to files.
 """
 
-import os
 import sys
 
 from loguru import logger
 
 from archcare.config import AppSettings, LogLevel
 
-from .system import is_root, change_ownership_to_user
+from .user import UserContext
 
 
 def setup_logging(
@@ -60,10 +59,7 @@ def setup_logging(
     logger.debug(f"Log level: {settings.log_level.value}")
 
     # Change ownership if running as root via systemd
-    user = os.environ.get("ARCHCARE_USER")
-    if is_root() and user:
-        change_ownership_to_user(settings.log_dir, user)
-        change_ownership_to_user(log_file, user)
+    UserContext.from_env().chown_if_root(settings.log_dir, log_file)
 
 
 def setup_task_logging(task_name: str, settings: AppSettings) -> int:
@@ -93,9 +89,6 @@ def setup_task_logging(task_name: str, settings: AppSettings) -> int:
     logger.info(f"Task logging configured: {task_log_file}")
 
     # Change ownership if running as root via systemd
-    user = os.environ.get("ARCHCARE_USER")
-    if is_root() and user:
-        change_ownership_to_user(task_log_dir, user)
-        change_ownership_to_user(task_log_file, user)
+    UserContext.from_env().chown_if_root(task_log_dir, task_log_file)
 
     return handler_id

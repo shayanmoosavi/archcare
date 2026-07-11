@@ -13,6 +13,7 @@ from archcare.tasks import (
     MaintenanceCheckTask,
     MirrorlistUpdateTask,
 )
+from archcare.utils import UserContext
 from archcare.utils.logging import setup_logging
 
 _TASK_REGISTRY: dict[str, type[BaseTask]] = {
@@ -46,10 +47,17 @@ class AppContext:
     _loader: ConfigLoader | None = field(default=None, init=False, repr=False)
     _settings: AppSettings | None = field(default=None, init=False, repr=False)
     _executor: TaskExecutor | None = field(default=None, init=False, repr=False)
+    _user_context: UserContext | None = field(default=None, init=False, repr=False)
+
+    @property
+    def user_context(self) -> UserContext:
+        if self._user_context is None:
+            self._user_context = UserContext(archcare_user=self.user)
+        return self._user_context
 
     @property
     def is_interactive(self) -> bool:
-        return self.user is None
+        return self.user_context.is_interactive
 
     @property
     def __loader(self) -> ConfigLoader:
@@ -73,6 +81,7 @@ class AppContext:
                 settings=self.settings,
                 state=state,
                 interaction=CliInteraction(is_interactive=self.is_interactive),
+                user_context=self.user_context,
             )
             _register_tasks(executor)
             self._executor = executor
@@ -112,6 +121,10 @@ class AppContext:
         self.setup_logging(user)
         state = self.__loader.load_state()
 
+        # user_context deliberately omitted: this executor never calls
+        # execute_task() (TimerService only reads config_loader/state off
+        # it), and ARCHCARE_USER is always unset in this sudo-driven flow
+        # anyway
         executor = TaskExecutor(
             config_loader=self.__loader,
             settings=self.settings,

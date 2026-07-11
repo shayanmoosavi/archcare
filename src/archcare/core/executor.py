@@ -5,7 +5,6 @@ Handles task instantiation and execution coordination.
 """
 
 from datetime import datetime, timedelta
-from os import getenv
 
 from loguru import logger
 
@@ -19,7 +18,7 @@ from archcare.config import (
     TaskStatus,
 )
 from archcare.tasks import BaseTask
-from archcare.utils import change_ownership_to_user, is_root
+from archcare.utils import UserContext
 from archcare.utils.notifications import NotificationManager
 
 from .interaction import NonInteractive, TaskInteraction
@@ -46,6 +45,7 @@ class TaskExecutor:
         task_registry: dict[str, type[BaseTask]] | None = None,
         interaction: TaskInteraction | None = None,
         notification_manager: NotificationManager | None = None,
+        user_context: UserContext | None = None,
     ):
         """
         Initialize task executor.
@@ -62,6 +62,9 @@ class TaskExecutor:
              to every task it creates. Lazily constructed on first access if
              not provided, since NotificationManager.__init__() does a real
              notify-send availability check.
+            user_context: Resolves ARCHCARE_USER once per invocation. Unlike
+            notification_manager, this is cheap (just an env read), so it's
+            constructed eagerly from the environment if not provided.
         """
         self.config_loader = config_loader
         self.settings = settings
@@ -69,6 +72,7 @@ class TaskExecutor:
         self.task_registry = task_registry or {}
         self.interaction = interaction or NonInteractive()
         self._notification_manager = notification_manager
+        self.user_context = user_context or UserContext.from_env()
 
     @property
     def notification_manager(self) -> NotificationManager:
@@ -254,11 +258,8 @@ class TaskExecutor:
         self.config_loader.save_state(self.state)
 
         # Change ownership if running as root via systemd
-        user = getenv("ARCHCARE_USER")
-        if is_root() and user:
-            state_file = self.settings.state_file
-            change_ownership_to_user(state_file, user)
-            change_ownership_to_user(state_file.parent, user)
+        state_file = self.settings.state_file
+        self.user_context.chown_if_root(state_file, state_file.parent)
 
         logger.debug(f"Updated state for {task_config.name}: next due {next_due}")
 

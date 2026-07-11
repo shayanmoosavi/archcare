@@ -1,7 +1,5 @@
 """Task service for handling task related operations."""
 
-from os import getenv
-
 from loguru import logger
 
 from archcare.config import TaskType
@@ -45,9 +43,8 @@ class TaskService:
         except ValueError:
             raise TaskNotFoundError(task_name)
 
-        # ARCHCARE_USER is set by the systemd unit; its absence means the user is
-        # running the command interactively.
-        is_interactive = getenv("ARCHCARE_USER") is None
+        # Whether the task is being run interactively by user or via systemd timer
+        is_interactive = self._executor.user_context.is_interactive
 
         logger.info(f"Executing task: {task_name}")
         outcome = self._executor.execute_task(task_name, force)
