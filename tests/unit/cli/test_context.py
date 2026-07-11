@@ -106,10 +106,13 @@ def mock_executor(mocker) -> MagicMock:
 
 
 class TestUserContext:
-    def test_built_from_self_user(self):
-        context = AppContext(devel=False, user="alice")
-        assert context.user_context.archcare_user == "alice"
-        assert context.user == context.user_context.archcare_user
+    def test_built_from_self_user(self, mocker, context: AppContext):
+        mock_user_context: MagicMock = mocker.patch(f"{_MODULE}.UserContext")
+
+        result = context.user_context
+
+        mock_user_context.assert_called_once_with(archcare_user=context.user)
+        assert result is mock_user_context.return_value
 
     def test_caches_after_first_access(self, context: AppContext, mocker):
         mock_user_context: MagicMock = mocker.patch(f"{_MODULE}.UserContext")
@@ -135,6 +138,19 @@ class TestIsInteractive:
     def test_false_when_user_is_set(self):
         context = AppContext(devel=False, user="alice")
         assert context.is_interactive is False
+
+    def test_delegates_to_user_context(self, context: AppContext, mocker):
+        """
+        is_interactive is a thin delegation to user_context.is_interactive
+        now, not an independent check - confirming it actually consults
+        user_context rather than happening to agree with it by coincidence.
+        """
+        mock_user_context: MagicMock = mocker.patch(
+            f"{_MODULE}.UserContext"
+        ).return_value
+        mock_user_context.is_interactive = "SENTINEL"
+
+        assert context.is_interactive == "SENTINEL"
 
 
 # ---------------------------------------------------------------------------
@@ -188,6 +204,7 @@ class TestExecutorProperty:
         assert kwargs["config_loader"] is mock_config_loader
         assert kwargs["settings"] == "SETTINGS"
         assert kwargs["state"] == "STATE"
+        assert kwargs["user_context"] is context.user_context
 
     def test_builds_with_interactive_cli_interaction(
         self, mock_executor: MagicMock, context: AppContext
@@ -360,6 +377,25 @@ class TestExecutorForUser:
 
         _, kwargs = mock_executor.call_args
         assert "interaction" not in kwargs
+
+    def test_does_not_pass_user_context_kwarg(
+        self, per_user_home_dir: Path, monkeypatch, mock_executor: MagicMock
+    ):
+        """
+        Also deliberately omitted: this executor never calls execute_task()
+        (only TimerService reads config_loader/state off it), and
+        ARCHCARE_USER is always unset in this sudo-driven flow anyway -
+        passing user_context here would blur it with the unrelated
+        SUDO_USER target being resolved via `user`.
+        """
+        monkeypatch.setenv("SUDO_USER", "alice")
+        self._init_target_user_config(per_user_home_dir, "alice")
+
+        ctx = AppContext(devel=False, user=None)
+        ctx.executor_for_user("alice")
+
+        _, kwargs = mock_executor.call_args
+        assert "user_context" not in kwargs
 
     def test_registers_all_known_tasks(
         self, per_user_home_dir: Path, context: AppContext, monkeypatch, mocker
