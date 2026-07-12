@@ -3,7 +3,6 @@
 from typing import Annotated
 
 import typer
-from loguru import logger
 
 from archcare.cli.presenters import TaskPresenter
 from archcare.services import TaskService
@@ -53,8 +52,7 @@ def run(
     except Exception as e:
         # is_interactive isn't known here since the error happened before
         # the service could compute it - default to interactive formatting.
-        TaskPresenter.error(f"Failed to run task: {e}")
-        logger.exception(f"Error running task {task_name}")
+        TaskPresenter.error(f"Failed to run task {repr(task_name)}: {e}")
         raise typer.Exit(1)
 
     TaskPresenter.render_run(response, settings=ctx.obj.settings, verbose=verbose)
@@ -90,8 +88,8 @@ def status(
     except InvalidTasksFileError:
         TaskPresenter.empty()
         raise typer.Exit(1)
-    except TaskNotFoundError as e:
-        TaskPresenter.error(str(e))
+    except TaskNotFoundError:
+        TaskPresenter.not_found(task_name)  # ty:ignore[invalid-argument-type]
         raise typer.Exit(1)
     except Exception as e:
         TaskPresenter.error(str(e))
