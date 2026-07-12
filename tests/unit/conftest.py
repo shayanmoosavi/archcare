@@ -1,4 +1,4 @@
-"""Shared fixtures for the Archcare test suite."""
+"""Shared fixtures for the Archcare unit test suite."""
 
 from datetime import datetime, timedelta
 from io import StringIO
