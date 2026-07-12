@@ -37,8 +37,9 @@ def run(
         archcare task run failed-services
         archcare task run system-update --force
     """
+    ctx.obj.setup_logging()
+
     try:
-        ctx.obj.setup_logging()
         response = _service(ctx).run_task(task_name, force)
     except InvalidTasksFileError:
         TaskPresenter.empty()
@@ -82,8 +83,9 @@ def status(
         archcare task status failed-services    # Specific task
         archcare task status --due              # Only due tasks
     """
+    ctx.obj.setup_logging()
+
     try:
-        ctx.obj.setup_logging()
         response = _service(ctx).get_task_status(task_name, due_only)
     except InvalidTasksFileError:
         TaskPresenter.empty()
@@ -113,8 +115,9 @@ def list_tasks(
         archcare task list
         archcare task list --type manual
     """
+    ctx.obj.setup_logging()
+
     try:
-        ctx.obj.setup_logging()
         response = _service(ctx).list_tasks(task_type)
     except InvalidTasksFileError:
         TaskPresenter.empty()
