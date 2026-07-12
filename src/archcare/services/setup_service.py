@@ -4,7 +4,7 @@ import pwd
 from os import getenv
 from pathlib import Path
 
-from archcare.config import TaskConfig, create_default_config_files
+from archcare.config import AppSettings, TaskConfig, create_default_config_files
 from archcare.core.executor import TaskExecutor
 from archcare.services.exceptions import (
     NotRootError,
@@ -52,7 +52,7 @@ class ConfigService:
     """Business logic for `setup config`."""
 
     def __init__(self, config_dir: Path | None = None) -> None:
-        self.config_dir = config_dir or (Path.home() / ".config/archcare")
+        self.config_dir = config_dir or AppSettings().config_dir
 
     def check_existing(self) -> list[Path]:
         """Return any existing *.toml config files, or an empty list."""

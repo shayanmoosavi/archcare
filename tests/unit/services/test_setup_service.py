@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from archcare.config import TaskConfig
+from archcare.config import AppSettings, TaskConfig
 from archcare.services.exceptions import SystemdReloadError
 from archcare.services.setup_service import ConfigService, TimerService
 
@@ -54,7 +54,7 @@ def mock_create_config(mocker) -> MagicMock:
 class TestConfigService:
     def test_default_config_dir_is_under_home(self):
         service = ConfigService()
-        assert service.config_dir == Path.home() / ".config/archcare"
+        assert service.config_dir == AppSettings().home_dir / ".config/archcare"
 
     def test_custom_config_dir_is_accepted(self, tmp_path):
         service = ConfigService(config_dir=tmp_path)
