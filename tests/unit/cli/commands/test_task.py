@@ -125,15 +125,15 @@ class TestRun:
         assert exc_info.value.exit_code == 1
 
     def test_generic_exception_shows_error_and_exits_1(
-        self, mocker, mock_service: MagicMock, mock_presenter: MagicMock
+        self, mock_service: MagicMock, mock_presenter: MagicMock
     ):
         mock_service.run_task.side_effect = Exception("disk on fire")
-        mocker.patch(f"{_MODULE}.logger")
         ctx = _make_ctx()
 
         with pytest.raises(typer.Exit) as exc_info:
             run(ctx, task_name="update-mirrorlist")  # ty:ignore[invalid-argument-type]
 
+        assert "update-mirrorlist" in mock_presenter.error.call_args.args[0]
         assert "disk on fire" in mock_presenter.error.call_args.args[0]
         assert exc_info.value.exit_code == 1
 
@@ -210,18 +210,13 @@ class TestStatus:
     def test_task_not_found_shows_error_with_exception_message(
         self, mock_service: MagicMock, mock_presenter: MagicMock
     ):
-        """
-        Unlike run()'s not_found(task_name), status() passes str(e) to
-        the generic error() presenter method - different call shape, worth
-        pinning down so a copy-paste refactor doesn't quietly merge them.
-        """
         mock_service.get_task_status.side_effect = TaskNotFoundError("bogus-task")
         ctx = _make_ctx()
 
         with pytest.raises(typer.Exit) as exc_info:
             status(ctx, task_name="bogus-task")  # ty:ignore[invalid-argument-type]
 
-        assert "bogus-task" in mock_presenter.error.call_args.args[0]
+        mock_presenter.not_found.assert_called_once_with("bogus-task")
         assert exc_info.value.exit_code == 1
 
     def test_generic_exception_shows_error_and_exits_1(
