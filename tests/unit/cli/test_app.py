@@ -98,3 +98,15 @@ class TestMain:
         mock_error.assert_called_once_with("Archcare is not initialized.")
         mock_info.assert_called_once_with("Run 'archcare setup config' to get started.")
         assert exc_info.value.exit_code == 1
+
+    def test_generic_exception_shows_error_and_exits_1(
+        self, mocker, mock_info: MagicMock, mock_error: MagicMock
+    ):
+        mocker.patch(_PATCH_APP, side_effect=Exception("disk on fire"))
+
+        with pytest.raises(typer.Exit) as exc_info:
+            main()
+
+        mock_error.assert_called_once_with("disk on fire")
+        mock_info.assert_not_called()
+        assert exc_info.value.exit_code == 1
