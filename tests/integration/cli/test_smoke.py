@@ -10,9 +10,12 @@ nothing else is.
 
 from pathlib import Path
 
+from typer import Abort
 from typer.testing import CliRunner
 
 from archcare.cli.app import app
+from archcare.config import ConfigLoader, TasksConfig
+from archcare.services import TaskService
 from archcare.services.exceptions import ConfigNotInitializedError
 
 runner = CliRunner()
@@ -64,6 +67,33 @@ class TestTaskList:
         assert isinstance(result.exception, ConfigNotInitializedError)
         assert "not initialized" in str(result.exception)
 
+    def test_invalid_tasks_file_fails_cleanly(self, mocker):
+        runner.invoke(app, ["setup", "config"])
+
+        # Simulating corrupt tasks.toml after setup config
+        mocker.patch.object(
+            ConfigLoader,
+            "load_tasks",
+            return_value=TasksConfig(tasks={}),
+        )
+
+        result = runner.invoke(app, ["task", "list"])
+
+        # Asserting it fails with the expected exception
+        assert isinstance(result.exception, SystemExit)
+        assert "empty or invalid" in result.stdout
+        assert "the logs" in result.stdout
+        assert "archcare setup config" in result.stdout
+
+    def test_invalid_task_type_fails_cleanly(self):
+        runner.invoke(app, ["setup", "config"])
+
+        result = runner.invoke(app, ["task", "list", "--type", "invalid"])
+
+        # Asserting it fails with the expected exception
+        assert isinstance(result.exception, SystemExit)
+        assert "'automated' or 'manual'" in result.stdout
+
 
 class TestTaskStatus:
     def test_shows_status_for_all_tasks(self):
@@ -87,6 +117,46 @@ class TestTaskStatus:
         assert isinstance(result.exception, ConfigNotInitializedError)
         assert "not initialized" in str(result.exception)
 
+    def test_invalid_tasks_file_fails_cleanly(self, mocker):
+        runner.invoke(app, ["setup", "config"])
+
+        # Simulating corrupt tasks.toml after setup config
+        mocker.patch.object(
+            ConfigLoader,
+            "load_tasks",
+            return_value=TasksConfig(tasks={}),
+        )
+
+        result = runner.invoke(app, ["task", "status"])
+
+        # Asserting it fails with the expected exception
+        assert isinstance(result.exception, SystemExit)
+        assert "empty or invalid" in result.stdout
+        assert "the logs" in result.stdout
+        assert "archcare setup config" in result.stdout
+
+    def test_invalid_task_fails_cleanly(self):
+        runner.invoke(app, ["setup", "config"])
+        result = runner.invoke(app, ["task", "status", "invalid"])
+
+        # Asserting it fails with the expected exception
+        assert isinstance(result.exception, SystemExit)
+        assert "not found: invalid" in result.stdout
+        assert "archcare task list" in result.stdout
+
+    def test_generic_exception_fails_cleanly(self, mocker):
+        runner.invoke(app, ["setup", "config"])
+
+        mocker.patch.object(
+            TaskService, "get_task_status", side_effect=OSError("Disk failed")
+        )
+
+        result = runner.invoke(app, ["task", "status"])
+
+        # Asserting it fails with the expected exception
+        assert isinstance(result.exception, SystemExit)
+        assert "Disk failed" in result.stdout
+
 
 class TestTaskRun:
     def test_running_check_maintenance_succeeds(self):
@@ -109,6 +179,13 @@ class TestTaskRun:
         assert state_file.exists()
         assert "maintenance-check" in state_file.read_text()
 
+    def test_fails_cleanly_before_setup_config_has_run(self):
+        result = runner.invoke(app, ["task", "run", "maintenance-check"])
+
+        # Asserting it fails with the expected exception
+        assert isinstance(result.exception, ConfigNotInitializedError)
+        assert "not initialized" in str(result.exception)
+
     def test_running_unregistered_task_fails_cleanly(self):
         """
         Confirms an unregistered task fails with a clean, handled error
@@ -117,8 +194,32 @@ class TestTaskRun:
         """
         runner.invoke(app, ["setup", "config"])
 
-        result = runner.invoke(app, ["task", "run", "not-registered"])
+        # A task that exists in tasks.toml but not in task registry
+        result = runner.invoke(app, ["task", "run", "cache-cleanup"])
 
         # Confirm the exception is a SystemExit (typer.Exit) with exit code 1
+        assert "Failed to run task" in result.stdout
+        assert "registered for command" in result.stdout
+        assert isinstance(result.exception, SystemExit)
+        assert result.exit_code == 1
+
+    def test_running_invalid_task_fails_cleanly(self):
+        runner.invoke(app, ["setup", "config"])
+
+        result = runner.invoke(app, ["task", "run", "invalid"])
+
+        assert "not found: invalid" in result.stdout
+        assert "archcare task list" in result.stdout
+        assert isinstance(result.exception, SystemExit)
+        assert result.exit_code == 1
+
+    def test_aborting_execution_fails_cleanly(self, mocker):
+        runner.invoke(app, ["setup", "config"])
+
+        mocker.patch.object(TaskService, "run_task", side_effect=Abort)
+
+        result = runner.invoke(app, ["task", "run", "maintenance-check"])
+
+        assert "execution aborted"
         assert isinstance(result.exception, SystemExit)
         assert result.exit_code == 1
