@@ -7,7 +7,6 @@ from typing import Any
 from loguru import logger
 
 from archcare.core import TaskResult, failed, partial, success
-from archcare.tasks.base import BaseTask
 from archcare.utils import (
     check_filesystem_errors,
     check_package_files,
@@ -18,6 +17,8 @@ from archcare.utils import (
     get_memory_info,
     get_system_uptime,
 )
+
+from .base import BaseTask
 
 
 class HealthCheckTask(BaseTask):
