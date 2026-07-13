@@ -21,9 +21,6 @@ Key Features:
     - Maintenance issue classification by severity
     - Conversion utilities between different result formats
 
-All classes use Pydantic BaseModel or dataclasses for validation and
-serialization support, enabling integration with APIs and logging systems.
-
 See Also:
     archcare.config.models: Task status enums and configuration data models
 """
@@ -33,9 +30,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
-
-from archcare.config.models import SkipReason, TaskStatus
+from archcare.config import SkipReason, TaskStatus
 
 
 @dataclass
@@ -315,7 +310,8 @@ class IssueSeverity(Enum):
         return self.value
 
 
-class MaintenanceIssue(BaseModel):
+@dataclass
+class MaintenanceIssue:
     """
     Represents a single maintenance issue found during check.
 
@@ -402,15 +398,13 @@ class MaintenanceIssue(BaseModel):
         ... )
     """
 
-    task_name: str = Field(..., description="Name of the task with issue")
-    severity: IssueSeverity = Field(..., description="Severity of the issue")
-    description: str = Field(..., description="Human-readable description")
-    days_overdue: int | None = Field(
-        None, description="Days overdue (negative if not yet due)"
-    )
-    last_run: datetime | None = Field(None, description="Last execution time")
-    last_status: TaskStatus | None = Field(None, description="Last execution status")
-    recommendation: str = Field(..., description="Actionable recommendation")
+    task_name: str
+    severity: IssueSeverity
+    description: str
+    recommendation: str
+    days_overdue: int | None = None
+    last_run: datetime | None = None
+    last_status: TaskStatus | None = None
 
     @property
     def is_overdue(self) -> bool:
@@ -450,7 +444,8 @@ class MaintenanceIssue(BaseModel):
         return self.days_overdue is not None and self.days_overdue > 0
 
 
-class MaintenanceCheckResult(BaseModel):
+@dataclass
+class MaintenanceCheckResult:
     """
     Comprehensive result of a maintenance check task execution.
 
@@ -543,29 +538,18 @@ class MaintenanceCheckResult(BaseModel):
         TaskStatus: Execution status enumeration
     """
 
-    task_name: str = Field(default="maintenance-check", description="Task name")
-    status: TaskStatus = Field(..., description="Overall check status")
-    timestamp: datetime = Field(
-        default_factory=datetime.now, description="When check was performed"
-    )
+    status: TaskStatus
+    task_name: str = "maintenance-check"
+    timestamp: datetime = field(default_factory=datetime.now)
 
     # Issues categorized by severity
-    critical_issues: list[MaintenanceIssue] = Field(
-        default_factory=list,
-        description="Critical issues requiring immediate attention",
-    )
-    warning_issues: list[MaintenanceIssue] = Field(
-        default_factory=list, description="Warning issues that should be addressed"
-    )
-    info_issues: list[MaintenanceIssue] = Field(
-        default_factory=list, description="Informational issues"
-    )
+    critical_issues: list[MaintenanceIssue] = field(default_factory=list)
+    warning_issues: list[MaintenanceIssue] = field(default_factory=list)
+    info_issues: list[MaintenanceIssue] = field(default_factory=list)
 
     # Summary statistics
-    total_tasks_monitored: int = Field(
-        default=0, description="Total number of tasks checked"
-    )
-    error_message: str | None = Field(None, description="Error message if check failed")
+    total_tasks_monitored: int = 0
+    error_message: str | None = None
 
     @property
     def all_issues(self) -> list[MaintenanceIssue]:
