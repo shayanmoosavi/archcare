@@ -149,7 +149,7 @@ class MirrorlistUpdateTask(BaseTask):
                 logger.info("Cleaning up old mirrorlist backups")
                 backup_dir = self.backup_path.parent
                 backups = sorted(
-                    backup_dir.glob("mirrorlist.*.backup"),
+                    backup_dir.glob("mirrorlist_*.backup"),
                     key=lambda p: p.stat().st_mtime,
                 )
                 # Keep only the 5 most recent backups
