@@ -144,28 +144,6 @@ class TaskScheduler:
 
         return all_info
 
-    def get_tasks_by_type(self, task_type: TaskType) -> list[TaskScheduleInfo]:
-        """
-        Get schedule info for tasks of a specific type.
-
-        Args:
-            task_type: "automated" or "manual"
-
-        Returns:
-            List of TaskScheduleInfo for matching tasks
-        """
-        type_tasks = self.tasks_config.get_tasks_by_type(task_type.value)
-
-        schedule_info = []
-        for task_name in type_tasks.keys():
-            info = self.get_schedule_info(task_name)
-            schedule_info.append(info)
-
-        # Sort by due status and overdue amount
-        schedule_info.sort(key=lambda x: (not x.is_due, -x.days_overdue))
-
-        return schedule_info
-
     def get_maintenance_summary(self) -> dict[str, int]:
         """
         Get a summary of maintenance status.
