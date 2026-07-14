@@ -129,6 +129,7 @@ class FailedServicesTask(BaseTask):
                 }
             )
 
+        # TODO: add failed service names to summary
         message = f"Found {len(actual_failures)} failed service(s) requiring attention"
 
         return partial(
