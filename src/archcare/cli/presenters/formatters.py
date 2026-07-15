@@ -63,7 +63,7 @@ class FailedServicesFormatter(TaskDetailFormatter):
                     lines.append(f"      {log[:160]}")  # Truncate long lines
 
 
-class HealthCheckFormatter:
+class HealthCheckFormatter(TaskDetailFormatter):
     """Formats details for the health-check task."""
 
     def format(self, details: dict[str, Any]) -> list[str]:
@@ -125,7 +125,7 @@ class HealthCheckFormatter:
         return lines
 
 
-class MaintenanceCheckFormatter:
+class MaintenanceCheckFormatter(TaskDetailFormatter):
     """Formats details for the maintenance-check task."""
 
     def format(self, details: dict[str, Any]) -> list[str]:
