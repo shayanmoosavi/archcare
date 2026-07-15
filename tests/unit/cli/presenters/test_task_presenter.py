@@ -59,6 +59,16 @@ def mock_header(mocker) -> MagicMock:
     return mocker.patch(f"{_MODULE}.print_header")
 
 
+@pytest.fixture(autouse=True)
+def mock_print_panel(mocker) -> MagicMock:
+    return mocker.patch(f"{_MODULE}.print_panel")
+
+
+@pytest.fixture(autouse=True)
+def mock_console(mocker) -> MagicMock:
+    return mocker.patch(f"{_MODULE}.console")
+
+
 # ---------------------------------------------------------------------------
 # render_run
 # ---------------------------------------------------------------------------
@@ -67,13 +77,8 @@ def mock_header(mocker) -> MagicMock:
 class TestRenderRun:
     @pytest.fixture(autouse=True)
     @staticmethod
-    def mock_result(mocker) -> MagicMock:
-        return mocker.patch.object(TaskPresenter, "_print_task_result")
-
-    @pytest.fixture
-    @staticmethod
-    def mock_details(mocker) -> MagicMock:
-        return mocker.patch.object(TaskPresenter, "_print_task_details")
+    def mock_format_details(mocker) -> MagicMock:
+        return mocker.patch.object(TaskPresenter, "_format_task_details")
 
     @pytest.fixture
     @staticmethod
@@ -115,7 +120,7 @@ class TestRenderRun:
 
         sentinel_result = object()
         response = TaskRunResponse(
-            task_name="check-maintenance",
+            task_name="maintenance-check",
             outcome=_make_outcome(details={"maintenance_result": sentinel_result}),
             is_interactive=True,
         )
@@ -140,7 +145,7 @@ class TestRenderRun:
         """
 
         response = TaskRunResponse(
-            task_name="check-maintenance",
+            task_name="maintenance-check",
             outcome=_make_outcome(details={"maintenance_result": object()}),
             is_interactive=True,
         )
@@ -169,11 +174,12 @@ class TestRenderRun:
         mock_mc_presenter.render.assert_not_called()
         mock_info.assert_not_called()
 
-    def test_verbose_uses_print_task_details_with_show_details(
+    @pytest.mark.parametrize("verbose", [True, False])
+    def test_verbose_flag_carries_through(
         self,
         settings_terminal_mode: AppSettings,
-        mock_result: MagicMock,
-        mock_details: MagicMock,
+        mock_format_details: MagicMock,
+        verbose: bool,
     ):
 
         outcome = _make_outcome(details={})
@@ -181,27 +187,9 @@ class TestRenderRun:
             task_name="check-health", outcome=outcome, is_interactive=True
         )
         presenter = TaskPresenter()
-        presenter.render_run(response, settings_terminal_mode, verbose=True)
+        presenter.render_run(response, settings_terminal_mode, verbose=verbose)
 
-        mock_details.assert_called_once_with("check-health", outcome, show_details=True)
-        mock_result.assert_not_called()
-
-    def test_non_verbose_uses_print_task_result(
-        self,
-        settings_terminal_mode: AppSettings,
-        mock_result: MagicMock,
-        mock_details: MagicMock,
-    ):
-
-        outcome = _make_outcome(details={})
-        response = TaskRunResponse(
-            task_name="check-health", outcome=outcome, is_interactive=True
-        )
-        presenter = TaskPresenter()
-        presenter.render_run(response, settings_terminal_mode, verbose=False)
-
-        mock_result.assert_called_once_with(outcome, "check-health")
-        mock_details.assert_not_called()
+        mock_format_details.assert_called_once_with("check-health", outcome, verbose)
 
 
 # ---------------------------------------------------------------------------
@@ -219,11 +207,6 @@ class TestRenderStatus:
     @staticmethod
     def mock_success(mocker) -> MagicMock:
         return mocker.patch(f"{_MODULE}.print_success")
-
-    @pytest.fixture
-    @staticmethod
-    def mock_panel(mocker) -> MagicMock:
-        return mocker.patch(f"{_MODULE}.print_summary_panel")
 
     def test_due_only_with_no_schedule_shows_success_and_returns_early(
         self, mock_success: MagicMock, mock_table: MagicMock
@@ -259,7 +242,9 @@ class TestRenderStatus:
         mock_success.assert_not_called()
         assert mock_table.call_args.args[0].schedule_info == []
 
-    def test_summary_panel_rendered_when_summary_present(self, mock_panel: MagicMock):
+    def test_summary_panel_rendered_when_summary_present(
+        self, mock_print_panel: MagicMock
+    ):
 
         summary = {"total": 3, "overdue": 1}
         response = TaskStatusResponse(
@@ -267,10 +252,16 @@ class TestRenderStatus:
         )
         presenter = TaskPresenter()
         presenter.render_status(response)
+        # Convert dict to panel content
+        lines = [
+            f"[bold]{key.replace('_', ' ').title()}:[/bold] {value}"
+            for key, value in response.summary.items()  # ty:ignore[unresolved-attribute]
+        ]
+        mock_print_panel.assert_called_once_with("Summary", "\n".join(lines))
 
-        mock_panel.assert_called_once_with("Summary", summary)
-
-    def test_summary_panel_not_rendered_when_no_summary(self, mock_panel: MagicMock):
+    def test_summary_panel_not_rendered_when_no_summary(
+        self, mock_print_panel: MagicMock
+    ):
 
         response = TaskStatusResponse(
             schedule_info=[MagicMock(spec=TaskScheduleInfo)], summary=None
@@ -278,7 +269,7 @@ class TestRenderStatus:
         presenter = TaskPresenter()
         presenter.render_status(response)
 
-        mock_panel.assert_not_called()
+        mock_print_panel.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -287,11 +278,6 @@ class TestRenderStatus:
 
 
 class TestRenderList:
-    @pytest.fixture
-    @staticmethod
-    def mock_console(mocker) -> MagicMock:
-        return mocker.patch(f"{_MODULE}.console")
-
     def test_shows_header_regardless_of_content(self, mocker, mock_header: MagicMock):
         mocker.patch(_PATCH_WARNING)
 
