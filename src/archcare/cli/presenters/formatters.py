@@ -8,6 +8,8 @@ formatting from the Presenter layer.
 from abc import ABC, abstractmethod
 from typing import Any
 
+from archcare.core import MaintenanceIssue
+
 
 class TaskDetailFormatter(ABC):
     """Base class for task-specific detail formatters."""
@@ -119,5 +121,39 @@ class HealthCheckFormatter:
         # Uptime
         uptime = summary.get("uptime", "unknown")
         lines.append(f"  System Uptime: {uptime}")
+
+        return lines
+
+
+class MaintenanceCheckFormatter:
+    """Formats details for the maintenance-check task."""
+
+    def format(self, details: dict[str, Any]) -> list[str]:
+        lines = []
+        lines.append("\n[bold]Summary: [/bold]")
+
+        # Summary statistics
+        lines.append(
+            f"  Total tasks monitored: {details.get('total_tasks_monitored', -1)}"
+        )
+        lines.append(f"  Critical issues: {details.get('critical_count', -1)}")
+        lines.append(f"  Warning issues: {details.get('warning_count', -1)}")
+        lines.append(f"  Informational issues: {details.get('info_count', -1)}\n")
+
+        tasks_needing_attention: list[MaintenanceIssue] = details.get(
+            "tasks_needing_attention", []
+        )
+        if tasks_needing_attention:
+            severity_mapping = {
+                "critical": "[red]❗ CRITICAL[/red]",
+                "warning": "[yellow]⚠ WARNING[/yellow]",
+                "info": "[blue]ℹ INFO[/blue]",
+            }
+            lines.append("[bold]Tasks needing attention: [/bold]")
+            for issue in tasks_needing_attention:
+                lines.append(f"[blue]  • {issue.task_name}[/blue]")
+                # Safely get severity name string if it's an Enum
+                sev_key = str(issue.severity)
+                lines.append(f"    ‒ {severity_mapping[sev_key]}")
 
         return lines
