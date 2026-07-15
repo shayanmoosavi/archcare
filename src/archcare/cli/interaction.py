@@ -13,14 +13,11 @@ from archcare.utils.output import print_info, print_warning
 class CliInteraction:
     """Terminal implementation of `archcare.core.interaction.TaskInteraction`."""
 
-    def __init__(self, is_interactive: bool = True) -> None:
-        self.is_interactive = is_interactive
-
     def notify(self, message: str, level: str = "info") -> None:
         if level == "warning":
-            print_warning(message, self.is_interactive)
+            print_warning(message)
         else:
-            print_info(message, self.is_interactive)
+            print_info(message)
 
     @staticmethod
     def confirm(prompt: str) -> bool:

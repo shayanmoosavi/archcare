@@ -35,7 +35,7 @@ class TaskPresenter:
         response: TaskRunResponse, settings: AppSettings, verbose: bool = False
     ) -> None:
         if not response.outcome.is_skipped():
-            print_header(f"Running Task: {response.task_name}", response.is_interactive)
+            print_header(f"Running Task: {response.task_name}")
 
         # The maintenance-check task has this in TaskResult details dictionary
         maintenance_result: MaintenanceCheckResult | None = (
@@ -56,22 +56,14 @@ class TaskPresenter:
                 )
             else:
                 print_info(
-                    f"Output mode was set to 'file', check the report in {report_dir}",
-                    response.is_interactive,
+                    f"Output mode was set to 'file', check the report in {report_dir}"
                 )
         console.print()
 
         if verbose:
-            print_task_details(
-                response.task_name,
-                response.outcome,
-                show_details=True,
-                is_interactive=response.is_interactive,
-            )
+            print_task_details(response.task_name, response.outcome, show_details=True)
         else:
-            print_task_result(
-                response.outcome, response.task_name, response.is_interactive
-            )
+            print_task_result(response.outcome, response.task_name)
 
     @staticmethod
     def render_status(response: TaskStatusResponse) -> None:
@@ -122,8 +114,8 @@ class TaskPresenter:
         print_error("Type must be 'automated' or 'manual'")
 
     @staticmethod
-    def error(message: str, is_interactive: bool = True) -> None:
-        print_error(message, is_interactive)
+    def error(message: str) -> None:
+        print_error(message)
 
     @staticmethod
     def aborted(task_name: str) -> None:
