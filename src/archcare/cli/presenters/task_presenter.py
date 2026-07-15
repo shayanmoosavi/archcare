@@ -92,13 +92,24 @@ class TaskPresenter:
         rows = []
 
         for info in response.schedule_info:
-            status = self.__colorize_cell(info, is_status_col=True)
+            if info.days_overdue > 0:
+                status, due_text = "[red]✗ DUE[/red]", f"[red]{info.reason}[/red]"
+            elif info.is_due:
+                status, due_text = (
+                    "[yellow]⚠ DUE[/yellow]",
+                    f"[yellow]{info.reason}[/yellow]",
+                )
+            else:
+                status, due_text = (
+                    "[green]✓ OK[/green]",
+                    f"[green]{info.reason}[/green]",
+                )
+
             last_run = (
                 info.last_run.strftime("%Y-%m-%d")
                 if info.last_run
                 else "[dim]Never[/dim]"
             )
-            due_text = self.__colorize_cell(info, is_status_col=False)
             rows.append([status, info.task_name, last_run, due_text])
 
         # Pass standard data to the generic UI primitive
@@ -151,26 +162,6 @@ class TaskPresenter:
     def aborted(task_name: str) -> None:
         console.print()
         print_warning(f"Task '{task_name}' execution aborted")
-
-    @staticmethod
-    def __colorize_cell(info: TaskScheduleInfo, is_status_col: bool) -> str:
-        """Colorize a table cell based on due status."""
-        if is_status_col:
-            if info.days_overdue > 0:
-                colorized_cell = "[red]✗ DUE[/red]"
-            elif info.is_due:
-                colorized_cell = "[yellow]⚠ DUE[/yellow]"
-            else:
-                colorized_cell = "[green]✓ OK[/green]"
-        else:
-            if info.days_overdue > 0:
-                colorized_cell = f"[red]{info.reason}[/red]"
-            elif info.is_due:
-                colorized_cell = f"[yellow]{info.reason}[/yellow]"
-            else:
-                colorized_cell = f"[green]{info.reason}[/green]"
-
-        return colorized_cell
 
     @staticmethod
     def _print_task_result(result: TaskResult, task_name: str) -> None:
