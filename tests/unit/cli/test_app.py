@@ -7,6 +7,7 @@ import pytest
 
 from archcare.cli.app import callback, main
 from archcare.services.exceptions import ConfigNotInitializedError
+from archcare.utils import UserContext
 
 _MODULE = "archcare.cli.app"
 _PATCH_APP = f"{_MODULE}.app"
@@ -60,14 +61,16 @@ class TestCallback:
 
         callback(ctx)  # ty:ignore[invalid-argument-type]
 
-        assert mock_context.call_args.kwargs["user"] == "alice"
+        user_ctx: UserContext = mock_context.call_args.kwargs["user_ctx"]
+        assert user_ctx.archcare_user == "alice"
 
     def test_user_is_none_when_env_var_unset(self, mock_context: MagicMock):
         ctx = SimpleNamespace()
 
         callback(ctx)  # ty:ignore[invalid-argument-type]
 
-        assert mock_context.call_args.kwargs["user"] is None
+        user_ctx: UserContext = mock_context.call_args.kwargs["user_ctx"]
+        assert user_ctx.archcare_user is None
 
 
 # ---------------------------------------------------------------------------

@@ -91,7 +91,7 @@ class TestRenderRun:
         )
         TaskPresenter.render_run(response, settings_terminal_mode)
 
-        mock_header.assert_called_once_with(f"Running Task: {response.task_name}", True)
+        mock_header.assert_called_once_with(f"Running Task: {response.task_name}")
 
     def test_header_skipped_when_outcome_is_skipped(
         self, settings_terminal_mode: AppSettings, mock_header: MagicMock
@@ -177,9 +177,7 @@ class TestRenderRun:
         )
         TaskPresenter.render_run(response, settings_terminal_mode, verbose=True)
 
-        mock_details.assert_called_once_with(
-            "check-health", outcome, show_details=True, is_interactive=True
-        )
+        mock_details.assert_called_once_with("check-health", outcome, show_details=True)
         mock_result.assert_not_called()
 
     def test_non_verbose_uses_print_task_result(
@@ -195,7 +193,7 @@ class TestRenderRun:
         )
         TaskPresenter.render_run(response, settings_terminal_mode, verbose=False)
 
-        mock_result.assert_called_once_with(outcome, "check-health", True)
+        mock_result.assert_called_once_with(outcome, "check-health")
         mock_details.assert_not_called()
 
 
@@ -354,9 +352,7 @@ class TestConvenienceMethods:
 
         assert "update-mirrorlist" in mock_error.call_args.args[0]
 
-    def test_empty_calls_print_error_and_two_print_info(
-        self, mocker, mock_info: MagicMock
-    ):
+    def test_empty_calls_print_error_and_two_print_info(self, mock_info: MagicMock):
 
         TaskPresenter.empty()
 
@@ -368,12 +364,10 @@ class TestConvenienceMethods:
         assert "automated" in mock_error.call_args.args[0]
         assert "manual" in mock_error.call_args.args[0]
 
-    def test_error_passes_through_message_and_interactive_flag(
-        self, mock_error: MagicMock
-    ):
-        TaskPresenter.error("boom", is_interactive=False)
+    def test_error_passes_through_message(self, mock_error: MagicMock):
+        TaskPresenter.error("boom")
 
-        mock_error.assert_called_once_with("boom", False)
+        mock_error.assert_called_once_with("boom")
 
     def test_aborted_includes_task_name(self, mocker):
         mock_warning: MagicMock = mocker.patch(_PATCH_WARNING)
