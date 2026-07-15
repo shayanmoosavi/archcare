@@ -40,23 +40,24 @@ def run(
     ctx.obj.setup_logging()
 
     try:
+        presenter = TaskPresenter()
         response = _service(ctx).run_task(task_name, force)
     except InvalidTasksFileError:
-        TaskPresenter.empty()
+        presenter.empty()
         raise typer.Exit(1)
     except TaskNotFoundError:
-        TaskPresenter.not_found(task_name)
+        presenter.not_found(task_name)
         raise typer.Exit(1)
     except typer.Abort:
-        TaskPresenter.aborted(task_name)
+        presenter.aborted(task_name)
         raise typer.Exit(1)
     except Exception as e:
         # is_interactive isn't known here since the error happened before
         # the service could compute it - default to interactive formatting.
-        TaskPresenter.error(f"Failed to run task {repr(task_name)}: {e}")
+        presenter.error(f"Failed to run task {repr(task_name)}: {e}")
         raise typer.Exit(1)
 
-    TaskPresenter.render_run(response, settings=ctx.obj.settings, verbose=verbose)
+    presenter.render_run(response, settings=ctx.obj.settings, verbose=verbose)
 
     outcome = response.outcome
     if outcome.is_success() or outcome.is_partial() or outcome.is_skipped():
@@ -86,18 +87,19 @@ def status(
     ctx.obj.setup_logging()
 
     try:
+        presenter = TaskPresenter()
         response = _service(ctx).get_task_status(task_name, due_only)
     except InvalidTasksFileError:
-        TaskPresenter.empty()
+        presenter.empty()
         raise typer.Exit(1)
     except TaskNotFoundError:
-        TaskPresenter.not_found(task_name)  # ty:ignore[invalid-argument-type]
+        presenter.not_found(task_name)  # ty:ignore[invalid-argument-type]
         raise typer.Exit(1)
     except Exception as e:
-        TaskPresenter.error(str(e))
+        presenter.error(str(e))
         raise typer.Exit(1)
 
-    TaskPresenter.render_status(response)
+    presenter.render_status(response)
 
 
 @task_app.command("list")
