@@ -50,8 +50,13 @@ def mock_service(mocker) -> MagicMock:
 
 
 @pytest.fixture
-def mock_presenter(mocker) -> MagicMock:
+def mock_presenter_class(mocker) -> MagicMock:
     return mocker.patch(f"{_MODULE}.TaskPresenter")
+
+
+@pytest.fixture
+def mock_presenter(mock_presenter_class: MagicMock) -> MagicMock:
+    return mock_presenter_class.return_value
 
 
 # ---------------------------------------------------------------------------
@@ -60,7 +65,7 @@ def mock_presenter(mocker) -> MagicMock:
 
 
 class TestRun:
-    @pytest.mark.usefixtures("mock_presenter")
+    @pytest.mark.usefixtures("mock_presenter_class")
     def test_calls_setup_logging(self, mock_service: MagicMock):
         mock_service.run_task.return_value = MagicMock(
             outcome=_outcome(is_success=True)
@@ -72,7 +77,7 @@ class TestRun:
 
         ctx.obj.setup_logging.assert_called_once()
 
-    @pytest.mark.usefixtures("mock_presenter")
+    @pytest.mark.usefixtures("mock_presenter_class")
     def test_service_called_with_task_name_and_force(self, mock_service: MagicMock):
         mock_service.run_task.return_value = MagicMock(
             outcome=_outcome(is_success=True)
@@ -157,7 +162,7 @@ class TestRun:
         assert exc_info.value.exit_code == 0
         mock_presenter.render_run.assert_called_once()
 
-    @pytest.mark.usefixtures("mock_presenter")
+    @pytest.mark.usefixtures("mock_presenter_class")
     def test_failure_exits_1(self, mock_service: MagicMock):
         """
         The implicit 'else' branch: none of is_success/is_partial/
@@ -254,7 +259,7 @@ class TestStatus:
 
 class TestListTasks:
     def test_invalid_tasks_file_error_shows_empty_and_exits_1(
-        self, mock_service: MagicMock, mock_presenter: MagicMock
+        self, mock_service: MagicMock, mock_presenter_class: MagicMock
     ):
         mock_service.list_tasks.side_effect = InvalidTasksFileError()
         ctx = _make_ctx()
@@ -262,11 +267,11 @@ class TestListTasks:
         with pytest.raises(typer.Exit) as exc_info:
             list_tasks(ctx)  # ty:ignore[invalid-argument-type]
 
-        mock_presenter.empty.assert_called_once()
+        mock_presenter_class.empty.assert_called_once()
         assert exc_info.value.exit_code == 1
 
     def test_invalid_task_type_shows_message_and_exits_1(
-        self, mock_service: MagicMock, mock_presenter: MagicMock
+        self, mock_service: MagicMock, mock_presenter_class: MagicMock
     ):
         mock_service.list_tasks.side_effect = InvalidTaskTypeError("weekly")
         ctx = _make_ctx()
@@ -274,11 +279,11 @@ class TestListTasks:
         with pytest.raises(typer.Exit) as exc_info:
             list_tasks(ctx, task_type="weekly")  # ty:ignore[invalid-argument-type]
 
-        mock_presenter.invalid_task_type.assert_called_once()
+        mock_presenter_class.invalid_task_type.assert_called_once()
         assert exc_info.value.exit_code == 1
 
     def test_service_called_with_task_type_and_renders_list(
-        self, mock_service: MagicMock, mock_presenter: MagicMock
+        self, mock_service: MagicMock, mock_presenter_class: MagicMock
     ):
         mock_service.list_tasks.return_value = "RESPONSE_SENTINEL"
         ctx = _make_ctx()
@@ -286,4 +291,4 @@ class TestListTasks:
         list_tasks(ctx, task_type="manual")  # ty:ignore[invalid-argument-type]
 
         mock_service.list_tasks.assert_called_once_with("manual")
-        mock_presenter.render_list.assert_called_once_with("RESPONSE_SENTINEL")
+        mock_presenter_class.render_list.assert_called_once_with("RESPONSE_SENTINEL")
