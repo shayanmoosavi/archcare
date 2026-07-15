@@ -7,7 +7,7 @@ Determines which tasks should run and when.
 from datetime import datetime, timedelta
 from typing import NamedTuple
 
-from archcare.config import AppState, TasksConfig, TaskType
+from archcare.config import AppState, TasksConfig
 
 
 class TaskScheduleInfo(NamedTuple):
