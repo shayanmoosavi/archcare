@@ -4,10 +4,10 @@ Console output utilities using Rich.
 Provides consistent, beautiful output formatting for CLI.
 """
 
-from typing import Any
+from typing import Any, Literal
 
 from rich import box
-from rich.console import Console
+from rich.console import Console, RenderableType
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
@@ -79,6 +79,69 @@ def print_header(title: str) -> None:
     """
     console.print(f"\n[bold cyan]{title}[/bold cyan]")
     console.print("─" * len(title))
+
+
+# -----------------------------------------------------------------------------
+# Containers & Layouts
+# -----------------------------------------------------------------------------
+
+
+def print_panel(
+    title: str, content: str | RenderableType, border_style: str = "cyan"
+) -> None:
+    """
+    Print a bordered panel.
+
+    Args:
+        title: Panel title.
+        content: String or Rich renderable to place inside the panel.
+        border_style: Color/style of the border (default: cyan).
+    """
+    panel = Panel(
+        content,
+        title=f"[bold {border_style}]{title}[/bold {border_style}]",
+        border_style=border_style,
+        box=box.ROUNDED,
+        expand=False,
+    )
+    console.print(panel)
+
+
+def print_table(
+    title: str,
+    headers: list[str],
+    rows: list[list[str | RenderableType]],
+    justify: list[Literal["default", "left", "center", "right", "full"]] | None = None,
+) -> None:
+    """
+    Print a standardized data table.
+
+    Args:
+        title: Table title.
+        headers: List of column header names.
+        rows: List of rows, where each row is a list of cell contents.
+        justify: Optional list of alignment strings per column.
+    """
+    table = Table(
+        title=title,
+        box=box.ROUNDED,
+        show_header=True,
+        header_style="bold cyan",
+    )
+
+    for i, header in enumerate(headers):
+        col_justify = justify[i] if justify and i < len(justify) else "left"
+        table.add_column(header, justify=col_justify)
+
+    for row in rows:
+        table.add_row(*row)
+
+    console.print(table)
+
+
+# -----------------------------------------------------------------------------
+# Transitional (will remove soon)
+# -----------------------------------------------------------------------------
 
 
 def print_task_result(result: TaskResult, task_name: str) -> None:
