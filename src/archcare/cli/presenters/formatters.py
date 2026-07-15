@@ -20,6 +20,17 @@ class TaskDetailFormatter(ABC):
         pass
 
 
+class DefaultFormatter(TaskDetailFormatter):
+    """Fallback formatter for generic tasks."""
+
+    def format(self, details: dict[str, Any]) -> list[str]:
+        lines = []
+        for key, value in details.items():
+            if not key.startswith("_"):  # Skip internal keys
+                lines.append(f"  {key}: {value}")
+        return lines
+
+
 class FailedServicesFormatter(TaskDetailFormatter):
     """Formats details for the failed-services task."""
 
@@ -157,3 +168,19 @@ class MaintenanceCheckFormatter(TaskDetailFormatter):
                 lines.append(f"    ‒ {severity_mapping[sev_key]}")
 
         return lines
+
+
+class FormatterFactory:
+    """Routes task names to their specific terminal formatters."""
+
+    _REGISTRY: dict[str, type[TaskDetailFormatter]] = {
+        "failed-services": FailedServicesFormatter,
+        "health-check": HealthCheckFormatter,
+        "maintenance-check": MaintenanceCheckFormatter,
+    }
+
+    @classmethod
+    def get_formatter(cls, task_name: str) -> TaskDetailFormatter:
+        """Returns the specific formatter, or DefaultFormatter if none is registered."""
+        formatter = cls._REGISTRY.get(task_name, DefaultFormatter)
+        return formatter()
