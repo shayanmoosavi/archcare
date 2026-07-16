@@ -94,62 +94,59 @@ class HealthCheckFormatter(TaskDetailFormatter):
                 lines.append(f"  • {warning}")
 
         # Show summary statistics
-        lines.append("\n[bold]System Summary:[/bold]")
-
-        # Disk
-        disk_pct = summary.get("disk_usage_percent", 0)
-        disk_color = "red" if disk_pct > 90 else "yellow" if disk_pct > 80 else "green"
-        lines.append(f"  Disk Usage: [{disk_color}]{disk_pct:.1f}%[/{disk_color}]")
-
-        # Memory
-        mem_pct = summary.get("memory_usage_percent", 0)
-        mem_color = "red" if mem_pct > 90 else "yellow" if mem_pct > 80 else "green"
-        lines.append(f"  Memory Usage: [{mem_color}]{mem_pct:.1f}%[/{mem_color}]")
-
-        # CPU
-        cpu_pct = summary.get("cpu_usage_percent", 0)
-        cpu_color = "yellow" if cpu_pct > 90 else "green"
-        lines.append(f"  CPU Usage: [{cpu_color}]{cpu_pct:.1f}%[/{cpu_color}]")
-
-        # Filesystem errors
-        fs_errors = summary.get("filesystem_errors_count", 0)
-        if fs_errors > 0:
-            lines.append(f"  Filesystem Errors: [red]{fs_errors}[/red]")
-
-        # Pacman
-        pacman_ok = summary.get("pacman_healthy", False)
-        pacman_status = (
-            "[green]Healthy[/green]" if pacman_ok else "[red]Issues Detected[/red]"
-        )
-        lines.append(f"  Pacman Database: {pacman_status}")
-
-        packages_ok = summary.get("packages_healthy", False)
-        packages_status = (
-            "[green]Healthy[/green]" if packages_ok else "[red]Issues Detected[/red]"
-        )
-        lines.append(f"  Installed Package Files: {packages_status}")
-
-        # Uptime
-        uptime = summary.get("uptime", "unknown")
-        lines.append(f"  System Uptime: {uptime}")
+        self._format_summary(lines, summary)
 
         return lines
+
+    @staticmethod
+    def _format_summary(lines: list[Any], summary):
+        lines.append("\n[bold]System Summary:[/bold]")
+
+        # Format resource usage metrics
+        for usage, key, thresholds in [
+            ("Disk Usage", "disk_usage_percent", [(90, "red"), (80, "yellow")]),
+            ("Memory Usage", "memory_usage_percent", [(90, "red"), (80, "yellow")]),
+            ("CPU Usage", "cpu_usage_percent", [(90, "yellow")]),
+        ]:
+            pct = summary.get(key, 0)
+            color = next(
+                (color for threshold, color in thresholds if pct > threshold), "green"
+            )
+            lines.append(f"  {usage}: [{color}]{pct:.1f}%[/{color}]")
+
+        # Filesystem errors
+        if (fs_errors := summary.get("filesystem_errors_count", 0)) > 0:
+            lines.append(f"  Filesystem Errors: [red]{fs_errors}[/red]")
+
+        # Pacman and package status
+        for label, key in [
+            ("Pacman Database", "pacman_healthy"),
+            ("Installed Package Files", "packages_healthy"),
+        ]:
+            status = (
+                "[green]Healthy[/green]"
+                if summary.get(key, False)
+                else "[red]Issues Detected[/red]"
+            )
+            lines.append(f"  {label}: {status}")
+
+        # Uptime
+        lines.append(f"  System Uptime: {summary.get("uptime", "unknown")}")
 
 
 class MaintenanceCheckFormatter(TaskDetailFormatter):
     """Formats details for the maintenance-check task."""
 
     def format(self, details: dict[str, Any]) -> list[str]:
-        lines = []
-        lines.append("\n[bold]Summary: [/bold]")
+        lines = [
+            "\n[bold]Summary: [/bold]",
+            f"  Total tasks monitored: {details.get('total_tasks_monitored', -1)}",
+            f"  Critical issues: {details.get('critical_count', -1)}",
+            f"  Warning issues: {details.get('warning_count', -1)}",
+            f"  Informational issues: {details.get('info_count', -1)}\n",
+        ]
 
         # Summary statistics
-        lines.append(
-            f"  Total tasks monitored: {details.get('total_tasks_monitored', -1)}"
-        )
-        lines.append(f"  Critical issues: {details.get('critical_count', -1)}")
-        lines.append(f"  Warning issues: {details.get('warning_count', -1)}")
-        lines.append(f"  Informational issues: {details.get('info_count', -1)}\n")
 
         tasks_needing_attention: list[MaintenanceIssue] = details.get(
             "tasks_needing_attention", []
