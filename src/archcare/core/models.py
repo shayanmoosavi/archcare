@@ -112,6 +112,8 @@ class TaskResult:
 
     status: TaskStatus
     message: str
+
+    # TODO: Consider using a more structured type for details, e.g., a TypedDict or a custom dataclass
     details: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
     timestamp: datetime = field(default_factory=datetime.now)
