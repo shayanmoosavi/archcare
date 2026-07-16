@@ -37,32 +37,24 @@ class AppContext:
 
     Args:
         devel: Whether --devel was passed; controls console log verbosity.
-        user: Username to run as, derived from the ARCHCARE_USER env var
-              (set by systemd; absent means an interactive invocation).
+        user_ctx: UserContext object for this invocation.
     """
 
     devel: bool
-    user: str | None
+    user_ctx: UserContext
 
     _loader: ConfigLoader | None = field(default=None, init=False, repr=False)
     _settings: AppSettings | None = field(default=None, init=False, repr=False)
     _executor: TaskExecutor | None = field(default=None, init=False, repr=False)
-    _user_context: UserContext | None = field(default=None, init=False, repr=False)
-
-    @property
-    def user_context(self) -> UserContext:
-        if self._user_context is None:
-            self._user_context = UserContext(archcare_user=self.user)
-        return self._user_context
 
     @property
     def is_interactive(self) -> bool:
-        return self.user_context.is_interactive
+        return self.user_ctx.is_interactive
 
     @property
     def __loader(self) -> ConfigLoader:
         if self._loader is None:
-            self._loader = ConfigLoader(user=self.user)
+            self._loader = ConfigLoader(user=self.user_ctx.archcare_user)
         return self._loader
 
     @property
@@ -80,8 +72,8 @@ class AppContext:
                 config_loader=self.__loader,
                 settings=self.settings,
                 state=state,
-                interaction=CliInteraction(is_interactive=self.is_interactive),
-                user_context=self.user_context,
+                interaction=CliInteraction() if self.is_interactive else None,
+                user_context=self.user_ctx,
             )
             _register_tasks(executor)
             self._executor = executor
@@ -90,7 +82,7 @@ class AppContext:
     def setup_logging(self, user: str | None = None) -> None:
         """Setup logging for this context."""
 
-        default_settings = AppSettings(user=self.user)
+        default_settings = AppSettings(user=self.user_ctx.archcare_user)
         tasks_file_exists = (default_settings.config_dir / "tasks.toml").exists()
         if not tasks_file_exists:
             raise ConfigNotInitializedError()
@@ -98,7 +90,7 @@ class AppContext:
         default_settings.ensure_directories()
         setup_logging(default_settings, devel_mode=self.devel)
 
-        self._loader = ConfigLoader(user=user or self.user)
+        self._loader = ConfigLoader(user=user or self.user_ctx.archcare_user)
         self._settings = self.__loader.load_settings()
 
         # Reconfigure logging only if the user's settings differ from defaults

@@ -182,7 +182,9 @@ class TestRun:
         ctx.obj.settings = "SETTINGS_SENTINEL"
 
         with pytest.raises(typer.Exit):
-            run(ctx, task_name="update-mirrorlist", verbose=True)  # ty:ignore[invalid-argument-type]
+            run(
+                ctx, task_name="update-mirrorlist", verbose=True
+            )  # ty:ignore[invalid-argument-type]
 
         _, kwargs = mock_presenter.render_run.call_args
         assert kwargs["settings"] == "SETTINGS_SENTINEL"

@@ -29,19 +29,19 @@ class TestCliInteraction:
     def test_notify_warning_level_routes_to_print_warning(
         self, mock_warning: MagicMock, mock_info: MagicMock
     ):
-        interaction = CliInteraction(is_interactive=True)
+        interaction = CliInteraction()
         interaction.notify("disk almost full", level="warning")
 
-        mock_warning.assert_called_once_with("disk almost full", True)
+        mock_warning.assert_called_once_with("disk almost full")
         mock_info.assert_not_called()
 
     def test_notify_default_level_routes_to_print_info(
         self, mock_warning: MagicMock, mock_info: MagicMock
     ):
-        interaction = CliInteraction(is_interactive=True)
+        interaction = CliInteraction()
         interaction.notify("task started")
 
-        mock_info.assert_called_once_with("task started", True)
+        mock_info.assert_called_once_with("task started")
         mock_warning.assert_not_called()
 
     # --- confirm -----------------------------------------------------------

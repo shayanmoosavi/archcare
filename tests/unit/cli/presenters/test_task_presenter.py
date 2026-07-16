@@ -59,6 +59,16 @@ def mock_header(mocker) -> MagicMock:
     return mocker.patch(f"{_MODULE}.print_header")
 
 
+@pytest.fixture(autouse=True)
+def mock_print_panel(mocker) -> MagicMock:
+    return mocker.patch(f"{_MODULE}.print_panel")
+
+
+@pytest.fixture(autouse=True)
+def mock_console(mocker) -> MagicMock:
+    return mocker.patch(f"{_MODULE}.console")
+
+
 # ---------------------------------------------------------------------------
 # render_run
 # ---------------------------------------------------------------------------
@@ -66,18 +76,11 @@ def mock_header(mocker) -> MagicMock:
 
 class TestRenderRun:
     @pytest.fixture(autouse=True)
-    @staticmethod
-    def mock_result(mocker) -> MagicMock:
-        return mocker.patch(f"{_MODULE}.print_task_result")
+    def mock_format_details(self, mocker) -> MagicMock:
+        return mocker.patch.object(TaskPresenter, "_format_task_details")
 
     @pytest.fixture
-    @staticmethod
-    def mock_details(mocker) -> MagicMock:
-        return mocker.patch(f"{_MODULE}.print_task_details")
-
-    @pytest.fixture
-    @staticmethod
-    def mock_mc_presenter(mocker) -> MagicMock:
+    def mock_mc_presenter(self, mocker) -> MagicMock:
         return mocker.patch(f"{_MODULE}.MaintenanceCheckPresenter")
 
     def test_header_shown_when_outcome_not_skipped(
@@ -91,7 +94,7 @@ class TestRenderRun:
         )
         TaskPresenter.render_run(response, settings_terminal_mode)
 
-        mock_header.assert_called_once_with(f"Running Task: {response.task_name}", True)
+        mock_header.assert_called_once_with(f"Running Task: {response.task_name}")
 
     def test_header_skipped_when_outcome_is_skipped(
         self, settings_terminal_mode: AppSettings, mock_header: MagicMock
@@ -113,7 +116,7 @@ class TestRenderRun:
 
         sentinel_result = object()
         response = TaskRunResponse(
-            task_name="check-maintenance",
+            task_name="maintenance-check",
             outcome=_make_outcome(details={"maintenance_result": sentinel_result}),
             is_interactive=True,
         )
@@ -137,7 +140,7 @@ class TestRenderRun:
         """
 
         response = TaskRunResponse(
-            task_name="check-maintenance",
+            task_name="maintenance-check",
             outcome=_make_outcome(details={"maintenance_result": object()}),
             is_interactive=True,
         )
@@ -164,39 +167,21 @@ class TestRenderRun:
         mock_mc_presenter.render.assert_not_called()
         mock_info.assert_not_called()
 
-    def test_verbose_uses_print_task_details_with_show_details(
+    @pytest.mark.parametrize("verbose", [True, False])
+    def test_verbose_flag_carries_through(
         self,
         settings_terminal_mode: AppSettings,
-        mock_result: MagicMock,
-        mock_details: MagicMock,
+        mock_format_details: MagicMock,
+        verbose: bool,
     ):
 
         outcome = _make_outcome(details={})
         response = TaskRunResponse(
             task_name="check-health", outcome=outcome, is_interactive=True
         )
-        TaskPresenter.render_run(response, settings_terminal_mode, verbose=True)
+        TaskPresenter.render_run(response, settings_terminal_mode, verbose=verbose)
 
-        mock_details.assert_called_once_with(
-            "check-health", outcome, show_details=True, is_interactive=True
-        )
-        mock_result.assert_not_called()
-
-    def test_non_verbose_uses_print_task_result(
-        self,
-        settings_terminal_mode: AppSettings,
-        mock_result: MagicMock,
-        mock_details: MagicMock,
-    ):
-
-        outcome = _make_outcome(details={})
-        response = TaskRunResponse(
-            task_name="check-health", outcome=outcome, is_interactive=True
-        )
-        TaskPresenter.render_run(response, settings_terminal_mode, verbose=False)
-
-        mock_result.assert_called_once_with(outcome, "check-health", True)
-        mock_details.assert_not_called()
+        mock_format_details.assert_called_once_with("check-health", outcome, verbose)
 
 
 # ---------------------------------------------------------------------------
@@ -206,19 +191,12 @@ class TestRenderRun:
 
 class TestRenderStatus:
     @pytest.fixture(autouse=True)
-    @staticmethod
-    def mock_table(mocker) -> MagicMock:
-        return mocker.patch(f"{_MODULE}.print_schedule_table")
+    def mock_table(self, mocker) -> MagicMock:
+        return mocker.patch.object(TaskPresenter, "_print_schedule_table")
 
     @pytest.fixture
-    @staticmethod
-    def mock_success(mocker) -> MagicMock:
+    def mock_success(self, mocker) -> MagicMock:
         return mocker.patch(f"{_MODULE}.print_success")
-
-    @pytest.fixture
-    @staticmethod
-    def mock_panel(mocker) -> MagicMock:
-        return mocker.patch(f"{_MODULE}.print_summary_panel")
 
     def test_due_only_with_no_schedule_shows_success_and_returns_early(
         self, mock_success: MagicMock, mock_table: MagicMock
@@ -237,7 +215,7 @@ class TestRenderStatus:
         response = TaskStatusResponse(schedule_info=[mock_task_info], due_only=True)
         TaskPresenter.render_status(response)
 
-        mock_table.assert_called_once_with([mock_task_info])
+        mock_table.assert_called_once_with(response)
         mock_success.assert_not_called()
 
     def test_non_due_only_with_empty_schedule_still_shows_table(
@@ -246,27 +224,35 @@ class TestRenderStatus:
         response = TaskStatusResponse(schedule_info=[], due_only=False)
         TaskPresenter.render_status(response)
 
-        mock_table.assert_called_once_with([])
+        mock_table.assert_called_once_with(response)
         mock_success.assert_not_called()
 
-    def test_summary_panel_rendered_when_summary_present(self, mock_panel: MagicMock):
+    def test_summary_panel_rendered_when_summary_present(
+        self, mock_print_panel: MagicMock
+    ):
 
         summary = {"total": 3, "overdue": 1}
         response = TaskStatusResponse(
             schedule_info=[MagicMock(spec=TaskScheduleInfo)], summary=summary
         )
         TaskPresenter.render_status(response)
+        # Convert dict to panel content
+        lines = [
+            f"[bold]{key.replace('_', ' ').title()}:[/bold] {value}"
+            for key, value in response.summary.items()  # ty:ignore[unresolved-attribute]
+        ]
+        mock_print_panel.assert_called_once_with("Summary", "\n".join(lines))
 
-        mock_panel.assert_called_once_with("Summary", summary)
-
-    def test_summary_panel_not_rendered_when_no_summary(self, mock_panel: MagicMock):
+    def test_summary_panel_not_rendered_when_no_summary(
+        self, mock_print_panel: MagicMock
+    ):
 
         response = TaskStatusResponse(
             schedule_info=[MagicMock(spec=TaskScheduleInfo)], summary=None
         )
         TaskPresenter.render_status(response)
 
-        mock_panel.assert_not_called()
+        mock_print_panel.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -275,11 +261,6 @@ class TestRenderStatus:
 
 
 class TestRenderList:
-    @pytest.fixture
-    @staticmethod
-    def mock_console(mocker) -> MagicMock:
-        return mocker.patch(f"{_MODULE}.console")
-
     def test_shows_header_regardless_of_content(self, mocker, mock_header: MagicMock):
         mocker.patch(_PATCH_WARNING)
 
@@ -343,8 +324,7 @@ class TestRenderList:
 
 class TestConvenienceMethods:
     @pytest.fixture(autouse=True)
-    @staticmethod
-    def mock_error(mocker) -> MagicMock:
+    def mock_error(self, mocker) -> MagicMock:
         return mocker.patch(f"{_MODULE}.print_error")
 
     def test_not_found_includes_task_name(self, mocker, mock_error: MagicMock):
@@ -354,9 +334,7 @@ class TestConvenienceMethods:
 
         assert "update-mirrorlist" in mock_error.call_args.args[0]
 
-    def test_empty_calls_print_error_and_two_print_info(
-        self, mocker, mock_info: MagicMock
-    ):
+    def test_empty_calls_print_error_and_two_print_info(self, mock_info: MagicMock):
 
         TaskPresenter.empty()
 
@@ -368,12 +346,10 @@ class TestConvenienceMethods:
         assert "automated" in mock_error.call_args.args[0]
         assert "manual" in mock_error.call_args.args[0]
 
-    def test_error_passes_through_message_and_interactive_flag(
-        self, mock_error: MagicMock
-    ):
-        TaskPresenter.error("boom", is_interactive=False)
+    def test_error_passes_through_message(self, mock_error: MagicMock):
+        TaskPresenter.error("boom")
 
-        mock_error.assert_called_once_with("boom", False)
+        mock_error.assert_called_once_with("boom")
 
     def test_aborted_includes_task_name(self, mocker):
         mock_warning: MagicMock = mocker.patch(_PATCH_WARNING)

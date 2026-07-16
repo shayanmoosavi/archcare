@@ -1,6 +1,5 @@
 """Typer CLI interface for Archcare."""
 
-from os import getenv
 from typing import Annotated
 
 import typer
@@ -8,7 +7,8 @@ import typer
 from archcare.cli.commands import debug_app, logs_app, setup_app, task_app
 from archcare.cli.context import AppContext
 from archcare.services.exceptions import ConfigNotInitializedError
-from archcare.utils.output import print_error, print_info
+from archcare.utils import UserContext
+from archcare.utils.output import configure_console, print_error, print_info
 
 app = typer.Typer(
     name="archcare",
@@ -33,10 +33,13 @@ def callback(
         ),
     ] = False,
 ) -> None:
-    # ARCHCARE_USER is set by the systemd service unit; its absence means
-    # an interactive invocation.
-    user = getenv("ARCHCARE_USER")
-    ctx.obj = AppContext(devel=devel, user=user)
+    # Constructing UserContext object
+    user_ctx = UserContext.from_env()
+
+    # Globally mute all Rich prints if running non-interactively
+    configure_console(user_ctx.is_interactive)
+
+    ctx.obj = AppContext(devel=devel, user_ctx=user_ctx)
 
 
 def main():
