@@ -225,7 +225,7 @@ class BaseTask(ABC):
                 logger.critical(f"Rollback failed for {self.name}: {rollback_error}")
 
             return self.create_result(
-                failed(message=f"Task execution failed: {str(e)}", error=e)
+                failed(message=f"Task execution failed: {str(e)}", error=str(e))
             )
         finally:
             # Remove task-specific log handler

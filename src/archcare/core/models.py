@@ -60,8 +60,7 @@ class TaskResult:
         details (dict[str, Any]): Optional structured data providing additional
             context about the execution. Keys are context-specific and may
             include counts, resource names, file paths, etc. Defaults to empty.
-        error (Exception | None): The exception object that caused the failure,
-            if applicable. Preserved for debugging and log analysis. Defaults
+        error (str | None): The error message for the failure, defaults
             to None for successful or skipped tasks.
         timestamp (datetime): When the task execution completed. Automatically
             set to the current time when TaskResult is created. Used for
@@ -72,12 +71,6 @@ class TaskResult:
         skip_reason (SkipReason | None): Enumerated reason why the task was
             skipped, if status is SKIPPED. Examples: DISABLED, DEPENDENCY_FAILED,
             NOT_DUE. Defaults to None.
-        skip_message (str | None): Human-readable explanation of why the task
-            was skipped. May provide additional context beyond skip_reason.
-            Defaults to None.
-        error_message (str | None): String representation of the error for
-            cases where the exception object is not available or serializable.
-            Useful for logging and API responses. Defaults to None.
 
     Methods:
         is_success() -> bool: Check if the task succeeded (status == SUCCESS).
@@ -108,8 +101,7 @@ class TaskResult:
         ...     result = TaskResult(
         ...         status=TaskStatus.FAILURE,
         ...         message="Update check failed",
-        ...         error=e,
-        ...         error_message=str(e)
+        ...         error=str(e),
         ...     )
 
     See Also:
@@ -121,12 +113,10 @@ class TaskResult:
     status: TaskStatus
     message: str
     details: dict[str, Any] = field(default_factory=dict)
-    error: Exception | None = None
+    error: str | None = None
     timestamp: datetime = field(default_factory=datetime.now)
     duration_seconds: float = 0.0
     skip_reason: SkipReason | None = None
-    skip_message: str | None = None
-    error_message: str | None = None
 
     def is_success(self) -> bool:
         """
@@ -225,7 +215,7 @@ class TaskResult:
             >>> result = TaskResult(
             ...     status=TaskStatus.FAILURE,
             ...     message="Installation failed",
-            ...     error=exc,
+            ...     error=str(exc),
             ...     duration_seconds=2.1
             ... )
             >>> str(result)
@@ -274,7 +264,7 @@ class IssueSeverity(Enum):
     Attributes:
         CRITICAL (str): Issues requiring immediate attention. These indicate
             problems that could impact system stability, security, or
-            functionality. Example: Severly overdue maintenance tasks or broken
+            functionality. Example: Severely overdue maintenance tasks or broken
             systemd timers, typically by more than 1.5 times the frequency they
             should be performed. Should be addressed as soon as possible,
             typically within hours.
@@ -356,10 +346,6 @@ class MaintenanceIssue:
     Properties:
         is_overdue (bool): Check if the task is currently overdue based on
             days_overdue value.
-
-    Methods:
-        is_overdue() -> bool: Property that returns True if days_overdue is
-            positive (task overdue), False otherwise.
 
     Examples:
         >>> # Critical issue requiring immediate attention
@@ -784,7 +770,7 @@ class MaintenanceCheckResult:
                 "warning_count": len(self.warning_issues),
                 "info_count": len(self.info_issues),
             },
-            error_message=self.error_message,
+            error=self.error_message,
         )
 
 
@@ -831,7 +817,7 @@ def success(message: str, **details) -> TaskResult:
     return TaskResult(status=TaskStatus.SUCCESS, message=message, details=details)
 
 
-def failed(message: str, error: Exception | None = None, **details) -> TaskResult:
+def failed(message: str, error: str | None = None, **details) -> TaskResult:
     """
     Create a failure result.
 
@@ -844,10 +830,7 @@ def failed(message: str, error: Exception | None = None, **details) -> TaskResul
             Should be clear and specific about the nature of the failure. Examples:
             "Update check failed", "Installation failed with disk full error",
             "Network connection timeout".
-        error (Exception | None): The exception object that caused the failure.
-            Preserved for debugging, log analysis, and exception chain tracking.
-            Can be None if the failure doesn't have an associated exception or if
-            the exception is not available. Defaults to None.
+        error (str | None): The error message of the exact exception that caused the failure.
         **details: Additional context-specific details as keyword arguments. These are
             collected into the `details` dictionary and may include error codes,
             affected resources, partial results, retry information, etc.
@@ -874,7 +857,7 @@ def failed(message: str, error: Exception | None = None, **details) -> TaskResul
         >>> try:
         ...     risky_operation()
         ... except Exception as e:
-        ...     result = failed("Operation failed", error=e, retry_count=3)
+        ...     result = failed("Operation failed", error=str(e), retry_count=3)
         >>> result.is_failed()
         True
         >>> result.error is not None
@@ -885,7 +868,7 @@ def failed(message: str, error: Exception | None = None, **details) -> TaskResul
         >>> # Failure with detailed context
         >>> result = failed(
         ...     "Backup failed",
-        ...     error=IOError("Disk full"),
+        ...     error=str(IOError("Disk full"))),
         ...     failed_files=5,
         ...     total_files=100,
         ...     backup_size_gb=50
@@ -976,7 +959,6 @@ def skipped(message: str, skip_reason: SkipReason | None, **details) -> TaskResu
         status=TaskStatus.SKIPPED,
         message=message,
         skip_reason=skip_reason,
-        skip_message=message,
         details=details,
     )
 

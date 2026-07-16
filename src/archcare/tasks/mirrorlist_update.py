@@ -88,7 +88,7 @@ class MirrorlistUpdateTask(BaseTask):
             logger.error(f"Failed to create backup: {e}")
             return failed(
                 f"Failed to create mirrorlist backup: {e}",
-                error=e,
+                error=str(e),
                 old_info=old_info,
             )
 
