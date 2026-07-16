@@ -84,7 +84,7 @@ class TestTaskResultStr:
         result = TaskResult(
             status=TaskStatus.FAILURE,
             message="Installation failed",
-            error=RuntimeError("Disk full"),
+            error=str(RuntimeError("Disk full")),
             duration_seconds=2.1,
         )
         assert str(result) == "[FAILURE] Installation failed (2.10s) Error: Disk full"
@@ -124,7 +124,8 @@ class TestIssueSeverityStr:
 
 
 class TestMaintenanceIssueIsOverdue:
-    def _issue(self, days_overdue: int | None) -> MaintenanceIssue:
+    @staticmethod
+    def _issue(days_overdue: int | None) -> MaintenanceIssue:
         return MaintenanceIssue(
             task_name="x",
             severity=IssueSeverity.INFO,
@@ -301,7 +302,7 @@ class TestToTaskResult:
         assert task_result.details["warning_count"] == 1
         assert task_result.details["info_count"] == 0
         assert task_result.details["tasks_needing_attention"] == [critical, warning]
-        assert task_result.error_message == "partial failure"
+        assert task_result.error == "partial failure"
 
 
 # ---------------------------------------------------------------------------
@@ -310,7 +311,7 @@ class TestToTaskResult:
 
 
 class TestSuccessFactory:
-    def test_sets_status_and_message(self):
+    def test_sets_values_correctly(self):
         result = success("Update completed")
         assert result.status == TaskStatus.SUCCESS
         assert result.message == "Update completed"
@@ -321,11 +322,11 @@ class TestSuccessFactory:
 
 
 class TestFailedFactory:
-    def test_sets_status_and_error(self):
+    def test_sets_values_correctly(self):
         exc = ValueError("bad")
-        result = failed("Operation failed", error=exc, retry_count=3)
+        result = failed("Operation failed", error=str(exc), retry_count=3)
         assert result.status == TaskStatus.FAILURE
-        assert result.error is exc
+        assert result.error == "bad"
         assert result.details == {"retry_count": 3}
 
     def test_error_defaults_to_none(self):
@@ -334,11 +335,10 @@ class TestFailedFactory:
 
 
 class TestSkippedFactory:
-    def test_sets_status_reason_and_duplicates_message(self):
+    def test_sets_values_correctly(self):
         result = skipped("Task disabled", skip_reason=SkipReason.DISABLED)
         assert result.status == TaskStatus.SKIPPED
         assert result.skip_reason == SkipReason.DISABLED
-        assert result.skip_message == "Task disabled"  # same value as message
         assert result.message == "Task disabled"
 
     def test_skip_reason_can_be_none(self):
@@ -351,7 +351,7 @@ class TestSkippedFactory:
 
 
 class TestPartialFactory:
-    def test_sets_status_and_message(self):
+    def test_sets_values_correctly(self):
         result = partial("3 of 5 checks passed")
         assert result.status == TaskStatus.PARTIAL
         assert result.message == "3 of 5 checks passed"
