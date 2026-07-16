@@ -32,8 +32,9 @@ from .maintenance_presenter import MaintenanceCheckPresenter
 class TaskPresenter:
     """Renders TaskService results and errors to the terminal."""
 
+    @classmethod
     def render_run(
-        self, response: TaskRunResponse, settings: AppSettings, verbose: bool = False
+        cls, response: TaskRunResponse, settings: AppSettings, verbose: bool = False
     ) -> None:
         if not response.outcome.is_skipped():
             print_header(f"Running Task: {response.task_name}")
@@ -62,7 +63,7 @@ class TaskPresenter:
         console.print()
 
         # Render the task panel
-        panel_content = self._format_task_details(
+        panel_content = cls._format_task_details(
             response.task_name, response.outcome, verbose
         )
         print_panel(
@@ -71,7 +72,8 @@ class TaskPresenter:
             border_style="cyan",
         )
 
-    def render_status(self, response: TaskStatusResponse) -> None:
+    @classmethod
+    def render_status(cls, response: TaskStatusResponse) -> None:
 
         if response.due_only and not response.schedule_info:
             print_success("No tasks currently due!")
@@ -79,7 +81,7 @@ class TaskPresenter:
 
         console.print()
 
-        self._print_schedule_table(response)
+        cls._print_schedule_table(response)
 
         if response.summary:
             console.print()
@@ -90,7 +92,8 @@ class TaskPresenter:
             ]
             print_panel("Summary", "\n".join(lines))
 
-    def _print_schedule_table(self, response: TaskStatusResponse):
+    @staticmethod
+    def _print_schedule_table(response: TaskStatusResponse):
         # Build the data in the Presenter
         headers = ["Status", "Task", "Last Run", "Due"]
         rows = []
