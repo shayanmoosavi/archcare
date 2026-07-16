@@ -76,13 +76,11 @@ def mock_console(mocker) -> MagicMock:
 
 class TestRenderRun:
     @pytest.fixture(autouse=True)
-    @staticmethod
-    def mock_format_details(mocker) -> MagicMock:
+    def mock_format_details(self, mocker) -> MagicMock:
         return mocker.patch.object(TaskPresenter, "_format_task_details")
 
     @pytest.fixture
-    @staticmethod
-    def mock_mc_presenter(mocker) -> MagicMock:
+    def mock_mc_presenter(self, mocker) -> MagicMock:
         return mocker.patch(f"{_MODULE}.MaintenanceCheckPresenter")
 
     def test_header_shown_when_outcome_not_skipped(
@@ -94,8 +92,7 @@ class TestRenderRun:
             outcome=_make_outcome(is_skipped=False),
             is_interactive=True,
         )
-        presenter = TaskPresenter()
-        presenter.render_run(response, settings_terminal_mode)
+        TaskPresenter.render_run(response, settings_terminal_mode)
 
         mock_header.assert_called_once_with(f"Running Task: {response.task_name}")
 
@@ -108,8 +105,7 @@ class TestRenderRun:
             outcome=_make_outcome(is_skipped=True),
             is_interactive=True,
         )
-        presenter = TaskPresenter()
-        presenter.render_run(response, settings_terminal_mode)
+        TaskPresenter.render_run(response, settings_terminal_mode)
 
         mock_header.assert_not_called()
 
@@ -124,8 +120,7 @@ class TestRenderRun:
             outcome=_make_outcome(details={"maintenance_result": sentinel_result}),
             is_interactive=True,
         )
-        presenter = TaskPresenter()
-        presenter.render_run(response, settings_terminal_mode)
+        TaskPresenter.render_run(response, settings_terminal_mode)
 
         mock_mc_presenter.render.assert_called_once_with(
             sentinel_result, is_interactive=True, require_acknowledgment=True
@@ -149,8 +144,7 @@ class TestRenderRun:
             outcome=_make_outcome(details={"maintenance_result": object()}),
             is_interactive=True,
         )
-        presenter = TaskPresenter()
-        presenter.render_run(response, settings_file_mode)
+        TaskPresenter.render_run(response, settings_file_mode)
 
         mock_mc_presenter.render.assert_not_called()
         mock_info.assert_called_once()
@@ -168,8 +162,7 @@ class TestRenderRun:
             outcome=_make_outcome(details={}),
             is_interactive=True,
         )
-        presenter = TaskPresenter()
-        presenter.render_run(response, settings_terminal_mode)
+        TaskPresenter.render_run(response, settings_terminal_mode)
 
         mock_mc_presenter.render.assert_not_called()
         mock_info.assert_not_called()
@@ -186,8 +179,7 @@ class TestRenderRun:
         response = TaskRunResponse(
             task_name="check-health", outcome=outcome, is_interactive=True
         )
-        presenter = TaskPresenter()
-        presenter.render_run(response, settings_terminal_mode, verbose=verbose)
+        TaskPresenter.render_run(response, settings_terminal_mode, verbose=verbose)
 
         mock_format_details.assert_called_once_with("check-health", outcome, verbose)
 
@@ -199,21 +191,18 @@ class TestRenderRun:
 
 class TestRenderStatus:
     @pytest.fixture(autouse=True)
-    @staticmethod
-    def mock_table(mocker) -> MagicMock:
+    def mock_table(self, mocker) -> MagicMock:
         return mocker.patch.object(TaskPresenter, "_print_schedule_table")
 
     @pytest.fixture
-    @staticmethod
-    def mock_success(mocker) -> MagicMock:
+    def mock_success(self, mocker) -> MagicMock:
         return mocker.patch(f"{_MODULE}.print_success")
 
     def test_due_only_with_no_schedule_shows_success_and_returns_early(
         self, mock_success: MagicMock, mock_table: MagicMock
     ):
         response = TaskStatusResponse(schedule_info=[], due_only=True)
-        presenter = TaskPresenter()
-        presenter.render_status(response)
+        TaskPresenter.render_status(response)
 
         mock_success.assert_called_once_with("No tasks currently due!")
         mock_table.assert_not_called()
@@ -224,23 +213,19 @@ class TestRenderStatus:
 
         mock_task_info = MagicMock(spec=TaskScheduleInfo)
         response = TaskStatusResponse(schedule_info=[mock_task_info], due_only=True)
-        presenter = TaskPresenter()
-        presenter.render_status(response)
+        TaskPresenter.render_status(response)
 
-        mock_table.assert_called_once()
+        mock_table.assert_called_once_with(response)
         mock_success.assert_not_called()
-        assert mock_table.call_args.args[0].schedule_info == [mock_task_info]
 
     def test_non_due_only_with_empty_schedule_still_shows_table(
         self, mock_success: MagicMock, mock_table: MagicMock
     ):
         response = TaskStatusResponse(schedule_info=[], due_only=False)
-        presenter = TaskPresenter()
-        presenter.render_status(response)
+        TaskPresenter.render_status(response)
 
-        mock_table.assert_called_once()
+        mock_table.assert_called_once_with(response)
         mock_success.assert_not_called()
-        assert mock_table.call_args.args[0].schedule_info == []
 
     def test_summary_panel_rendered_when_summary_present(
         self, mock_print_panel: MagicMock
@@ -250,8 +235,7 @@ class TestRenderStatus:
         response = TaskStatusResponse(
             schedule_info=[MagicMock(spec=TaskScheduleInfo)], summary=summary
         )
-        presenter = TaskPresenter()
-        presenter.render_status(response)
+        TaskPresenter.render_status(response)
         # Convert dict to panel content
         lines = [
             f"[bold]{key.replace('_', ' ').title()}:[/bold] {value}"
@@ -266,8 +250,7 @@ class TestRenderStatus:
         response = TaskStatusResponse(
             schedule_info=[MagicMock(spec=TaskScheduleInfo)], summary=None
         )
-        presenter = TaskPresenter()
-        presenter.render_status(response)
+        TaskPresenter.render_status(response)
 
         mock_print_panel.assert_not_called()
 
@@ -341,8 +324,7 @@ class TestRenderList:
 
 class TestConvenienceMethods:
     @pytest.fixture(autouse=True)
-    @staticmethod
-    def mock_error(mocker) -> MagicMock:
+    def mock_error(self, mocker) -> MagicMock:
         return mocker.patch(f"{_MODULE}.print_error")
 
     def test_not_found_includes_task_name(self, mocker, mock_error: MagicMock):
