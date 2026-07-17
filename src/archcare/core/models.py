@@ -914,7 +914,6 @@ def skipped(message: str, skip_reason: SkipReason | None, **details) -> TaskResu
             - status: TaskStatus.SKIPPED
             - message: The provided skip message
             - skip_reason: The enumerated skip reason
-            - skip_message: Same as message (for consistency)
             - details: Dictionary created from **details keyword arguments
             - timestamp: Current time (set automatically)
 

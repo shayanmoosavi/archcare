@@ -312,7 +312,6 @@ def _update(
     next_due=None,
     error=None,
     skip_reason=None,
-    skip_message=None,
 ) -> None:
     """Thin wrapper so test bodies stay single-line."""
     state.update_task_state(
@@ -321,5 +320,4 @@ def _update(
         next_due=next_due,
         error=error,
         skip_reason=skip_reason,
-        skip_message=skip_message,
     )

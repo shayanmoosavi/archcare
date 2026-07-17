@@ -251,7 +251,6 @@ class TaskExecutor:
             next_due=next_due,
             error=result.error,
             skip_reason=result.skip_reason,
-            skip_message=result.message if result.is_skipped() else None,
         )
 
         # Save state to disk

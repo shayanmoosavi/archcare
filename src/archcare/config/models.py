@@ -390,9 +390,6 @@ class TaskState(BaseModel):
     skip_reason: SkipReason | None = Field(
         None, description="Reason why task was skipped"
     )
-    skip_message: str | None = Field(
-        None, description="Additional context for skip reason"
-    )
 
 
 class AppState(BaseModel):
@@ -418,7 +415,6 @@ class AppState(BaseModel):
         next_due: datetime | None = None,
         error: str | None = None,
         skip_reason: SkipReason | None = None,
-        skip_message: str | None = None,
     ) -> None:
         """Update state after task execution."""
         state = self.get_task_state(task_name)
@@ -428,5 +424,4 @@ class AppState(BaseModel):
         state.run_count += 1
         state.last_error = error
         state.skip_reason = skip_reason
-        state.skip_message = skip_message
         self.last_updated = datetime.now()

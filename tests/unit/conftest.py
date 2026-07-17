@@ -96,7 +96,6 @@ def state_with_recent_run(automated_task: TaskConfig) -> AppState:
         next_due=datetime.now() + timedelta(days=7),
         error=None,
         skip_reason=None,
-        skip_message=None,
     )
     return state
 
@@ -111,7 +110,6 @@ def state_with_overdue_run(automated_task: TaskConfig) -> AppState:
         next_due=datetime.now() - timedelta(days=3),
         error=None,
         skip_reason=None,
-        skip_message=None,
     )
     return state
 

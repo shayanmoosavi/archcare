@@ -129,7 +129,6 @@ class TestGetDueTasks:
             next_due=datetime.now() - timedelta(days=10),
             error=None,
             skip_reason=None,
-            skip_message=None,
         )
         # test-auto-task overdue by 1 day
         state.update_task_state(
@@ -138,7 +137,6 @@ class TestGetDueTasks:
             next_due=datetime.now() - timedelta(days=1),
             error=None,
             skip_reason=None,
-            skip_message=None,
         )
         due = _scheduler(tasks_config, state).get_due_tasks()
         assert due[0].task_name == "test-manual-task"
@@ -174,7 +172,6 @@ class TestGetMaintenanceSummary:
                 next_due=datetime.now() + timedelta(days=14),
                 error=None,
                 skip_reason=None,
-                skip_message=None,
             )
         summary = _scheduler(tasks_config, state).get_maintenance_summary()
         assert summary["due"] == 0
@@ -188,7 +185,6 @@ class TestGetMaintenanceSummary:
             next_due=datetime.now() - timedelta(hours=1),  # due, overdue by 0 days
             error=None,
             skip_reason=None,
-            skip_message=None,
         )
         summary = _scheduler(tasks_config, state).get_maintenance_summary()
         assert summary["due"] >= 1

@@ -362,7 +362,6 @@ class TestStateManagement:
             next_due=datetime.now() + timedelta(days=7),
             error=None,
             skip_reason=None,
-            skip_message=None,
         )
         loader.save_state(state, state_file=state_file)
 
@@ -380,7 +379,6 @@ class TestStateManagement:
                 next_due=None,
                 error=None,
                 skip_reason=None,
-                skip_message=None,
             )
         loader.save_state(state, state_file=state_file)
 
