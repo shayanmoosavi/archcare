@@ -2,8 +2,6 @@
 Health check task implementation for archcare.
 """
 
-from typing import Any
-
 from loguru import logger
 
 from archcare.core import TaskResult, failed, partial, success
@@ -46,36 +44,35 @@ class HealthCheckTask(BaseTask):
 
         issues: list[str] = []
         warnings: list[str] = []
-        checks: dict[str, Any] = {}
 
         total_checks = 0
 
         # Check disk space
-        disk_percent = self._check_disk_space(checks, issues, warnings)
+        disk_percent = self._check_disk_space(issues, warnings)
         total_checks += 1
 
         # Check memory usage
-        mem_percent = self._check_memory_usage(checks, issues, warnings)
+        mem_percent = self._check_memory_usage(issues, warnings)
         total_checks += 1
 
         # Check CPU load
-        cpu_percent = self._check_cpu_load(checks, warnings)
+        cpu_percent = self._check_cpu_load(warnings)
         total_checks += 1
 
         # Check for filesystem errors
-        fs_errors = self._check_filesystem_errors(checks, issues)
+        fs_errors = self._check_filesystem_errors(issues)
         total_checks += 1
 
         # Check pacman database health
-        pacman_ok = self._check_pacman_database_health(checks, issues)
+        pacman_ok = self._check_pacman_database_health(issues)
         total_checks += 1
 
         # Check installed package files integrity
-        packages_ok = self._check_installed_package_files(checks, issues)
+        packages_ok = self._check_installed_package_files(issues)
         total_checks += 1
 
         # Check system uptime
-        uptime = self._check_system_uptime(checks)
+        uptime = self._check_system_uptime()
         total_checks += 1
 
         if issues:
@@ -86,7 +83,6 @@ class HealthCheckTask(BaseTask):
                 error=None,
                 issues=issues,
                 warnings=warnings,
-                checks=checks,
                 total_checks=total_checks,
                 summary={
                     "disk_usage_percent": disk_percent,
@@ -104,7 +100,6 @@ class HealthCheckTask(BaseTask):
             return partial(
                 message=message,
                 warnings=warnings,
-                checks=checks,
                 total_checks=total_checks,
                 summary={
                     "disk_usage_percent": disk_percent,
@@ -121,7 +116,6 @@ class HealthCheckTask(BaseTask):
             logger.info(f"Health check complete: {message}")
             return success(
                 message=message,
-                checks=checks,
                 total_checks=total_checks,
                 summary={
                     "disk_usage_percent": disk_percent,
@@ -135,21 +129,17 @@ class HealthCheckTask(BaseTask):
             )
 
     @staticmethod
-    def _check_system_uptime(checks: dict[str, Any]) -> str:
+    def _check_system_uptime() -> str:
         logger.debug("Getting system uptime")
         uptime = get_system_uptime()
-        checks["uptime"] = uptime
         logger.info(f"System uptime: {uptime}")
 
         return uptime
 
     @staticmethod
-    def _check_installed_package_files(
-        checks: dict[str, Any], issues: list[str]
-    ) -> bool:
+    def _check_installed_package_files(issues: list[str]) -> bool:
         logger.debug("Checking installed package files integrity")
         packages_ok, packages_msg = check_package_files()
-        checks["package_files"] = {"healthy": packages_ok, "message": packages_msg}
 
         if not packages_ok:
             issues.append(f"Critical: {packages_msg}")
@@ -159,12 +149,9 @@ class HealthCheckTask(BaseTask):
         return packages_ok
 
     @staticmethod
-    def _check_pacman_database_health(
-        checks: dict[str, Any], issues: list[str]
-    ) -> bool:
+    def _check_pacman_database_health(issues: list[str]) -> bool:
         logger.debug("Checking pacman database")
         pacman_ok, pacman_msg = check_pacman_database()
-        checks["pacman"] = {"healthy": pacman_ok, "message": pacman_msg}
 
         if not pacman_ok:
             issues.append(f"Critical: {pacman_msg}")
@@ -174,12 +161,9 @@ class HealthCheckTask(BaseTask):
         return pacman_ok
 
     @staticmethod
-    def _check_filesystem_errors(
-        checks: dict[str, Any], issues: list[str]
-    ) -> list[str]:
+    def _check_filesystem_errors(issues: list[str]) -> list[str]:
         logger.debug("Checking for filesystem errors")
         fs_errors = check_filesystem_errors()
-        checks["filesystem_errors"] = fs_errors
 
         if fs_errors:
             issues.append(f"Critical: {len(fs_errors)} filesystem error(s) detected")
@@ -189,10 +173,9 @@ class HealthCheckTask(BaseTask):
         return fs_errors
 
     @staticmethod
-    def _check_cpu_load(checks: dict[str, Any], warnings: list[str]) -> float:
+    def _check_cpu_load(warnings: list[str]) -> float:
         logger.debug("Checking CPU load")
         cpu = get_cpu_info()
-        checks["cpu"] = cpu
 
         cpu_percent = cpu["percent"]
         load_avg = cpu["load_avg"]
@@ -212,12 +195,9 @@ class HealthCheckTask(BaseTask):
         return cpu_percent
 
     @staticmethod
-    def _check_memory_usage(
-        checks: dict[str, Any], issues: list[str], warnings: list[str]
-    ) -> float:
+    def _check_memory_usage(issues: list[str], warnings: list[str]) -> float:
         logger.debug("Checking memory usage")
         memory = get_memory_info()
-        checks["memory"] = memory
 
         mem_percent = memory["percent"]
         swap_percent = memory["swap_percent"]
@@ -237,12 +217,9 @@ class HealthCheckTask(BaseTask):
         return mem_percent
 
     @staticmethod
-    def _check_disk_space(
-        checks: dict[str, Any], issues: list[str], warnings: list[str]
-    ) -> float:
+    def _check_disk_space(issues: list[str], warnings: list[str]) -> float:
         logger.debug("Checking disk space")
         disk = get_disk_usage("/")
-        checks["disk"] = disk
 
         disk_percent = disk["percent"]
         if disk_percent > 90:
