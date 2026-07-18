@@ -14,6 +14,7 @@ from .models import (
     success,
 )
 from .scheduler import TaskScheduleInfo, TaskScheduler
+from .task_registry import TaskDescriptor, TaskRegistry
 
 __all__ = [
     # Models
@@ -29,4 +30,7 @@ __all__ = [
     # Scheduler
     "TaskScheduler",
     "TaskScheduleInfo",
+    # Task registry
+    "TaskRegistry",
+    "TaskDescriptor",
 ]
