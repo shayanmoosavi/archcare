@@ -78,7 +78,6 @@ class TaskConfig(BaseModel):
         ..., gt=0, description="Number of days between task executions"
     )
     description: str = Field(..., description="Human-readable task description")
-    command: str = Field(..., description="Task command/identifier to execute")
     enabled: bool = Field(default=True, description="Whether task is enabled")
 
     @field_validator("name")
@@ -88,16 +87,6 @@ class TaskConfig(BaseModel):
         if not v.replace("-", "").replace("_", "").isalnum():
             raise ValueError(
                 f"Task name must be alphanumeric with hyphens/underscores: {v}"
-            )
-        return v
-
-    @field_validator("command")
-    @classmethod
-    def validate_command(cls, v: str) -> str:
-        """Ensure command is a valid identifier."""
-        if not v.replace("-", "").replace("_", "").isalnum():
-            raise ValueError(
-                f"Command must be alphanumeric with hyphens/underscores: {v}"
             )
         return v
 

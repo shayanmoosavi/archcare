@@ -18,15 +18,15 @@ from archcare.utils.logging import setup_logging
 
 _TASK_REGISTRY: dict[str, type[BaseTask]] = {
     "failed-services": FailedServicesTask,
-    "check-health": HealthCheckTask,
-    "update-mirrorlist": MirrorlistUpdateTask,
-    "check-maintenance": MaintenanceCheckTask,
+    "health-check": HealthCheckTask,
+    "mirrorlist-update": MirrorlistUpdateTask,
+    "maintenance-check": MaintenanceCheckTask,
 }
 
 
 def _register_tasks(executor: TaskExecutor) -> None:
-    for command, task_class in _TASK_REGISTRY.items():
-        executor.register_task(command, task_class)
+    for task_name, task_class in _TASK_REGISTRY.items():
+        executor.register_task(task_name, task_class)
 
 
 @dataclass

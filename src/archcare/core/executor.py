@@ -54,7 +54,7 @@ class TaskExecutor:
             config_loader: ConfigLoader for loading configurations
             settings: Application settings
             state: Application state (for tracking runs)
-            task_registry: Map of command name to task class
+            task_registry: Map of task name to task class
             interaction: Port for user notifications/confirmations during execution
              (e.g. "task is disabled, run anyway?"). Defaults to NonInteractive,
             which never confirms - safe for systemd and tests.
@@ -80,19 +80,19 @@ class TaskExecutor:
             self._notification_manager = NotificationManager()
         return self._notification_manager
 
-    def register_task(self, command: str, task_class: type[BaseTask]) -> None:
+    def register_task(self, task_name: str, task_class: type[BaseTask]) -> None:
         """
-        Register a task class for a command.
+        Register a task class for a task.
 
         Args:
-            command: Command identifier (e.g., "failed-services")
-            task_class: Task class that handles this command
+            task_name: Task identifier (e.g., "failed-services")
+            task_class: Task class that handles this task
 
         Example:
             executor.register_task("failed-services", FailedServicesTask)
         """
-        self.task_registry[command] = task_class
-        logger.debug(f"Registered task: {command} -> {task_class.__name__}")
+        self.task_registry[task_name] = task_class
+        logger.debug(f"Registered task: {task_name} -> {task_class.__name__}")
 
     def _create_task(self, task_config: TaskConfig) -> BaseTask:
         """
@@ -105,14 +105,14 @@ class TaskExecutor:
             Instantiated task object
 
         Raises:
-            ValueError: If task command is not registered
+            ValueError: If task name is not registered
         """
-        task_class = self.task_registry.get(task_config.command)
+        task_class = self.task_registry.get(task_config.name)
 
         if not task_class:
             raise ValueError(
-                f"No task registered for command: {task_config.command}. "
-                f"Available commands: {list(self.task_registry.keys())}"
+                f"No such task: {task_config.name}. "
+                f"Available tasks: {list(self.task_registry.keys())}"
             )
 
         return task_class(
