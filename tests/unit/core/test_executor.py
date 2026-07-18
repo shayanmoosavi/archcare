@@ -90,7 +90,7 @@ def _make_executor(
     """
     Build a real TaskExecutor backed by a mock ConfigLoader.
 
-    FakeTask is registered for every command present in tasks_config so
+    FakeTask is registered for every task present in tasks_config so
     the executor can instantiate tasks without hitting real task code.
     Command names are derived from the config itself, so fixture renames
     never cause silent mismatches here.
@@ -116,7 +116,7 @@ def _make_executor(
     )
 
     for task_config in tasks_config.tasks.values():
-        executor.register_task(task_config.command, FakeTask)
+        executor.register_task(task_config.name, FakeTask)
 
     return executor
 

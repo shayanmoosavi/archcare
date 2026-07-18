@@ -31,10 +31,6 @@ class TestTaskConfig:
         with pytest.raises(ValidationError):
             _make_task(name="task with spaces")
 
-    def test_command_with_spaces_raises(self):
-        with pytest.raises(ValidationError):
-            _make_task(command="has spaces")
-
     def test_zero_frequency_raises(self):
         with pytest.raises(ValidationError):
             _make_task(frequency=0)
@@ -299,7 +295,6 @@ def _make_task(**overrides) -> TaskConfig:
         "type": "automated",
         "frequency": 7,
         "description": "A test task",
-        "command": "test-task",
         "enabled": True,
     }
     return TaskConfig.model_validate({**defaults, **overrides})

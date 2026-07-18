@@ -23,7 +23,6 @@ def automated_task() -> TaskConfig:
             "type": "automated",
             "frequency": 7,
             "description": "A generic automated task",
-            "command": "test-auto-task",
             "enabled": True,
         }
     )
@@ -38,7 +37,6 @@ def manual_task() -> TaskConfig:
             "type": "manual",
             "frequency": 30,
             "description": "A generic manual task",
-            "command": "test-manual-task",
             "enabled": True,
         }
     )
@@ -53,7 +51,6 @@ def disabled_task() -> TaskConfig:
             "type": "automated",
             "frequency": 1,
             "description": "A generic disabled automated task",
-            "command": "test-disabled-task",
             "enabled": False,
         }
     )

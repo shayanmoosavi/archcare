@@ -70,7 +70,6 @@ _TASK_TOML = """\
 type = "automated"
 frequency = 7
 description = "A test task"
-command = "test-task"
 enabled = true
 """
 
@@ -132,7 +131,6 @@ class TestLoadTasks:
 type = "automated"
 frequency = -1
 description = "Bad"
-command = "bad-task"
 enabled = true
 """,
         )
@@ -153,7 +151,7 @@ enabled = true
         assert test_task.task_type == TaskType.AUTOMATED
         assert test_task.frequency == 7
         assert test_task.description == "A test task"
-        assert test_task.command == "test-task"
+        assert test_task.name == "test-task"
         assert test_task.enabled is True
 
     def test_loads_multiple_tasks(self, config_dir: Path, loader: ConfigLoader):
@@ -165,7 +163,6 @@ enabled = true
 type = "manual"
 frequency = 30
 description = "Second"
-command = "second-task"
 enabled = true
 """,
         )

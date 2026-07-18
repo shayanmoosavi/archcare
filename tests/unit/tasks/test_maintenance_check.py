@@ -54,16 +54,13 @@ def _schedule_info(
     )
 
 
-def _task_config(
-    name: str, command: str, task_type: str, frequency: int = 7
-) -> TaskConfig:
+def _task_config(name: str, task_type: str, frequency: int = 7) -> TaskConfig:
     return TaskConfig.model_validate(
         {
             "name": name,
             "type": task_type,
             "frequency": frequency,
             "description": "A test task",
-            "command": command,
             "enabled": True,
         }
     )
@@ -71,7 +68,7 @@ def _task_config(
 
 @pytest.fixture
 def maintenance_config() -> TaskConfig:
-    return _task_config("maintenance-check", "check-maintenance", "automated", 1)
+    return _task_config("maintenance-check", "automated", 1)
 
 
 @pytest.fixture
@@ -377,7 +374,7 @@ class TestCategorizeIssues:
 
 class TestCheckTask:
     def test_never_run_task_returns_single_info_issue(self, make_task):
-        config = _task_config("test-task", "test-task", "automated")
+        config = _task_config("test-task", "automated")
         tasks_config = TasksConfig(tasks={config.name: config})
         task = make_task(tasks_config=tasks_config)  # fresh AppState -> never run
 
@@ -388,7 +385,7 @@ class TestCheckTask:
         assert "never been executed" in issues[0].description
 
     def test_manual_task_not_due_returns_no_issues(self, make_task):
-        config = _task_config("test-task", "test-task", "manual", frequency=30)
+        config = _task_config("test-task", "manual", frequency=30)
         tasks_config = TasksConfig(tasks={config.name: config})
         state = AppState()
         state.update_task_state(
@@ -401,7 +398,7 @@ class TestCheckTask:
         assert task._check_task(config.name, config) == []
 
     def test_manual_task_due_returns_warning_issue(self, make_task):
-        config = _task_config("test-task", "test-task", "manual", frequency=30)
+        config = _task_config("test-task", "manual", frequency=30)
         tasks_config = TasksConfig(tasks={config.name: config})
         state = AppState()
         state.update_task_state(
@@ -429,7 +426,7 @@ class TestCheckTask:
         self, make_task, status
     ):
 
-        config = _task_config("test-task", "test-task", "automated", frequency=7)
+        config = _task_config("test-task", "automated", frequency=7)
         tasks_config = TasksConfig(tasks={config.name: config})
         state = AppState()
         state.update_task_state(
@@ -451,7 +448,7 @@ class TestCheckTask:
         An automated task that is overdue and failed should return two issues; One
         WARNING for failed automated task, and one CRITICAL for broken timer.
         """
-        config = _task_config("test-task", "test-task", "automated", frequency=7)
+        config = _task_config("test-task", "automated", frequency=7)
         tasks_config = TasksConfig(tasks={config.name: config})
         state = AppState()
         state.update_task_state(
@@ -470,7 +467,7 @@ class TestCheckTask:
         assert "broken" in issues[1].description
 
     def test_automated_task_failed_and_due_returns_warning_issue(self, make_task):
-        config = _task_config("test-task", "test-task", "automated", frequency=7)
+        config = _task_config("test-task", "automated", frequency=7)
         tasks_config = TasksConfig(tasks={config.name: config})
         state = AppState()
         state.update_task_state(
@@ -495,7 +492,7 @@ class TestCheckTask:
 
 class TestExecute:
     def test_no_issues_returns_success(self, make_task):
-        config = _task_config("config-backup", "backup-config", "manual", frequency=30)
+        config = _task_config("config-backup", "manual", frequency=30)
         tasks_config = TasksConfig(tasks={config.name: config})
         state = AppState()
         state.update_task_state(
@@ -526,9 +523,7 @@ class TestExecute:
         assert not task.maintenance_check_result.has_issues
 
     def test_critical_issue_sets_failure_status(self, make_task):
-        config = _task_config(
-            "mirrorlist-update", "update-mirrorlist", "automated", frequency=7
-        )
+        config = _task_config("mirrorlist-update", "automated", frequency=7)
         tasks_config = TasksConfig(tasks={config.name: config})
         state = AppState()
         state.update_task_state(
@@ -544,9 +539,7 @@ class TestExecute:
         assert task.maintenance_check_result.error_message is not None
 
     def test_warning_only_sets_partial_status(self, make_task):
-        config = _task_config(
-            "mirrorlist-update", "update-mirrorlist", "automated", frequency=7
-        )
+        config = _task_config("mirrorlist-update", "automated", frequency=7)
         tasks_config = TasksConfig(tasks={config.name: config})
         state = AppState()
         state.update_task_state(
@@ -562,9 +555,7 @@ class TestExecute:
 
     def test_info_only_sets_success_status(self, make_task):
         """A never-run task produces only an INFO issue - status stays SUCCESS."""
-        config = _task_config(
-            "mirrorlist-update", "update-mirrorlist", "automated", frequency=7
-        )
+        config = _task_config("mirrorlist-update", "automated", frequency=7)
         tasks_config = TasksConfig(tasks={config.name: config})
         task = make_task(tasks_config=tasks_config)
 
