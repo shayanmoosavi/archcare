@@ -32,6 +32,11 @@ def mock_error(mocker) -> MagicMock:
     return mocker.patch(f"{_MODULE}.print_error")
 
 
+@pytest.fixture
+def mock_configure_console(mocker) -> MagicMock:
+    return mocker.patch(f"{_MODULE}.configure_console")
+
+
 # ---------------------------------------------------------------------------
 # callback
 # ---------------------------------------------------------------------------
@@ -71,6 +76,27 @@ class TestCallback:
 
         user_ctx: UserContext = mock_context.call_args.kwargs["user_ctx"]
         assert user_ctx.archcare_user is None
+
+    @pytest.mark.usefixtures("mock_context")
+    def test_configures_console_when_interactive(
+        self, mock_configure_console: MagicMock
+    ):
+        ctx = SimpleNamespace()
+
+        callback(ctx)  # ty:ignore[invalid-argument-type]
+
+        mock_configure_console.assert_called_once_with(True)
+
+    @pytest.mark.usefixtures("mock_context")
+    def test_configures_console_when_non_interactive(
+        self, mock_configure_console: MagicMock, monkeypatch
+    ):
+        monkeypatch.setenv("ARCHCARE_USER", "alice")
+        ctx = SimpleNamespace()
+
+        callback(ctx)  # ty:ignore[invalid-argument-type]
+
+        mock_configure_console.assert_called_once_with(False)
 
 
 # ---------------------------------------------------------------------------

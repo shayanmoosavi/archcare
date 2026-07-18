@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, Mock
 import pytest
 
 from archcare.cli.presenters.task_presenter import TaskPresenter
-from archcare.config import AppSettings, TaskConfig
+from archcare.config import AppSettings, TaskConfig, TaskStatus
 from archcare.config.models import MaintenanceCheckSettings
 from archcare.core import TaskResult, TaskScheduleInfo
 from archcare.services.responses import (
@@ -33,6 +33,23 @@ def _make_outcome(
     outcome.is_skipped.return_value = is_skipped
     outcome.details = details or {}
     return outcome
+
+
+def _make_result(
+    status: TaskStatus = TaskStatus.SUCCESS,
+    message: str = "did the thing",
+    duration_seconds: float = 1.234,
+    error: str | None = None,
+    details: dict[str, Any] | None = None,
+) -> Mock:
+    """A minimal TaskResult stand-in exposing only what _format_task_details reads."""
+    result = Mock(spec=TaskResult)
+    result.status = status
+    result.message = message
+    result.duration_seconds = duration_seconds
+    result.error = error
+    result.details = details or {}
+    return result
 
 
 @pytest.fixture
@@ -177,11 +194,11 @@ class TestRenderRun:
 
         outcome = _make_outcome(details={})
         response = TaskRunResponse(
-            task_name="check-health", outcome=outcome, is_interactive=True
+            task_name="health-check", outcome=outcome, is_interactive=True
         )
         TaskPresenter.render_run(response, settings_terminal_mode, verbose=verbose)
 
-        mock_format_details.assert_called_once_with("check-health", outcome, verbose)
+        mock_format_details.assert_called_once_with("health-check", outcome, verbose)
 
 
 # ---------------------------------------------------------------------------
@@ -357,3 +374,105 @@ class TestConvenienceMethods:
         TaskPresenter.aborted("update-mirrorlist")
 
         assert "update-mirrorlist" in mock_warning.call_args.args[0]
+
+
+# ---------------------------------------------------------------------------
+# _get_status_text
+# ---------------------------------------------------------------------------
+
+
+class TestGetStatusText:
+    @pytest.mark.parametrize(
+        "status,expected_fragment",
+        [
+            (TaskStatus.SUCCESS, "SUCCESS"),
+            (TaskStatus.FAILURE, "FAILURE"),
+            (TaskStatus.PARTIAL, "PARTIAL"),
+            (TaskStatus.SKIPPED, "SKIPPED"),
+        ],
+    )
+    def test_maps_each_status_to_expected_text(self, status, expected_fragment):
+        text = TaskPresenter._get_status_text(status)
+
+        assert expected_fragment in text
+
+
+# ---------------------------------------------------------------------------
+# _format_task_details
+# ---------------------------------------------------------------------------
+
+
+class TestFormatTaskDetails:
+    @pytest.fixture(autouse=True)
+    def mock_formatter_factory(self, mocker):
+        return mocker.patch(f"{_MODULE}.FormatterFactory")
+
+    def test_includes_status_message_and_duration(self):
+        result = _make_result(
+            status=TaskStatus.SUCCESS, message="all good", duration_seconds=2.5
+        )
+
+        output = TaskPresenter._format_task_details(
+            "health-check", result, verbose=False
+        )
+
+        assert "SUCCESS" in output
+        assert "all good" in output
+        assert "2.50s" in output
+
+    def test_includes_error_line_when_error_present(self):
+        result = _make_result(error="boom")
+
+        output = TaskPresenter._format_task_details(
+            "health-check", result, verbose=False
+        )
+
+        assert "Error:" in output
+        assert "boom" in output
+
+    def test_omits_error_line_when_error_absent(self):
+        result = _make_result(error=None)
+
+        output = TaskPresenter._format_task_details(
+            "health-check", result, verbose=False
+        )
+
+        assert "Error:" not in output
+
+    def test_omits_details_when_not_verbose(self, mock_formatter_factory):
+        result = _make_result(details={"some": "data"})
+
+        output = TaskPresenter._format_task_details(
+            "health-check", result, verbose=False
+        )
+
+        mock_formatter_factory.get_formatter.assert_not_called()
+        assert "Details:" not in output
+
+    def test_omits_details_when_verbose_but_no_details(self, mock_formatter_factory):
+        result = _make_result(details={})
+
+        output = TaskPresenter._format_task_details(
+            "health-check", result, verbose=True
+        )
+
+        mock_formatter_factory.get_formatter.assert_not_called()
+        assert "Details:" not in output
+
+    def test_delegates_to_formatter_factory_when_verbose_with_details(
+        self, mock_formatter_factory
+    ):
+        mock_formatter = mock_formatter_factory.get_formatter.return_value
+        mock_formatter.format.return_value = ["  cpu: 12%", "  mem: 34%"]
+        details = {"cpu_usage_percent": 12}
+        result = _make_result(details=details)
+
+        output = TaskPresenter._format_task_details(
+            "health-check", result, verbose=True
+        )
+
+        mock_formatter_factory.get_formatter.assert_called_once_with("health-check")
+        mock_formatter.format.assert_called_once_with(details)
+        assert "Details:" in output
+        assert "cpu: 12%" in output
+        assert "mem: 34%" in output
