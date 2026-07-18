@@ -1,37 +1,19 @@
 """
 Task detail formatters.
 
-Implements the Factory Pattern to isolate domain-specific terminal output
-formatting from the Presenter layer.
+Concrete implementations of the archcare.core.formatter.TaskDetailFormatter
+port, each rendering one task's execution details as Rich-markup terminal
+output. Routing from task name to formatter class lives in
+core.task_registry.TaskRegistry, not here - this module only supplies the
+CLI-specific rendering for each domain.
 """
 
-from abc import ABC, abstractmethod
 from typing import Any
 
 from archcare.core import MaintenanceIssue
 
 
-class TaskDetailFormatter(ABC):
-    """Base class for task-specific detail formatters."""
-
-    @abstractmethod
-    def format(self, details: dict[str, Any]) -> list[str]:
-        """Convert a task's details dictionary into a list of formatted Rich strings."""
-        pass
-
-
-class DefaultFormatter(TaskDetailFormatter):
-    """Fallback formatter for generic tasks."""
-
-    def format(self, details: dict[str, Any]) -> list[str]:
-        lines = []
-        for key, value in details.items():
-            if not key.startswith("_"):  # Skip internal keys
-                lines.append(f"  {key}: {value}")
-        return lines
-
-
-class FailedServicesFormatter(TaskDetailFormatter):
+class FailedServicesFormatter:
     """Formats details for the failed-services task."""
 
     def format(self, details: dict[str, Any]) -> list[str]:
@@ -74,7 +56,7 @@ class FailedServicesFormatter(TaskDetailFormatter):
                     lines.append(f"      {log[:160]}")  # Truncate long lines
 
 
-class HealthCheckFormatter(TaskDetailFormatter):
+class HealthCheckFormatter:
     """Formats details for the health-check task."""
 
     def format(self, details: dict[str, Any]) -> list[str]:
@@ -134,7 +116,7 @@ class HealthCheckFormatter(TaskDetailFormatter):
         lines.append(f"  System Uptime: {summary.get('uptime', 'unknown')}")
 
 
-class MaintenanceCheckFormatter(TaskDetailFormatter):
+class MaintenanceCheckFormatter:
     """Formats details for the maintenance-check task."""
 
     def format(self, details: dict[str, Any]) -> list[str]:
@@ -165,19 +147,3 @@ class MaintenanceCheckFormatter(TaskDetailFormatter):
                 lines.append(f"    ‒ {severity_mapping[sev_key]}")
 
         return lines
-
-
-class FormatterFactory:
-    """Routes task names to their specific terminal formatters."""
-
-    _REGISTRY: dict[str, type[TaskDetailFormatter]] = {
-        "failed-services": FailedServicesFormatter,
-        "health-check": HealthCheckFormatter,
-        "maintenance-check": MaintenanceCheckFormatter,
-    }
-
-    @classmethod
-    def get_formatter(cls, task_name: str) -> TaskDetailFormatter:
-        """Returns the specific formatter, or DefaultFormatter if none is registered."""
-        formatter = cls._REGISTRY.get(task_name, DefaultFormatter)
-        return formatter()

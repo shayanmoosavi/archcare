@@ -3,11 +3,16 @@
 from dataclasses import dataclass, field
 
 from archcare.cli.interaction import CliInteraction
+from archcare.cli.presenters.formatters import (
+    FailedServicesFormatter,
+    HealthCheckFormatter,
+    MaintenanceCheckFormatter,
+)
 from archcare.config import AppSettings, ConfigLoader
+from archcare.core import TaskDescriptor, TaskRegistry
 from archcare.core.executor import TaskExecutor
 from archcare.services.exceptions import ConfigNotInitializedError
 from archcare.tasks import (
-    BaseTask,
     FailedServicesTask,
     HealthCheckTask,
     MaintenanceCheckTask,
@@ -16,17 +21,17 @@ from archcare.tasks import (
 from archcare.utils import UserContext
 from archcare.utils.logging import setup_logging
 
-_TASK_REGISTRY: dict[str, type[BaseTask]] = {
-    "failed-services": FailedServicesTask,
-    "health-check": HealthCheckTask,
-    "mirrorlist-update": MirrorlistUpdateTask,
-    "maintenance-check": MaintenanceCheckTask,
-}
-
-
-def _register_tasks(executor: TaskExecutor) -> None:
-    for task_name, task_class in _TASK_REGISTRY.items():
-        executor.register_task(task_name, task_class)
+DEFAULT_TASK_REGISTRY = TaskRegistry(
+    (
+        TaskDescriptor("failed-services", FailedServicesTask, FailedServicesFormatter),
+        TaskDescriptor("health-check", HealthCheckTask, HealthCheckFormatter),
+        # TODO: Add a formatter for mirrorlist-update task
+        TaskDescriptor("mirrorlist-update", MirrorlistUpdateTask),
+        TaskDescriptor(
+            "maintenance-check", MaintenanceCheckTask, MaintenanceCheckFormatter
+        ),
+    )
+)
 
 
 @dataclass
@@ -65,6 +70,11 @@ class AppContext:
         return self._settings
 
     @property
+    def task_registry(self) -> TaskRegistry:
+        """Static task registry - cheap, no I/O, safe to read before executor exists."""
+        return DEFAULT_TASK_REGISTRY
+
+    @property
     def executor(self) -> TaskExecutor:
         if self._executor is None:
             state = self.__loader.load_state()
@@ -72,10 +82,10 @@ class AppContext:
                 config_loader=self.__loader,
                 settings=self.settings,
                 state=state,
+                task_registry=self.task_registry,
                 interaction=CliInteraction() if self.is_interactive else None,
                 user_context=self.user_ctx,
             )
-            _register_tasks(executor)
             self._executor = executor
         return self._executor
 
@@ -121,6 +131,6 @@ class AppContext:
             config_loader=self.__loader,
             settings=self.settings,
             state=state,
+            task_registry=self.task_registry,
         )
-        _register_tasks(executor)
         return executor

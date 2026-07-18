@@ -5,10 +5,7 @@ Owns all terminal rendering for TaskService results.
 """
 
 from archcare.config import AppSettings, TaskStatus
-from archcare.core import (
-    MaintenanceCheckResult,
-    TaskResult,
-)
+from archcare.core import MaintenanceCheckResult, TaskRegistry, TaskResult
 from archcare.services.responses import (
     TaskListResponse,
     TaskRunResponse,
@@ -25,16 +22,17 @@ from archcare.utils.output import (
     print_warning,
 )
 
-from .formatters import FormatterFactory
 from .maintenance_presenter import MaintenanceCheckPresenter
 
 
 class TaskPresenter:
     """Renders TaskService results and errors to the terminal."""
 
-    @classmethod
+    def __init__(self, task_registry: TaskRegistry) -> None:
+        self._task_registry = task_registry
+
     def render_run(
-        cls, response: TaskRunResponse, settings: AppSettings, verbose: bool = False
+        self, response: TaskRunResponse, settings: AppSettings, verbose: bool = False
     ) -> None:
         if not response.outcome.is_skipped():
             print_header(f"Running Task: {response.task_name}")
@@ -63,7 +61,7 @@ class TaskPresenter:
         console.print()
 
         # Render the task panel
-        panel_content = cls._format_task_details(
+        panel_content = self._format_task_details(
             response.task_name, response.outcome, verbose
         )
         print_panel(
@@ -72,8 +70,7 @@ class TaskPresenter:
             border_style="cyan",
         )
 
-    @classmethod
-    def render_status(cls, response: TaskStatusResponse) -> None:
+    def render_status(self, response: TaskStatusResponse) -> None:
 
         if response.due_only and not response.schedule_info:
             print_success("No tasks currently due!")
@@ -81,7 +78,7 @@ class TaskPresenter:
 
         console.print()
 
-        cls._print_schedule_table(response)
+        self._print_schedule_table(response)
 
         if response.summary:
             console.print()
@@ -183,15 +180,14 @@ class TaskPresenter:
             case _:  # SKIPPED
                 return "[blue]⤳ SKIPPED[/blue]"
 
-    @classmethod
     def _format_task_details(
-        cls, task_name: str, result: TaskResult, verbose: bool
+        self, task_name: str, result: TaskResult, verbose: bool
     ) -> str:
         """Builds the string for the panel using the Formatter Factory."""
 
         # Build the universal outer shell
         lines = [
-            f"[bold]Status:[/bold] {cls._get_status_text(result.status)}",
+            f"[bold]Status:[/bold] {self._get_status_text(result.status)}",
             f"[bold]Message:[/bold] {result.message}",
             f"[bold]Duration:[/bold] {result.duration_seconds:.2f}s",
         ]
@@ -202,7 +198,7 @@ class TaskPresenter:
         # Delegate the domain details to the factory if verbose
         if verbose and result.details:
             lines.append("\n[bold]Details:[/bold]")
-            formatter = FormatterFactory.get_formatter(task_name)
-            lines.extend(formatter.format(result.details))
+            formatter_class = self._task_registry.get_formatter_class(task_name)
+            lines.extend(formatter_class().format(result.details))
 
         return "\n".join(lines)

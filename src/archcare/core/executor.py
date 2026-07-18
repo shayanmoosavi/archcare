@@ -24,6 +24,7 @@ from archcare.utils.notifications import NotificationManager
 from .interaction import NonInteractive, TaskInteraction
 from .models import TaskResult, skipped
 from .scheduler import TaskScheduler
+from .task_registry import TaskRegistry
 
 
 class TaskExecutor:
@@ -42,7 +43,7 @@ class TaskExecutor:
         config_loader: ConfigLoader,
         settings: AppSettings,
         state: AppState,
-        task_registry: dict[str, type[BaseTask]] | None = None,
+        task_registry: TaskRegistry,
         interaction: TaskInteraction | None = None,
         notification_manager: NotificationManager | None = None,
         user_context: UserContext | None = None,
@@ -54,7 +55,10 @@ class TaskExecutor:
             config_loader: ConfigLoader for loading configurations
             settings: Application settings
             state: Application state (for tracking runs)
-            task_registry: Map of task name to task class
+            task_registry: Static registry of task name -> execution class
+             (and detail formatter for the presentation layer). Built
+             once at the top of the CLI (or a future GUI) and passed
+             in - TaskExecutor never mutates it.
             interaction: Port for user notifications/confirmations during execution
              (e.g. "task is disabled, run anyway?"). Defaults to NonInteractive,
             which never confirms - safe for systemd and tests.
@@ -69,7 +73,7 @@ class TaskExecutor:
         self.config_loader = config_loader
         self.settings = settings
         self.state = state
-        self.task_registry = task_registry or {}
+        self.task_registry = task_registry
         self.interaction = interaction or NonInteractive()
         self._notification_manager = notification_manager
         self.user_context = user_context or UserContext.from_env()
@@ -79,20 +83,6 @@ class TaskExecutor:
         if self._notification_manager is None:
             self._notification_manager = NotificationManager()
         return self._notification_manager
-
-    def register_task(self, task_name: str, task_class: type[BaseTask]) -> None:
-        """
-        Register a task class for a task.
-
-        Args:
-            task_name: Task identifier (e.g., "failed-services")
-            task_class: Task class that handles this task
-
-        Example:
-            executor.register_task("failed-services", FailedServicesTask)
-        """
-        self.task_registry[task_name] = task_class
-        logger.debug(f"Registered task: {task_name} -> {task_class.__name__}")
 
     def _create_task(self, task_config: TaskConfig) -> BaseTask:
         """
@@ -107,13 +97,7 @@ class TaskExecutor:
         Raises:
             ValueError: If task name is not registered
         """
-        task_class = self.task_registry.get(task_config.name)
-
-        if not task_class:
-            raise ValueError(
-                f"No such task: {task_config.name}. "
-                f"Available tasks: {list(self.task_registry.keys())}"
-            )
+        task_class = self.task_registry.get_task_class(task_config.name)
 
         return task_class(
             config=task_config,
