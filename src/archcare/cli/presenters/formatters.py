@@ -131,7 +131,7 @@ class HealthCheckFormatter(TaskDetailFormatter):
             lines.append(f"  {label}: {status}")
 
         # Uptime
-        lines.append(f"  System Uptime: {summary.get("uptime", "unknown")}")
+        lines.append(f"  System Uptime: {summary.get('uptime', 'unknown')}")
 
 
 class MaintenanceCheckFormatter(TaskDetailFormatter):
