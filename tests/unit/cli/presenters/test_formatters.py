@@ -252,3 +252,26 @@ class TestMaintenanceCheckFormatter:
 
         assert "update-mirrorlist" in output
         assert expected_fragment in output
+
+
+# ---------------------------------------------------------------------------
+# FormatterFactory
+# ---------------------------------------------------------------------------
+
+
+class TestFormatterFactory:
+    def test_returns_default_formatter_for_unregistered_task(self):
+        formatter = FormatterFactory.get_formatter("generic-task")
+
+        assert isinstance(formatter, DefaultFormatter)
+
+    @pytest.mark.parametrize(
+        "task_name,formatter",
+        [
+            ("failed-services", FailedServicesFormatter),
+            ("health-check", HealthCheckFormatter),
+            ("maintenance-check", MaintenanceCheckFormatter),
+        ],
+    )
+    def test_maps_to_correct_formatter(self, task_name, formatter):
+        assert isinstance(FormatterFactory.get_formatter(task_name), formatter)
