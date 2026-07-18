@@ -201,3 +201,54 @@ class TestHealthCheckFormatter:
         )
 
         assert "System Uptime: 3 days" in output
+
+
+# ---------------------------------------------------------------------------
+# MaintenanceCheckFormatter
+# ---------------------------------------------------------------------------
+
+
+class TestMaintenanceCheckFormatter:
+    def test_includes_summary_counts(self):
+        details = {
+            "total_tasks_monitored": 4,
+            "critical_count": 1,
+            "warning_count": 2,
+            "info_count": 0,
+        }
+
+        output = _joined(MaintenanceCheckFormatter().format(details))
+
+        assert "Total tasks monitored: 4" in output
+        assert "Critical issues: 1" in output
+        assert "Warning issues: 2" in output
+        assert "Informational issues: 0" in output
+
+    def test_no_attention_section_when_list_empty(self):
+        output = _joined(
+            MaintenanceCheckFormatter().format({"tasks_needing_attention": []})
+        )
+
+        assert "Tasks needing attention:" not in output
+
+    @pytest.mark.parametrize(
+        "severity,expected_fragment",
+        [
+            ("critical", "CRITICAL"),
+            ("warning", "WARNING"),
+            ("info", "INFO"),
+        ],
+    )
+    def test_lists_tasks_needing_attention_with_severity(
+        self, severity, expected_fragment
+    ):
+        issue = Mock(spec=MaintenanceIssue)
+        issue.task_name = "update-mirrorlist"
+        issue.severity = severity
+
+        output = _joined(
+            MaintenanceCheckFormatter().format({"tasks_needing_attention": [issue]})
+        )
+
+        assert "update-mirrorlist" in output
+        assert expected_fragment in output
