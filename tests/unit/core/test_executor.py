@@ -314,10 +314,14 @@ class TestHandleDisabledTask:
         fresh_state: AppState,
         disabled_task: TaskConfig,
     ):
-        """user=<name> signals systemd mode; no TTY, so no confirm prompt."""
         interaction = RecordingInteraction(confirm_response=True)
+        mock_user_context = MagicMock(spec=UserContext)
+        mock_user_context.is_interactive = False
         executor = _make_executor(
-            tasks_config_with_disabled, fresh_state, interaction, user="alice"
+            tasks_config_with_disabled,
+            fresh_state,
+            interaction,
+            user_context=mock_user_context,
         )
 
         result = executor.execute_task(disabled_task.name)
@@ -383,8 +387,13 @@ class TestHandleNotDueTask:
         automated_task: TaskConfig,
     ):
         interaction = RecordingInteraction(confirm_response=True)
+        mock_user_context = MagicMock(spec=UserContext)
+        mock_user_context.is_interactive = False
         executor = _make_executor(
-            tasks_config, state_with_recent_run, interaction, user="alice"
+            tasks_config,
+            state_with_recent_run,
+            interaction,
+            user_context=mock_user_context,
         )
 
         result = executor.execute_task(automated_task.name)
