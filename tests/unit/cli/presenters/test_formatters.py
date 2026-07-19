@@ -1,14 +1,11 @@
 """Unit tests for task detail formatters."""
 
-from typing import Any
 from unittest.mock import Mock
 
 import pytest
 
 from archcare.cli.presenters.formatters import (
-    DefaultFormatter,
     FailedServicesFormatter,
-    FormatterFactory,
     HealthCheckFormatter,
     MaintenanceCheckFormatter,
 )
@@ -17,27 +14,6 @@ from archcare.core import MaintenanceIssue
 
 def _joined(lines: list[str]) -> str:
     return "\n".join(lines)
-
-
-# ---------------------------------------------------------------------------
-# DefaultFormatter
-# ---------------------------------------------------------------------------
-
-
-class TestDefaultFormatter:
-    def test_formats_each_key_value_pair(self):
-        output = _joined(DefaultFormatter().format({"foo": "bar", "count": 3}))
-
-        assert "foo: bar" in output
-        assert "count: 3" in output
-
-    def test_skips_keys_starting_with_underscore(self):
-        output = _joined(
-            DefaultFormatter().format({"_internal": "hidden", "visible": "shown"})
-        )
-
-        assert "hidden" not in output
-        assert "shown" in output
 
 
 # ---------------------------------------------------------------------------
@@ -252,26 +228,3 @@ class TestMaintenanceCheckFormatter:
 
         assert "update-mirrorlist" in output
         assert expected_fragment in output
-
-
-# ---------------------------------------------------------------------------
-# FormatterFactory
-# ---------------------------------------------------------------------------
-
-
-class TestFormatterFactory:
-    def test_returns_default_formatter_for_unregistered_task(self):
-        formatter = FormatterFactory.get_formatter("generic-task")
-
-        assert isinstance(formatter, DefaultFormatter)
-
-    @pytest.mark.parametrize(
-        "task_name,formatter",
-        [
-            ("failed-services", FailedServicesFormatter),
-            ("health-check", HealthCheckFormatter),
-            ("maintenance-check", MaintenanceCheckFormatter),
-        ],
-    )
-    def test_maps_to_correct_formatter(self, task_name, formatter):
-        assert isinstance(FormatterFactory.get_formatter(task_name), formatter)

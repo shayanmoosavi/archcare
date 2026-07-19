@@ -13,7 +13,7 @@ from archcare.config import (
     TaskConfig,
     TasksConfig,
 )
-from archcare.core import TaskResult, success
+from archcare.core import TaskDescriptor, TaskRegistry, TaskResult, success
 from archcare.core.executor import TaskExecutor
 from archcare.tasks import BaseTask
 from archcare.utils import UserContext
@@ -60,6 +60,8 @@ class FakeTask(BaseTask):
 # Fixtures and Helpers
 # ---------------------------------------------------------------------------
 
+_EMPTY_REGISTRY = TaskRegistry(())  # for tests that don't care which tasks exist
+
 
 @pytest.fixture
 def tasks_config_with_disabled(
@@ -105,20 +107,23 @@ def _make_executor(
     loader.load_tasks.return_value = tasks_config
     loader.save_state = MagicMock()  # suppress filesystem writes
 
-    executor = TaskExecutor(
+    task_registry = TaskRegistry(
+        tuple(
+            TaskDescriptor(name=task_config.name, task_class=FakeTask)
+            for task_config in tasks_config.tasks.values()
+        )
+    )
+
+    return TaskExecutor(
         config_loader=loader,
         settings=AppSettings(user=user),
         state=state,
+        task_registry=task_registry,
         interaction=interaction,
         notification_manager=notification_manager
         or MagicMock(spec=NotificationManager),
         user_context=user_context or MagicMock(spec=UserContext),
     )
-
-    for task_config in tasks_config.tasks.values():
-        executor.register_task(task_config.name, FakeTask)
-
-    return executor
 
 
 # ---------------------------------------------------------------------------
@@ -138,6 +143,7 @@ class TestNotificationManagerProperty:
             config_loader=MagicMock(spec=ConfigLoader),
             settings=AppSettings(),
             state=AppState(),
+            task_registry=_EMPTY_REGISTRY,
             notification_manager=mock_manager_class.return_value,
         )
 
@@ -149,6 +155,7 @@ class TestNotificationManagerProperty:
             config_loader=MagicMock(spec=ConfigLoader),
             settings=AppSettings(),
             state=AppState(),
+            task_registry=_EMPTY_REGISTRY,
         )
 
         mock_manager_class.assert_not_called()
@@ -159,6 +166,7 @@ class TestNotificationManagerProperty:
             config_loader=MagicMock(spec=ConfigLoader),
             settings=AppSettings(),
             state=AppState(),
+            task_registry=_EMPTY_REGISTRY,
         )
 
         result = executor.notification_manager
@@ -171,6 +179,7 @@ class TestNotificationManagerProperty:
             config_loader=MagicMock(spec=ConfigLoader),
             settings=AppSettings(),
             state=AppState(),
+            task_registry=_EMPTY_REGISTRY,
         )
 
         first = executor.notification_manager
@@ -192,6 +201,7 @@ class TestUserContextConstruction:
             config_loader=MagicMock(spec=ConfigLoader),
             settings=AppSettings(),
             state=AppState(),
+            task_registry=_EMPTY_REGISTRY,
             user_context=mock_user_context,
         )
 
@@ -204,6 +214,7 @@ class TestUserContextConstruction:
             config_loader=MagicMock(spec=ConfigLoader),
             settings=AppSettings(),
             state=AppState(),
+            task_registry=_EMPTY_REGISTRY,
         )
 
         mock_user_context_class.from_env.assert_called_once()

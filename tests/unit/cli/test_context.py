@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from archcare.cli.context import _TASK_REGISTRY, AppContext
+from archcare.cli.context import DEFAULT_TASK_REGISTRY, AppContext
 from archcare.cli.interaction import CliInteraction
 from archcare.config import AppSettings, LogLevel
 from archcare.core.executor import TaskExecutor
@@ -105,6 +105,28 @@ def mock_executor(mocker) -> MagicMock:
 
 
 # ---------------------------------------------------------------------------
+# task_registry property
+# ---------------------------------------------------------------------------
+
+
+class TestTaskRegistryProperty:
+    def test_returns_default_task_registry(self, context: AppContext):
+        assert context.task_registry is DEFAULT_TASK_REGISTRY
+
+    def test_does_not_require_executor_construction(
+        self, mock_executor: MagicMock, context: AppContext
+    ):
+        """
+        task_registry must be readable without forcing executor
+        construction - TaskPresenter needs it before the try/except block
+        that builds the executor, in cli/commands/task.py.
+        """
+        context.task_registry
+
+        mock_executor.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
 # is_interactive property
 # ---------------------------------------------------------------------------
 
@@ -192,12 +214,13 @@ class TestExecutorProperty:
         interaction = kwargs["interaction"]
         assert isinstance(interaction, CliInteraction)
 
-    def test_registers_all_known_tasks(self, mocker: MagicMock, context: AppContext):
-        register_task: MagicMock = mocker.patch.object(TaskExecutor, "register_task")
-
+    def test_builds_with_default_task_registry(
+        self, mock_executor: MagicMock, context: AppContext
+    ):
         context.executor
 
-        assert register_task.call_count == len(_TASK_REGISTRY)
+        _, kwargs = mock_executor.call_args
+        assert kwargs["task_registry"] is DEFAULT_TASK_REGISTRY
 
     def test_caches_after_first_access(
         self, mock_executor: MagicMock, context: AppContext
@@ -375,17 +398,20 @@ class TestExecutorForUser:
         _, kwargs = mock_executor.call_args
         assert "user_context" not in kwargs
 
-    def test_registers_all_known_tasks(
-        self, per_user_home_dir: Path, context: AppContext, monkeypatch, mocker
-    ):
-        monkeypatch.setenv("SUDO_USER", "alice")
-        self._init_target_user_config(per_user_home_dir, "alice")
+        def test_builds_with_default_task_registry(
+            self,
+            per_user_home_dir: Path,
+            context: AppContext,
+            monkeypatch,
+            mock_executor: MagicMock,
+        ):
+            monkeypatch.setenv("SUDO_USER", "alice")
+            self._init_target_user_config(per_user_home_dir, "alice")
 
-        register_task: MagicMock = mocker.patch.object(TaskExecutor, "register_task")
+            context.executor_for_user("alice")
 
-        context.executor_for_user("alice")
-
-        assert register_task.call_count == len(_TASK_REGISTRY)
+            _, kwargs = mock_executor.call_args
+            assert kwargs["task_registry"] is DEFAULT_TASK_REGISTRY
 
     def test_builds_a_fresh_instance_each_call(
         self,

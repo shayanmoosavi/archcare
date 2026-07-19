@@ -199,7 +199,7 @@ class TestTaskRun:
 
         # Confirm the exception is a SystemExit (typer.Exit) with exit code 1
         assert "Failed to run task" in result.stdout
-        assert "No such task" in result.stdout
+        assert "No task registered" in result.stdout
         assert isinstance(result.exception, SystemExit)
         assert result.exit_code == 1
 

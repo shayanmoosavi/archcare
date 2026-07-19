@@ -51,7 +51,7 @@ def mock_service(mocker) -> MagicMock:
 
 @pytest.fixture
 def mock_presenter(mocker) -> MagicMock:
-    return mocker.patch(f"{_MODULE}.TaskPresenter")
+    return mocker.patch(f"{_MODULE}.TaskPresenter").return_value
 
 
 # ---------------------------------------------------------------------------
@@ -182,9 +182,7 @@ class TestRun:
         ctx.obj.settings = "SETTINGS_SENTINEL"
 
         with pytest.raises(typer.Exit):
-            run(
-                ctx, task_name="update-mirrorlist", verbose=True
-            )  # ty:ignore[invalid-argument-type]
+            run(ctx, task_name="update-mirrorlist", verbose=True)  # ty:ignore[invalid-argument-type]
 
         _, kwargs = mock_presenter.render_run.call_args
         assert kwargs["settings"] == "SETTINGS_SENTINEL"
