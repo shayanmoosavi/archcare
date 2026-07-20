@@ -4,6 +4,7 @@ Core functionality for archcare task execution.
 
 from .models import (
     IssueSeverity,
+    MaintenanceCheckDetails,
     MaintenanceCheckResult,
     MaintenanceIssue,
     TaskResult,
@@ -14,6 +15,12 @@ from .models import (
     success,
 )
 from .scheduler import TaskScheduleInfo, TaskScheduler
+from .task_details import (
+    FailedServiceInfo,
+    FailedServicesDetails,
+    HealthCheckDetails,
+    HealthCheckSummary,
+)
 from .task_registry import TaskDescriptor, TaskRegistry
 
 __all__ = [
@@ -30,6 +37,12 @@ __all__ = [
     # Scheduler
     "TaskScheduler",
     "TaskScheduleInfo",
+    # Task details
+    "FailedServiceInfo",
+    "FailedServicesDetails",
+    "HealthCheckDetails",
+    "HealthCheckSummary",
+    "MaintenanceCheckDetails",
     # Task registry
     "TaskRegistry",
     "TaskDescriptor",
