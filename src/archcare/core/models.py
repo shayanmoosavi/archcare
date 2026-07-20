@@ -28,13 +28,15 @@ See Also:
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, TypeVar
 
 from archcare.config import SkipReason, TaskStatus
 
+TDetails = TypeVar("TDetails")
+
 
 @dataclass
-class TaskResult:
+class TaskResult[TDetails]:
     """
     Complete result of a task execution encapsulating status, messages, and metadata.
 
@@ -57,9 +59,10 @@ class TaskResult:
         message (str): Human-readable description of the result. For success,
             typically describes what was accomplished. For failures, describes
             the error. For skipped tasks, describes why skipping occurred.
-        details (dict[str, Any]): Optional structured data providing additional
-            context about the execution. Keys are context-specific and may
-            include counts, resource names, file paths, etc. Defaults to empty.
+        details (TDetails | None): Optional structured data providing
+            additional context about the execution - a typed dataclass
+            specific to the task that produced it (see core.task_details),
+            or None if there's nothing to report.
         error (str | None): The error message for the failure, defaults
             to None for successful or skipped tasks.
         timestamp (datetime): When the task execution completed. Automatically
@@ -84,7 +87,6 @@ class TaskResult:
         >>> result = TaskResult(
         ...     status=TaskStatus.SUCCESS,
         ...     message="System updated successfully",
-        ...     details={"packages_updated": 45},
         ...     duration_seconds=12.5
         ... )
         >>> result.is_success()
@@ -114,7 +116,7 @@ class TaskResult:
     message: str
 
     # TODO: Consider using a more structured type for details, e.g., a TypedDict or a custom dataclass
-    details: dict[str, Any] = field(default_factory=dict)
+    details: TDetails | None = None
     error: str | None = None
     timestamp: datetime = field(default_factory=datetime.now)
     duration_seconds: float = 0.0
@@ -183,7 +185,6 @@ class TaskResult:
             >>> result = TaskResult(
             ...     status=TaskStatus.PARTIAL,
             ...     message="3 of 5 checks passed",
-            ...     details={"passed": 3, "failed": 2}
             ... )
             >>> result.is_partial()
             True
@@ -432,6 +433,18 @@ class MaintenanceIssue:
         return self.days_overdue is not None and self.days_overdue > 0
 
 
+@dataclass(frozen=True)
+class MaintenanceCheckDetails:
+    """Details produced by MaintenanceCheckResult.to_task_result()."""
+
+    total_tasks_monitored: int = 0
+    tasks_needing_attention: list[MaintenanceIssue] = field(default_factory=list)
+    critical_count: int = 0
+    warning_count: int = 0
+    info_count: int = 0
+    maintenance_result: "MaintenanceCheckResult | None" = None
+
+
 @dataclass
 class MaintenanceCheckResult:
     """
@@ -480,7 +493,7 @@ class MaintenanceCheckResult:
     Methods:
         get_issues_by_severity(severity: IssueSeverity) -> list[MaintenanceIssue]:
             Filter and retrieve issues by a specific severity level.
-        to_task_result() -> TaskResult: Convert this comprehensive result to a
+        to_task_result() -> TaskResult[TDetails]: Convert this comprehensive result to a
             standard TaskResult format for integration with other components.
 
     Examples:
@@ -721,7 +734,7 @@ class MaintenanceCheckResult:
         }
         return severity_map[severity]
 
-    def to_task_result(self) -> TaskResult:
+    def to_task_result(self) -> TaskResult[MaintenanceCheckDetails]:
         """
         Convert this comprehensive result to a standard TaskResult format.
 
@@ -731,16 +744,16 @@ class MaintenanceCheckResult:
         all issue statistics are included in the details dictionary.
 
         Returns:
-            TaskResult: A TaskResult with:
-                - status: The overall check status
-                - message: The summary_message property
-                - details: Dictionary containing:
-                    - total_tasks_monitored: Count of tasks checked
-                    - tasks_needing_attention: List of critical and warning issues
-                    - critical_count: Number of critical issues
-                    - warning_count: Number of warning issues
-                    - info_count: Number of info issues
-                - error_message: Error message if check failed (None if successful)
+            TaskResult[MaintenanceCheckDetails]: A TaskResult with:
+                - status (TaskStatus): The overall check status
+                - message (str): The summary_message property
+                - details (MaintenanceCheckDetails): Dataclass containing:
+                    - total_tasks_monitored (int): Count of tasks checked
+                    - tasks_needing_attention (list[MaintenanceIssue]): List of critical and warning issues
+                    - critical_count (int): Number of critical issues
+                    - warning_count (int): Number of warning issues
+                    - info_count (int): Number of info issues
+                - error_message (str | None): Error message if check failed (None if successful)
 
         Examples:
             >>> check = MaintenanceCheckResult(
@@ -752,11 +765,11 @@ class MaintenanceCheckResult:
             >>> result = check.to_task_result()
             >>> result.is_partial()
             True
-            >>> result.details['critical_count']
+            >>> result.details.critical_count
             2
-            >>> result.details['warning_count']
+            >>> result.details.warning_count
             1
-            >>> result.details['total_tasks_monitored']
+            >>> result.details.total_tasks_monitored
             15
 
         See Also:
@@ -765,18 +778,19 @@ class MaintenanceCheckResult:
         return TaskResult(
             status=self.status,
             message=self.summary_message,
-            details={
-                "total_tasks_monitored": self.total_tasks_monitored,
-                "tasks_needing_attention": self.tasks_needing_attention,
-                "critical_count": len(self.critical_issues),
-                "warning_count": len(self.warning_issues),
-                "info_count": len(self.info_issues),
-            },
+            details=MaintenanceCheckDetails(
+                total_tasks_monitored=self.total_tasks_monitored,
+                tasks_needing_attention=self.tasks_needing_attention,
+                critical_count=len(self.critical_issues),
+                warning_count=len(self.warning_issues),
+                info_count=len(self.info_issues),
+                maintenance_result=self,
+            ),
             error=self.error_message,
         )
 
 
-def success(message: str, **details) -> TaskResult:
+def success(message: str, details: TDetails | None = None) -> TaskResult[TDetails]:
     """
     Create a success result.
 
@@ -786,23 +800,28 @@ def success(message: str, **details) -> TaskResult:
     Args:
         message (str): Human-readable success message describing what was accomplished.
             Examples: "System updated successfully", "Cleanup completed", "All checks passed".
-        **details: Additional context-specific details as keyword arguments. These are
-            collected into the `details` dictionary. Common keys might include counts of
-            items processed, resources updated, etc.
+        details (TDetails | None): A dataclass instance describing task-specific structured
+            details (see core.task_details for per-task schemas), or None
+            if there's nothing to report.
 
     Returns:
-        TaskResult: A new TaskResult instance with:
+        TaskResult[TDetails]: A new TaskResult instance with:
             - status: TaskStatus.SUCCESS
             - message: The provided message
-            - details: Dictionary created from **details keyword arguments
+            - details: The provided details instance
             - timestamp: Current time (set automatically)
 
     Examples:
-        >>> result = success("Update completed", packages_updated=45, duration_ms=1250)
+        >>> from dataclasses import dataclass
+        >>> @dataclass
+        ... class UpdateDetails:
+        ...     packages_updated: int
+        ...     duration_ms: int
+        >>> result = success("Update completed", UpdateDetails(packages_updated=45, duration_ms=1250))
         >>> result.is_success()
         True
         >>> result.details
-        {'packages_updated': 45, 'duration_ms': 1250}
+        UpdateDetails(packages_updated=45, duration_ms=1250)
         >>> str(result)
         '[SUCCESS] Update completed'
 
@@ -816,10 +835,16 @@ def success(message: str, **details) -> TaskResult:
         skipped: Create a skipped result
         partial: Create a partial result
     """
-    return TaskResult(status=TaskStatus.SUCCESS, message=message, details=details)
+    return TaskResult(
+        status=TaskStatus.SUCCESS,
+        message=message,
+        details=details,
+    )
 
 
-def failed(message: str, error: str | None = None, **details) -> TaskResult:
+def failed(
+    message: str, error: str | None = None, details: TDetails | None = None
+) -> TaskResult[TDetails]:
     """
     Create a failure result.
 
@@ -833,16 +858,16 @@ def failed(message: str, error: str | None = None, **details) -> TaskResult:
             "Update check failed", "Installation failed with disk full error",
             "Network connection timeout".
         error (str | None): The error message of the exact exception that caused the failure.
-        **details: Additional context-specific details as keyword arguments. These are
-            collected into the `details` dictionary and may include error codes,
-            affected resources, partial results, retry information, etc.
+        details (TDetails | None): A dataclass instance describing task-specific structured
+            details (see core.task_details for per-task schemas), or None
+            if there's nothing to report.
 
     Returns:
-        TaskResult: A new TaskResult instance with:
+        TaskResult[TDetails]: A new TaskResult instance with:
             - status: TaskStatus.FAILURE
             - message: The provided failure message
-            - error: The exception object (if provided)
-            - details: Dictionary created from **details keyword arguments
+            - error: The error message (if provided)
+            - details: The provided details instance
             - timestamp: Current time (set automatically)
 
     Examples:
@@ -853,27 +878,39 @@ def failed(message: str, error: str | None = None, **details) -> TaskResult:
         >>> result.error is None
         True
 
+        >>> from dataclasses import dataclass
+        >>> @dataclass
+        ... class ExampleTaskDetails:
+        ...     retry_count: int
         >>> # Failure with exception object
         >>> def risky_operation():
         ...     raise ValueError("Raising ValueError...")
         >>> try:
         ...     risky_operation()
         ... except Exception as e:
-        ...     result = failed("Operation failed", error=str(e), retry_count=3)
+        ...     result = failed("Operation failed", error=str(e), details=ExampleTaskDetails(retry_count=3))
         >>> result.is_failed()
         True
         >>> result.error is not None
         True
         >>> result.details
-        {'retry_count': 3}
+        ExampleTaskDetails(retry_count=3)
 
         >>> # Failure with detailed context
+        >>> from dataclasses import dataclass
+        >>> @dataclass
+        ... class BackupDetails:
+        ...     failed_files: int
+        ...     total_files: int
+        ...     backup_size_gb: float
         >>> result = failed(
         ...     "Backup failed",
-        ...     error=str(IOError("Disk full"))),
-        ...     failed_files=5,
-        ...     total_files=100,
-        ...     backup_size_gb=50
+        ...     error=str(IOError("Disk full")),
+        ...     details=BackupDetails(
+        ...         failed_files=5,
+        ...         total_files=100,
+        ...         backup_size_gb=50
+        ...     )
         ... )
         >>> str(result)
         '[FAILURE] Backup failed Error: Disk full'
@@ -884,11 +921,16 @@ def failed(message: str, error: str | None = None, **details) -> TaskResult:
         partial: Create a partial result
     """
     return TaskResult(
-        status=TaskStatus.FAILURE, message=message, error=error, details=details
+        status=TaskStatus.FAILURE,
+        message=message,
+        error=error,
+        details=details,
     )
 
 
-def skipped(message: str, skip_reason: SkipReason | None, **details) -> TaskResult:
+def skipped(
+    message: str, skip_reason: SkipReason | None, details: TDetails | None = None
+) -> TaskResult[TDetails]:
     """
     Create a skipped result.
 
@@ -905,16 +947,16 @@ def skipped(message: str, skip_reason: SkipReason | None, **details) -> TaskResu
             SkipReason enum. Provides machine-readable categorization of skip reasons
             for programmatic handling. Can be None if no specific reason applies.
             Examples: DISABLED, DEPENDENCY_FAILED, NOT_DUE.
-        **details: Additional context-specific details as keyword arguments. These are
-            collected into the `details` dictionary and may include reason codes,
-            dependent task names, failed preconditions, etc.
+        details (TDetails | None): A dataclass instance describing task-specific structured
+            details (see core.task_details for per-task schemas), or None
+            if there's nothing to report.
 
     Returns:
-        TaskResult: A new TaskResult instance with:
+        TaskResult[TDetails]: A new TaskResult instance with:
             - status: TaskStatus.SKIPPED
             - message: The provided skip message
             - skip_reason: The enumerated skip reason
-            - details: Dictionary created from **details keyword arguments
+            - details: The provided details instance
             - timestamp: Current time (set automatically)
 
     Examples:
@@ -932,23 +974,9 @@ def skipped(message: str, skip_reason: SkipReason | None, **details) -> TaskResu
         >>> result = skipped(
         ...     "Dependency task 'system-update' failed",
         ...     skip_reason=SkipReason.DEPENDENCY_FAILED,
-        ...     dependent_task="system-update"
         ... )
         >>> result.is_skipped()
         True
-        >>> result.details['dependent_task']
-        'system-update'
-
-        >>> # Skip with detailed context
-        >>> result = skipped(
-        ...     "Task is not due yet, skipping execution",
-        ...     skip_reason=SkipReason.NOT_DUE,
-        ...     next_due_in_days=3
-        ... )
-        >>> result.is_skipped()
-        True
-        >>> result.details['next_due_in_days']
-        3
 
     See Also:
         success: Create a success result
@@ -964,7 +992,7 @@ def skipped(message: str, skip_reason: SkipReason | None, **details) -> TaskResu
     )
 
 
-def partial(message: str, **details) -> TaskResult:
+def partial(message: str, details: TDetails | None = None) -> TaskResult[TDetails]:
     """
     Create a partial result.
 
@@ -978,54 +1006,19 @@ def partial(message: str, **details) -> TaskResult:
             Should clearly indicate what succeeded and what didn't. Examples:
             "3 of 5 checks passed", "Found 3 failed service(s) requiring attention",
             "Health check found 2 warning(s)".
-        **details: Additional context-specific details as keyword arguments. These are
-            collected into the `details` dictionary and typically include success/failure
-            counts, percentages, partially processed items, error summaries, etc.
+        details (TDetails | None): A dataclass instance describing task-specific structured
+            details (see core.task_details for per-task schemas), or None
+            if there's nothing to report.
 
     Returns:
-        TaskResult: A new TaskResult instance with:
+        TaskResult[TDetails]: A new TaskResult instance with:
             - status: TaskStatus.PARTIAL
             - message: The provided status message
-            - details: Dictionary created from **details keyword arguments
+            - details: The provided details instance
             - timestamp: Current time (set automatically)
 
     Examples:
-        >>> # Health check with some issues found
-        >>> result = partial(
-        ...     message="Health check found 2 warning(s)",
-        ...     warnings=["High CPU usage at 92%", "Disk usage at 85%"],
-        ...     checks={"cpu": {...}, "disk": {...}},
-        ...     total_checks=7
-        ... )
-        >>> result.is_partial()
-        True
-        >>> result.details['total_checks']
-        7
-
-        >>> # Failed services task with some services failing
-        >>> result = partial(
-        ...     message="Found 3 failed service(s) requiring attention",
-        ...     failed_services=[
-        ...         {"service": "nginx", "active": "failed", "logs": [...]},
-        ...         {"service": "postgres", "active": "failed", "logs": [...]}
-        ...     ],
-        ...     total_failed=5,
-        ...     actual_failures=3,
-        ...     ignored=2,
-        ...     ignored_services=["service1", "service2"]
-        ... )
-        >>> result.is_partial()
-        True
-        >>> result.details['ignored']
-        2
-
-        >>> # System check where multiple checks ran but some found issues
-        >>> result = partial(
-        ...     message="3 of 7 health checks passed",
-        ...     passed_checks=["memory", "uptime", "filesystem"],
-        ...     failed_checks=["disk_usage", "cpu_load"],
-        ...     total_checks=7
-        ... )
+        >>> result = partial(message="Health check found 2 warning(s)")
         >>> result.is_partial()
         True
 
@@ -1035,4 +1028,8 @@ def partial(message: str, **details) -> TaskResult:
         skipped: Create a skipped result
         MaintenanceCheckResult: For comprehensive maintenance check results
     """
-    return TaskResult(status=TaskStatus.PARTIAL, message=message, details=details)
+    return TaskResult(
+        status=TaskStatus.PARTIAL,
+        message=message,
+        details=details,
+    )
