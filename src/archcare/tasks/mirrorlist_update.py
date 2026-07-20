@@ -7,7 +7,7 @@ from typing import Any
 
 from loguru import logger
 
-from archcare.core import TaskResult, failed, success
+from archcare.core import MirrorlistUpdateDetails, TaskResult, failed, success
 from archcare.utils import (
     backup_file,
     check_command_exists,
@@ -55,7 +55,7 @@ class MirrorlistUpdateTask(BaseTask):
 
         return True, ""
 
-    def execute(self) -> TaskResult:
+    def execute(self) -> TaskResult[MirrorlistUpdateDetails]:
         """
         Update mirrorlist with the fastest mirrors.
 
@@ -89,7 +89,7 @@ class MirrorlistUpdateTask(BaseTask):
             return failed(
                 f"Failed to create mirrorlist backup: {e}",
                 error=str(e),
-                old_info=old_info,
+                details=MirrorlistUpdateDetails(old_info=old_info),
             )
 
         # Run reflector
@@ -135,14 +135,16 @@ class MirrorlistUpdateTask(BaseTask):
 
         return success(
             f"Mirrorlist updated successfully with {new_info['total_mirrors']} mirrors",
-            old_mirrors=old_info["total_mirrors"],
-            new_mirrors=new_info["total_mirrors"],
-            old_info=old_info,
-            new_info=new_info,
-            backup_path=str(self.backup_path),
+            details=MirrorlistUpdateDetails(
+                old_mirrors=old_info["total_mirrors"],
+                new_mirrors=new_info["total_mirrors"],
+                old_info=old_info,
+                new_info=new_info,
+                backup_path=str(self.backup_path),
+            ),
         )
 
-    def post_execute(self, result: TaskResult):
+    def post_execute(self, result: TaskResult[MirrorlistUpdateDetails]):
         """Cleanup 5 oldest backups after successful update."""
         if result.is_success() and self.backup_path:
             try:
