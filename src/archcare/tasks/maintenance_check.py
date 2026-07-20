@@ -153,13 +153,7 @@ class MaintenanceCheckTask(BaseTask):
         # Get task state and schedule info
         task_state = self.state.get_task_state(task_name)
         schedule_info = self.scheduler.get_schedule_info(task_name)
-
-        # Calculate days overdue (negative if not due yet)
-        days_overdue = (
-            (datetime.now() - schedule_info.next_due).days
-            if schedule_info.next_due
-            else None
-        )
+        days_overdue = schedule_info.days_overdue
 
         # Check for different issue types
 
@@ -203,7 +197,7 @@ class MaintenanceCheckTask(BaseTask):
 
     def _check_overdue_task(
         self,
-        days_overdue: int | None,
+        days_overdue: int,
         issues: list[MaintenanceIssue],
         schedule_info: TaskScheduleInfo,
         task_config: TaskConfig,
@@ -214,7 +208,7 @@ class MaintenanceCheckTask(BaseTask):
         Checks whether a manual task is overdue and appends the MaintenanceIssue to the issues list if so.
 
         Args:
-            days_overdue: Number of days overdue. None if never run
+            days_overdue: Number of days overdue.
             issues: List of maintenance issues found
             schedule_info: Schedule info for the task being checked
             task_config: The TaskConfig instance for the task being checked
@@ -240,7 +234,7 @@ class MaintenanceCheckTask(BaseTask):
 
     @staticmethod
     def _check_broken_timer(
-        days_overdue: int | None,
+        days_overdue: int,
         issues: list[MaintenanceIssue],
         timer_threshold_days: float,
         task_name: str,
@@ -251,41 +245,35 @@ class MaintenanceCheckTask(BaseTask):
         to the issues list if so.
 
         Args:
-            days_overdue: Number of days overdue. None if never run
+            days_overdue: Number of days overdue.
             issues: List of maintenance issues found
             timer_threshold_days: The threshold for the days overdue to be considered critical
             task_name: Name of the task
             task_state: The current state of the task
-
-        Raises:
-            ValueError: If days_overdue is None
         """
 
-        if days_overdue is not None:
-            if days_overdue > timer_threshold_days:
-                issues.append(
-                    MaintenanceIssue(
-                        task_name=task_name,
-                        severity=IssueSeverity.CRITICAL,
-                        description=(
-                            f"Automated task is severely overdue ({days_overdue} days). "
-                            f"Timer may be broken or disabled."
-                        ),
-                        days_overdue=days_overdue,
-                        last_run=task_state.last_run,
-                        last_status=task_state.last_status,
-                        recommendation=(
-                            f"Check timer: systemctl status archcare@{task_name}.timer\n"
-                            f"Enable timer: sudo systemctl enable --now archcare@{task_name}.timer"
-                        ),
-                    )
+        if days_overdue > timer_threshold_days:
+            issues.append(
+                MaintenanceIssue(
+                    task_name=task_name,
+                    severity=IssueSeverity.CRITICAL,
+                    description=(
+                        f"Automated task is severely overdue ({days_overdue} days). "
+                        f"Timer may be broken or disabled."
+                    ),
+                    days_overdue=days_overdue,
+                    last_run=task_state.last_run,
+                    last_status=task_state.last_status,
+                    recommendation=(
+                        f"Check timer: systemctl status archcare@{task_name}.timer\n"
+                        f"Enable timer: sudo systemctl enable --now archcare@{task_name}.timer"
+                    ),
                 )
-        else:
-            raise ValueError("days overdue should not be `None`")
+            )
 
     def _check_failed_automated_task(
         self,
-        days_overdue: int | None,
+        days_overdue: int,
         issues: list[MaintenanceIssue],
         schedule_info: TaskScheduleInfo,
         task_name: str,
@@ -295,7 +283,7 @@ class MaintenanceCheckTask(BaseTask):
         Check whether a failed automated task is overdue and appends the MaintenanceIssue to the issues list if so.
 
         Args:
-            days_overdue: Number of days overdue. None if never run
+            days_overdue: Number of days overdue.
             issues: List of maintenance issues found
             schedule_info: Schedule info for the task being checked
             task_name: Name of the task
@@ -320,12 +308,12 @@ class MaintenanceCheckTask(BaseTask):
                 )
             )
 
-    def _determine_severity(self, days_overdue: int | None) -> IssueSeverity:
+    def _determine_severity(self, days_overdue: int) -> IssueSeverity:
         """
         Determine severity based on days overdue.
 
         Args:
-            days_overdue: Number of days overdue. None if never run
+            days_overdue: Number of days overdue.
 
         Returns:
             Appropriate severity level
@@ -347,9 +335,7 @@ class MaintenanceCheckTask(BaseTask):
                 return IssueSeverity.INFO
 
     @staticmethod
-    def _format_overdue_description(
-        task_config: TaskConfig, days_overdue: int | None
-    ) -> str:
+    def _format_overdue_description(task_config: TaskConfig, days_overdue: int) -> str:
         """
         Format a description for an overdue task.
 
@@ -363,15 +349,12 @@ class MaintenanceCheckTask(BaseTask):
         Raises:
             ValueError: If days_overdue is None
         """
-        if days_overdue is not None:
-            if days_overdue == 0:
-                return f"Task `{task_config.name}` is due today"
-            elif days_overdue == 1:
-                return f"Task `{task_config.name}` is overdue by 1 day"
-            else:
-                return f"Task `{task_config.name}` is overdue by {days_overdue} days"
+        if days_overdue == 0:
+            return f"Task `{task_config.name}` is due today"
+        elif days_overdue == 1:
+            return f"Task `{task_config.name}` is overdue by 1 day"
         else:
-            raise ValueError("days overdue should not be `None`")
+            return f"Task `{task_config.name}` is overdue by {days_overdue} days"
 
     @staticmethod
     def _format_time_ago(timestamp: datetime | None) -> str:
