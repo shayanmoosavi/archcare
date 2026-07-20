@@ -20,6 +20,7 @@ from .task_details import (
     FailedServicesDetails,
     HealthCheckDetails,
     HealthCheckSummary,
+    MirrorlistUpdateDetails,
 )
 from .task_registry import TaskDescriptor, TaskRegistry
 
@@ -43,6 +44,7 @@ __all__ = [
     "HealthCheckDetails",
     "HealthCheckSummary",
     "MaintenanceCheckDetails",
+    "MirrorlistUpdateDetails",
     # Task registry
     "TaskRegistry",
     "TaskDescriptor",

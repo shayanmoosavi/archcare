@@ -10,6 +10,7 @@ a plain dict[str, Any].
 """
 
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -55,3 +56,14 @@ class HealthCheckDetails:
     warnings: list[str] = field(default_factory=list)
     total_checks: int = 0
     summary: HealthCheckSummary = field(default_factory=HealthCheckSummary)
+
+
+@dataclass(frozen=True)
+class MirrorlistUpdateDetails:
+    """Details produced by MirrorlistUpdateTask.execute()."""
+
+    old_mirrors: int | None = None
+    new_mirrors: int | None = None
+    old_info: dict[str, Any] = field(default_factory=dict)
+    new_info: dict[str, Any] = field(default_factory=dict)
+    backup_path: str | None = None
