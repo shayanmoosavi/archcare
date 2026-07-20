@@ -38,8 +38,8 @@ class TaskPresenter:
             print_header(f"Running Task: {response.task_name}")
 
         # The maintenance-check task has this in TaskResult details dictionary
-        maintenance_result: MaintenanceCheckResult | None = (
-            response.outcome.details.get("maintenance_result")
+        maintenance_result: MaintenanceCheckResult | None = getattr(
+            response.outcome.details, "maintenance_result", None
         )
 
         # Maintenance issues table rendering

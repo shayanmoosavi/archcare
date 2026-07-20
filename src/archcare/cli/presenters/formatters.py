@@ -10,60 +10,59 @@ CLI-specific rendering for each domain.
 
 from typing import Any
 
-from archcare.core import MaintenanceIssue
+from archcare.core import (
+    FailedServiceInfo,
+    FailedServicesDetails,
+    HealthCheckDetails,
+    HealthCheckSummary,
+    MaintenanceCheckDetails,
+    MaintenanceIssue,
+)
 
 
 class FailedServicesFormatter:
     """Formats details for the failed-services task."""
 
-    def format(self, details: dict[str, Any]) -> list[str]:
+    def format(self, details: FailedServicesDetails) -> list[str]:
         lines = []
 
-        failed_services = details.get("failed_services", [])
-        total = details.get("total_failed", 0)
-        actual = details.get("actual_failures", 0)
-        ignored = details.get("ignored", 0)
+        lines.append(f"[blue]  Total failed: {details.total_failed}[/blue]")
+        lines.append(f"[red]  ⚠ Requiring attention: {details.actual_failures}[/red]")
+        lines.append(f"[dim]  Ignored: {details.ignored}[/dim]")
 
-        lines.append(f"[blue]  Total failed: {total}[/blue]")
-        lines.append(f"[red]  ⚠ Requiring attention: {actual}[/red]")
-        lines.append(f"[dim]  Ignored: {ignored}[/dim]")
-
-        if failed_services:
+        if details.failed_services:
             lines.append("\n[bold]Failed Services:[/bold]")
 
-            self._add_failure_details(failed_services, lines)
+            self._add_failure_details(details.failed_services, lines)
 
         return lines
 
     @staticmethod
-    def _add_failure_details(failed_services: list[dict[str, Any]], lines: list[str]):
+    def _add_failure_details(
+        failed_services: list[FailedServiceInfo], lines: list[str]
+    ):
         """Add detailed failed services information to lines."""
         for failure in failed_services:
-            service = failure.get("service", "unknown")
-            desc = failure.get("description", "")
-            active = failure.get("active", "unknown")
-
-            lines.append(f"  • [red]{service}[/red]")
-            if desc:
-                lines.append(f"    {desc}")
-            lines.append(f"    Status: {active}")
+            lines.append(f"  • [red]{failure.service}[/red]")
+            if failure.description:
+                lines.append(f"    {failure.description}")
+            lines.append(f"    Status: {failure.active}")
 
             # Show a few log lines
-            logs = failure.get("logs", [])
-            if logs:
+            if failure.logs:
                 lines.append("    Recent logs:")
-                for log in logs[-3:]:  # Last 3 lines
+                for log in failure.logs[-3:]:  # Last 3 lines
                     lines.append(f"      {log[:160]}")  # Truncate long lines
 
 
 class HealthCheckFormatter:
     """Formats details for the health-check task."""
 
-    def format(self, details: dict[str, Any]) -> list[str]:
+    def format(self, details: HealthCheckDetails) -> list[str]:
         lines = []
-        issues = details.get("issues", [])
-        warnings = details.get("warnings", [])
-        summary = details.get("summary", {})
+        issues = details.issues
+        warnings = details.warnings
+        summary = details.summary
 
         if issues:
             lines.append("\n[bold red]Critical Issues:[/bold red]")
@@ -81,57 +80,59 @@ class HealthCheckFormatter:
         return lines
 
     @staticmethod
-    def _format_summary(lines: list[Any], summary):
+    def _format_summary(lines: list[Any], summary: HealthCheckSummary):
         lines.append("\n[bold]System Summary:[/bold]")
 
         # Format resource usage metrics
-        for usage, key, thresholds in [
-            ("Disk Usage", "disk_usage_percent", [(90, "red"), (80, "yellow")]),
-            ("Memory Usage", "memory_usage_percent", [(90, "red"), (80, "yellow")]),
-            ("CPU Usage", "cpu_usage_percent", [(90, "yellow")]),
+        for usage, pct, thresholds in [
+            ("Disk Usage", summary.disk_usage_percent, [(90, "red"), (80, "yellow")]),
+            (
+                "Memory Usage",
+                summary.memory_usage_percent,
+                [(90, "red"), (80, "yellow")],
+            ),
+            ("CPU Usage", summary.cpu_usage_percent, [(90, "yellow")]),
         ]:
-            pct = summary.get(key, 0)
             color = next(
                 (color for threshold, color in thresholds if pct > threshold), "green"
             )
             lines.append(f"  {usage}: [{color}]{pct:.1f}%[/{color}]")
 
         # Filesystem errors
-        if (fs_errors := summary.get("filesystem_errors_count", 0)) > 0:
-            lines.append(f"  Filesystem Errors: [red]{fs_errors}[/red]")
+        if summary.filesystem_errors_count > 0:
+            lines.append(
+                f"  Filesystem Errors: [red]{summary.filesystem_errors_count}[/red]"
+            )
 
         # Pacman and package status
-        for label, key in [
-            ("Pacman Database", "pacman_healthy"),
-            ("Installed Package Files", "packages_healthy"),
+        for label, healthy in [
+            ("Pacman Database", summary.pacman_healthy),
+            ("Installed Package Files", summary.packages_healthy),
         ]:
             status = (
-                "[green]Healthy[/green]"
-                if summary.get(key, False)
-                else "[red]Issues Detected[/red]"
+                "[green]Healthy[/green]" if healthy else "[red]Issues Detected[/red]"
             )
             lines.append(f"  {label}: {status}")
 
         # Uptime
-        lines.append(f"  System Uptime: {summary.get('uptime', 'unknown')}")
+        lines.append(f"  System Uptime: {summary.uptime}")
 
 
 class MaintenanceCheckFormatter:
     """Formats details for the maintenance-check task."""
 
-    def format(self, details: dict[str, Any]) -> list[str]:
+    def format(self, details: MaintenanceCheckDetails) -> list[str]:
         lines = [
             "\n[bold]Summary: [/bold]",
-            f"  Total tasks monitored: {details.get('total_tasks_monitored', -1)}",
-            f"  Critical issues: {details.get('critical_count', -1)}",
-            f"  Warning issues: {details.get('warning_count', -1)}",
-            f"  Informational issues: {details.get('info_count', -1)}\n",
+            f"  Total tasks monitored: {details.total_tasks_monitored}",
+            f"  Critical issues: {details.critical_count}",
+            f"  Warning issues: {details.warning_count}",
+            f"  Informational issues: {details.info_count}\n",
         ]
 
         # Summary statistics
-
-        tasks_needing_attention: list[MaintenanceIssue] = details.get(
-            "tasks_needing_attention", []
+        tasks_needing_attention: list[MaintenanceIssue] = (
+            details.tasks_needing_attention
         )
         if tasks_needing_attention:
             severity_mapping = {
