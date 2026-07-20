@@ -16,7 +16,6 @@ from archcare.core import (
     HealthCheckDetails,
     HealthCheckSummary,
     MaintenanceCheckDetails,
-    MaintenanceIssue,
     MirrorlistUpdateDetails,
 )
 
@@ -45,14 +44,14 @@ class FailedServicesFormatter:
         """Add detailed failed services information to lines."""
         for failure in failed_services:
             lines.append(f"  • [red]{failure.service}[/red]")
-            if failure.description:
-                lines.append(f"    {failure.description}")
+            if desc := failure.description:
+                lines.append(f"    {desc}")
             lines.append(f"    Status: {failure.active}")
 
             # Show a few log lines
-            if failure.logs:
+            if logs := failure.logs:
                 lines.append("    Recent logs:")
-                for log in failure.logs[-3:]:  # Last 3 lines
+                for log in logs[-3:]:  # Last 3 lines
                     lines.append(f"      {log[:160]}")  # Truncate long lines
 
 
@@ -61,21 +60,19 @@ class HealthCheckFormatter:
 
     def format(self, details: HealthCheckDetails) -> list[str]:
         lines = []
-        issues = details.issues
-        warnings = details.warnings
-        summary = details.summary
 
-        if issues:
+        if issues := details.issues:
             lines.append("\n[bold red]Critical Issues:[/bold red]")
             for issue in issues:
                 lines.append(f"  • {issue}")
 
-        if warnings:
+        if warnings := details.warnings:
             lines.append("\n[bold yellow]Warnings:[/bold yellow]")
             for warning in warnings:
                 lines.append(f"  • {warning}")
 
         # Show summary statistics
+        summary = details.summary
         self._format_summary(lines, summary)
 
         return lines
