@@ -196,7 +196,7 @@ class TaskPresenter:
             lines.append(f"[bold red]Error:[/bold red] {result.error}")
 
         # Delegate the domain details to the factory if verbose
-        if verbose and result.details:
+        if verbose and result.details is not None:
             lines.append("\n[bold]Details:[/bold]")
             formatter_class = self._task_registry.get_formatter_class(task_name)
             lines.extend(formatter_class().format(result.details))
