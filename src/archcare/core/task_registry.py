@@ -41,10 +41,19 @@ class TaskRegistry:
         return descriptor.task_class
 
     def get_formatter_class(self, name: str) -> type[TaskDetailFormatter]:
-        """Look up the detail formatter for `name`, or DefaultFormatter if unregistered."""
+        """
+        Look up the detail formatter for `name`, or DefaultFormatter if
+        no formatter is registered.
+
+        Raises:
+            ValueError: If no task is registered under that name.
+        """
         descriptor = self._by_name.get(name)
         if descriptor is None:
-            return DefaultFormatter
+            raise ValueError(
+                f"No task registered for: {name}. "
+                f"Available tasks: {list(self._by_name.keys())}"
+            )
         return descriptor.formatter_class
 
     def names(self) -> tuple[str, ...]:

@@ -59,10 +59,9 @@ class TestGetFormatterClass:
     ):
         assert registry.get_formatter_class("task-b") is DefaultFormatter
 
-    def test_defaults_to_default_formatter_for_unregistered_name(
-        self, registry: TaskRegistry
-    ):
-        assert registry.get_formatter_class("task-c") is DefaultFormatter
+    def test_raises_value_error_for_unregistered_name(self, registry: TaskRegistry):
+        with pytest.raises(ValueError, match="task-c"):
+            registry.get_formatter_class("task-c")
 
 
 class TestNames:
