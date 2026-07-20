@@ -114,8 +114,6 @@ class TaskResult[TDetails]:
 
     status: TaskStatus
     message: str
-
-    # TODO: Consider using a more structured type for details, e.g., a TypedDict or a custom dataclass
     details: TDetails | None = None
     error: str | None = None
     timestamp: datetime = field(default_factory=datetime.now)

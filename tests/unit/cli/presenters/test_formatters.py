@@ -4,10 +4,11 @@ from unittest.mock import Mock
 
 import pytest
 
-from archcare.cli.presenters.formatters import (
+from archcare.cli.presenters import (
     FailedServicesFormatter,
     HealthCheckFormatter,
     MaintenanceCheckFormatter,
+    MirrorlistUpdateFormatter,
 )
 from archcare.core import (
     FailedServiceInfo,
@@ -16,6 +17,7 @@ from archcare.core import (
     HealthCheckSummary,
     MaintenanceCheckDetails,
     MaintenanceIssue,
+    MirrorlistUpdateDetails,
 )
 
 
@@ -283,3 +285,72 @@ class TestMaintenanceCheckFormatter:
 
         assert "update-mirrorlist" in output
         assert expected_fragment in output
+
+
+# ---------------------------------------------------------------------------
+# MirrorlistUpdateFormatter
+# ---------------------------------------------------------------------------
+
+
+class TestMirrorlistUpdateFormatter:
+    def test_empty_details_produces_no_lines(self):
+        output = MirrorlistUpdateFormatter().format(MirrorlistUpdateDetails())
+
+        assert output == []
+
+    def test_shows_mirror_count_change_when_both_present(self):
+        details = MirrorlistUpdateDetails(old_mirrors=5, new_mirrors=8)
+
+        output = _joined(MirrorlistUpdateFormatter().format(details))
+
+        assert "5" in output
+        assert "8" in output
+
+    @pytest.mark.parametrize(
+        "old_mirrors,new_mirrors",
+        [
+            (None, 8),
+            (5, None),
+            (None, None),
+        ],
+    )
+    def test_omits_mirror_line_when_either_side_missing(self, old_mirrors, new_mirrors):
+        details = MirrorlistUpdateDetails(
+            old_mirrors=old_mirrors, new_mirrors=new_mirrors
+        )
+
+        output = _joined(MirrorlistUpdateFormatter().format(details))
+
+        assert "Mirrors:" not in output
+
+    def test_shows_backup_path_when_present(self):
+        details = MirrorlistUpdateDetails(
+            backup_path="/etc/pacman.d/mirrorlist_x.backup"
+        )
+
+        output = _joined(MirrorlistUpdateFormatter().format(details))
+
+        assert "/etc/pacman.d/mirrorlist_x.backup" in output
+
+    def test_omits_backup_line_when_absent(self):
+        output = _joined(
+            MirrorlistUpdateFormatter().format(
+                MirrorlistUpdateDetails(backup_path=None)
+            )
+        )
+
+        assert "Backup:" not in output
+
+    def test_shows_previous_update_when_last_modified_present(self):
+        details = MirrorlistUpdateDetails(old_info={"last_modified": "2026-01-01"})
+
+        output = _joined(MirrorlistUpdateFormatter().format(details))
+
+        assert "2026-01-01" in output
+
+    def test_omits_previous_update_when_last_modified_absent(self):
+        details = MirrorlistUpdateDetails(old_info={"total_mirrors": 5})
+
+        output = _joined(MirrorlistUpdateFormatter().format(details))
+
+        assert "Previous update:" not in output
