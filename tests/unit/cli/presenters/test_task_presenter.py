@@ -35,7 +35,7 @@ TDetails = TypeVar("TDetails")
 
 def _make_outcome(is_skipped: bool = False, details: TDetails | None = None) -> Mock:
     """A minimal TaskResult stand-in exposing only what TaskPresenter reads."""
-    outcome = Mock(spec=TaskResult[TDetails])
+    outcome = MagicMock(spec=TaskResult)
     outcome.is_skipped.return_value = is_skipped
     outcome.details = details
     return outcome
@@ -46,10 +46,10 @@ def _make_result(
     message: str = "did the thing",
     duration_seconds: float = 1.234,
     error: str | None = None,
-    details: TDetails | None = None,
+    details: MagicMock | None = None,
 ) -> Mock:
     """A minimal TaskResult stand-in exposing only what _format_task_details reads."""
-    result = Mock(spec=TaskResult[TDetails])
+    result = MagicMock(spec=TaskResult)
     result.status = status
     result.message = message
     result.duration_seconds = duration_seconds
@@ -116,7 +116,7 @@ class TestRenderRun:
     def mock_mc_presenter(self, mocker) -> MagicMock:
         return mocker.patch(f"{_MODULE}.MaintenanceCheckPresenter")
 
-    def test_header_shown_when_outcome_not_skipped(
+    def test_header_shown_when_outcome_is_not_skipped(
         self,
         presenter: TaskPresenter,
         settings_terminal_mode: AppSettings,
@@ -124,7 +124,7 @@ class TestRenderRun:
     ):
 
         response = TaskRunResponse(
-            task_name="update-mirrorlist",
+            task_name="mock-task",
             outcome=_make_outcome(is_skipped=False),
             is_interactive=True,
         )
@@ -140,7 +140,7 @@ class TestRenderRun:
     ):
 
         response = TaskRunResponse(
-            task_name="update-mirrorlist",
+            task_name="mock-task",
             outcome=_make_outcome(is_skipped=True),
             is_interactive=True,
         )
@@ -209,7 +209,7 @@ class TestRenderRun:
     ):
 
         response = TaskRunResponse(
-            task_name="failed-services",
+            task_name="mock-task",
             outcome=_make_outcome(details=None),
             is_interactive=True,
         )
@@ -229,11 +229,11 @@ class TestRenderRun:
 
         outcome = _make_outcome(details=None)
         response = TaskRunResponse(
-            task_name="health-check", outcome=outcome, is_interactive=True
+            task_name="mock-task", outcome=outcome, is_interactive=True
         )
         presenter.render_run(response, settings_terminal_mode, verbose=verbose)
 
-        mock_format_details.assert_called_once_with("health-check", outcome, verbose)
+        mock_format_details.assert_called_once_with("mock-task", outcome, verbose)
 
 
 # ---------------------------------------------------------------------------
@@ -288,10 +288,12 @@ class TestRenderStatus:
             schedule_info=[MagicMock(spec=TaskScheduleInfo)], summary=summary
         )
         presenter.render_status(response)
+
+        assert response.summary is not None
         # Convert dict to panel content
         lines = [
             f"[bold]{key.replace('_', ' ').title()}:[/bold] {value}"
-            for key, value in response.summary.items()  # ty:ignore[unresolved-attribute]
+            for key, value in response.summary.items()
         ]
         mock_print_panel.assert_called_once_with("Summary", "\n".join(lines))
 
@@ -394,9 +396,9 @@ class TestConvenienceMethods:
     ):
         mocker.patch(_PATCH_INFO)
 
-        presenter.not_found("update-mirrorlist")
+        presenter.not_found("mock-task")
 
-        assert "update-mirrorlist" in mock_error.call_args.args[0]
+        assert "mock-task" in mock_error.call_args.args[0]
 
     def test_empty_calls_print_error_and_two_print_info(
         self, mock_info: MagicMock, presenter: TaskPresenter
@@ -424,9 +426,9 @@ class TestConvenienceMethods:
     def test_aborted_includes_task_name(self, mocker, presenter: TaskPresenter):
         mock_warning: MagicMock = mocker.patch(_PATCH_WARNING)
 
-        presenter.aborted("update-mirrorlist")
+        presenter.aborted("mock-task")
 
-        assert "update-mirrorlist" in mock_warning.call_args.args[0]
+        assert "mock-task" in mock_warning.call_args.args[0]
 
 
 # ---------------------------------------------------------------------------
@@ -463,7 +465,7 @@ class TestFormatTaskDetails:
             status=TaskStatus.SUCCESS, message="all good", duration_seconds=2.5
         )
 
-        output = presenter._format_task_details("health-check", result, verbose=False)
+        output = presenter._format_task_details("mock-task", result, verbose=False)
 
         assert "SUCCESS" in output
         assert "all good" in output
@@ -472,7 +474,7 @@ class TestFormatTaskDetails:
     def test_includes_error_line_when_error_present(self, presenter: TaskPresenter):
         result = _make_result(error="boom")
 
-        output = presenter._format_task_details("health-check", result, verbose=False)
+        output = presenter._format_task_details("mock-task", result, verbose=False)
 
         assert "Error:" in output
         assert "boom" in output
@@ -480,44 +482,44 @@ class TestFormatTaskDetails:
     def test_omits_error_line_when_error_absent(self, presenter: TaskPresenter):
         result = _make_result(error=None)
 
-        output = presenter._format_task_details("health-check", result, verbose=False)
+        output = presenter._format_task_details("mock-task", result, verbose=False)
 
         assert "Error:" not in output
 
     def test_omits_details_when_not_verbose(
-        self, presenter: TaskPresenter, fake_task_registry
+        self, presenter: TaskPresenter, fake_task_registry: MagicMock
     ):
-        result = _make_result(details={"some": "data"})
+        result = _make_result(details=MagicMock())
 
-        output = presenter._format_task_details("health-check", result, verbose=False)
+        output = presenter._format_task_details("mock-task", result, verbose=False)
 
         fake_task_registry.get_formatter_class.assert_not_called()
         assert "Details:" not in output
 
     def test_omits_details_when_verbose_but_no_details(
-        self, presenter: TaskPresenter, fake_task_registry
+        self, presenter: TaskPresenter, fake_task_registry: MagicMock
     ):
-        result = _make_result(details={})
+        result = _make_result(details=None)
 
-        output = presenter._format_task_details("health-check", result, verbose=True)
+        output = presenter._format_task_details("mock-task", result, verbose=True)
 
         fake_task_registry.get_formatter_class.assert_not_called()
         assert "Details:" not in output
 
     def test_delegates_to_task_registry_when_verbose_with_details(
-        self, presenter: TaskPresenter, fake_task_registry
+        self, presenter: TaskPresenter, fake_task_registry: MagicMock
     ):
         mock_formatter_class: MagicMock = (
             fake_task_registry.get_formatter_class.return_value
         )
         mock_formatter = mock_formatter_class.return_value
         mock_formatter.format.return_value = ["  cpu: 12%", "  mem: 34%"]
-        details = {"cpu_usage_percent": 12}
+        details = MagicMock()
         result = _make_result(details=details)
 
-        output = presenter._format_task_details("health-check", result, verbose=True)
+        output = presenter._format_task_details("mock-task", result, verbose=True)
 
-        fake_task_registry.get_formatter_class.assert_called_once_with("health-check")
+        fake_task_registry.get_formatter_class.assert_called_once_with("mock-task")
         mock_formatter_class.assert_called_once()
         mock_formatter.format.assert_called_once_with(details)
         assert "Details:" in output
