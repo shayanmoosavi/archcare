@@ -266,7 +266,6 @@ class TestMaintenanceCheckFormatter:
         [
             ("critical", "CRITICAL"),
             ("warning", "WARNING"),
-            ("info", "INFO"),
         ],
     )
     def test_lists_tasks_needing_attention_with_severity(

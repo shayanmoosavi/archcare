@@ -150,14 +150,10 @@ class MaintenanceCheckFormatter:
         ]
 
         # Summary statistics
-        tasks_needing_attention: list[MaintenanceIssue] = (
-            details.tasks_needing_attention
-        )
-        if tasks_needing_attention:
+        if tasks_needing_attention := details.tasks_needing_attention:
             severity_mapping = {
                 "critical": "[red]❗ CRITICAL[/red]",
                 "warning": "[yellow]⚠ WARNING[/yellow]",
-                "info": "[blue]ℹ INFO[/blue]",
             }
             lines.append("[bold]Tasks needing attention: [/bold]")
             for issue in tasks_needing_attention:
