@@ -2,9 +2,18 @@
 Health check task implementation for archcare.
 """
 
+import dataclasses
+
 from loguru import logger
 
-from archcare.core import TaskResult, failed, partial, success
+from archcare.core import (
+    HealthCheckDetails,
+    HealthCheckSummary,
+    TaskResult,
+    failed,
+    partial,
+    success,
+)
 from archcare.utils import (
     check_filesystem_errors,
     check_package_files,
@@ -33,7 +42,7 @@ class HealthCheckTask(BaseTask):
     - System uptime
     """
 
-    def execute(self) -> TaskResult:
+    def execute(self) -> TaskResult[HealthCheckDetails]:
         """
         Run all health checks and collect results.
 
@@ -53,17 +62,17 @@ class HealthCheckTask(BaseTask):
         packages_ok = self._check_installed_package_files(issues)
         uptime = self._check_system_uptime()
 
-        summary = {
-            "disk_usage_percent": disk_percent,
-            "memory_usage_percent": mem_percent,
-            "cpu_usage_percent": cpu_percent,
-            "filesystem_errors_count": len(fs_errors),
-            "pacman_healthy": pacman_ok,
-            "packages_healthy": packages_ok,
-            "uptime": uptime,
-        }
+        summary = HealthCheckSummary(
+            disk_usage_percent=disk_percent,
+            memory_usage_percent=mem_percent,
+            cpu_usage_percent=cpu_percent,
+            filesystem_errors_count=len(fs_errors),
+            pacman_healthy=pacman_ok,
+            packages_healthy=packages_ok,
+            uptime=uptime,
+        )
 
-        total_checks = len(summary)
+        total_checks = len(dataclasses.fields(summary))
 
         if issues:
             message = f"Health check found {len(issues)} critical issue(s)"
@@ -71,27 +80,33 @@ class HealthCheckTask(BaseTask):
             return failed(
                 message=message,
                 error=None,
-                issues=issues,
-                warnings=warnings,
-                total_checks=total_checks,
-                summary=summary,
+                details=HealthCheckDetails(
+                    issues=issues,
+                    warnings=warnings,
+                    total_checks=total_checks,
+                    summary=summary,
+                ),
             )
         elif warnings:
             message = f"Health check found {len(warnings)} warning(s)"
             logger.info(f"Health check complete: {message}")
             return partial(
                 message=message,
-                warnings=warnings,
-                total_checks=total_checks,
-                summary=summary,
+                details=HealthCheckDetails(
+                    warnings=warnings,
+                    total_checks=total_checks,
+                    summary=summary,
+                ),
             )
         else:
             message = "All health checks passed"
             logger.info(f"Health check complete: {message}")
             return success(
                 message=message,
-                total_checks=total_checks,
-                summary=summary,
+                details=HealthCheckDetails(
+                    total_checks=total_checks,
+                    summary=summary,
+                ),
             )
 
     @staticmethod

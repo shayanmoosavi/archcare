@@ -18,6 +18,7 @@ from archcare.config import (
 )
 from archcare.core import (
     IssueSeverity,
+    MaintenanceCheckDetails,
     MaintenanceCheckResult,
     MaintenanceIssue,
     TaskResult,
@@ -64,7 +65,7 @@ class MaintenanceCheckTask(BaseTask):
         self.tasks_config = self.config_loader.load_tasks()
         self.scheduler = TaskScheduler(self.tasks_config, self.state)
 
-    def execute(self) -> TaskResult:
+    def execute(self) -> TaskResult[MaintenanceCheckDetails]:
         """
         Execute maintenance check.
 
@@ -119,9 +120,7 @@ class MaintenanceCheckTask(BaseTask):
         logger.info("Maintenance check complete")
 
         self.maintenance_check_result = result
-        task_result = result.to_task_result()
-        task_result.details["maintenance_result"] = result
-        return task_result
+        return result.to_task_result()
 
     @staticmethod
     def _categorize_issues(
@@ -409,7 +408,7 @@ class MaintenanceCheckTask(BaseTask):
 
         return "just now"
 
-    def post_execute(self, result: TaskResult) -> None:
+    def post_execute(self, result: TaskResult[MaintenanceCheckDetails]) -> None:
         """
         Post-execution actions: send notifications and show terminal output.
 

@@ -5,7 +5,13 @@ Failed services task implementation for archcare.
 from loguru import logger
 
 from archcare.config import ConfigLoader, SkipReason
-from archcare.core import TaskResult, partial, success
+from archcare.core import (
+    FailedServiceInfo,
+    FailedServicesDetails,
+    TaskResult,
+    partial,
+    success,
+)
 from archcare.utils import (
     check_command_exists,
     get_service_logs,
@@ -63,7 +69,7 @@ class FailedServicesTask(BaseTask):
 
         return True, f"Found {len(actual_failures)} failed service(s)", None
 
-    def execute(self) -> TaskResult:
+    def execute(self) -> TaskResult[FailedServicesDetails]:
         """
         Check for failed services and provide detailed information.
 
@@ -103,12 +109,13 @@ class FailedServicesTask(BaseTask):
         if not actual_failures:
             return success(
                 "No failed services found",
-                total_failed=len(failed_services),
-                ignored=len(ignored_failures),
+                details=FailedServicesDetails(
+                    total_failed=len(failed_services), ignored=len(ignored_failures)
+                ),
             )
 
         # Gather detailed information about each failure
-        failure_details = []
+        failure_details: list[FailedServiceInfo] = []
 
         for service_name in actual_failures:
             logger.debug(f"Getting details for {service_name}")
@@ -120,13 +127,13 @@ class FailedServicesTask(BaseTask):
             logs = get_service_logs(service_name, lines=20)
 
             failure_details.append(
-                {
-                    "service": service_name,
-                    "description": status.get("description", ""),
-                    "active": status.get("active", "unknown"),
-                    "main_pid": status.get("main_pid"),
-                    "logs": logs[-10:] if logs else [],  # Last 10 lines
-                }
+                FailedServiceInfo(
+                    service=service_name,
+                    description=status.get("description", ""),
+                    active=status.get("active", "unknown"),
+                    main_pid=status.get("main_pid"),
+                    logs=logs[-10:] if logs else [],
+                )
             )
 
         # TODO: add failed service names to summary
@@ -134,9 +141,11 @@ class FailedServicesTask(BaseTask):
 
         return partial(
             message=message,
-            failed_services=failure_details,
-            total_failed=len(failed_services),
-            actual_failures=len(actual_failures),
-            ignored=len(ignored_failures),
-            ignored_services=ignored_failures,
+            details=FailedServicesDetails(
+                failed_services=failure_details,
+                total_failed=len(failed_services),
+                actual_failures=len(actual_failures),
+                ignored=len(ignored_failures),
+                ignored_services=ignored_failures,
+            ),
         )
