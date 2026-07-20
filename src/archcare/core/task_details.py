@@ -43,8 +43,8 @@ class HealthCheckSummary:
     memory_usage_percent: float = 0.0
     cpu_usage_percent: float = 0.0
     filesystem_errors_count: int = 0
-    pacman_healthy: bool = False
-    packages_healthy: bool = False
+    pacman_healthy: bool = True
+    packages_healthy: bool = True
     uptime: str = "unknown"
 
 
