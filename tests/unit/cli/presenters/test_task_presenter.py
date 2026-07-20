@@ -1,6 +1,6 @@
 """Unit tests for TaskPresenter."""
 
-from typing import Any
+from typing import TypeVar
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -8,7 +8,13 @@ import pytest
 from archcare.cli.presenters.task_presenter import TaskPresenter
 from archcare.config import AppSettings, TaskConfig, TaskStatus
 from archcare.config.models import MaintenanceCheckSettings
-from archcare.core import TaskRegistry, TaskResult, TaskScheduleInfo
+from archcare.core import (
+    MaintenanceCheckDetails,
+    MaintenanceCheckResult,
+    TaskRegistry,
+    TaskResult,
+    TaskScheduleInfo,
+)
 from archcare.services.responses import (
     TaskListResponse,
     TaskRunResponse,
@@ -20,18 +26,18 @@ _MODULE = "archcare.cli.presenters.task_presenter"
 _PATCH_INFO = f"{_MODULE}.print_info"
 _PATCH_WARNING = f"{_MODULE}.print_warning"
 
+TDetails = TypeVar("TDetails")
+
 # ---------------------------------------------------------------------------
 # Fixtures and Helpers
 # ---------------------------------------------------------------------------
 
 
-def _make_outcome(
-    is_skipped: bool = False, details: dict[str, Any] | None = None
-) -> Mock:
+def _make_outcome(is_skipped: bool = False, details: TDetails | None = None) -> Mock:
     """A minimal TaskResult stand-in exposing only what TaskPresenter reads."""
-    outcome = Mock(spec=TaskResult)
+    outcome = Mock(spec=TaskResult[TDetails])
     outcome.is_skipped.return_value = is_skipped
-    outcome.details = details or {}
+    outcome.details = details
     return outcome
 
 
@@ -40,15 +46,15 @@ def _make_result(
     message: str = "did the thing",
     duration_seconds: float = 1.234,
     error: str | None = None,
-    details: dict[str, Any] | None = None,
+    details: TDetails | None = None,
 ) -> Mock:
     """A minimal TaskResult stand-in exposing only what _format_task_details reads."""
-    result = Mock(spec=TaskResult)
+    result = Mock(spec=TaskResult[TDetails])
     result.status = status
     result.message = message
     result.duration_seconds = duration_seconds
     result.error = error
-    result.details = details or {}
+    result.details = details
     return result
 
 
@@ -151,16 +157,18 @@ class TestRenderRun:
     ):
         mocker.patch(_PATCH_INFO)
 
-        sentinel_result = object()
+        mock_result = MagicMock(spec=MaintenanceCheckResult)
         response = TaskRunResponse(
             task_name="maintenance-check",
-            outcome=_make_outcome(details={"maintenance_result": sentinel_result}),
+            outcome=_make_outcome(
+                details=MaintenanceCheckDetails(maintenance_result=mock_result)
+            ),
             is_interactive=True,
         )
         presenter.render_run(response, settings_terminal_mode)
 
         mock_mc_presenter.render.assert_called_once_with(
-            sentinel_result, is_interactive=True, require_acknowledgment=True
+            mock_result, is_interactive=True, require_acknowledgment=True
         )
 
     def test_shows_file_mode_message_instead_of_table(
@@ -179,7 +187,11 @@ class TestRenderRun:
 
         response = TaskRunResponse(
             task_name="maintenance-check",
-            outcome=_make_outcome(details={"maintenance_result": object()}),
+            outcome=_make_outcome(
+                details=MaintenanceCheckDetails(
+                    maintenance_result=MagicMock(spec=MaintenanceCheckResult)
+                )
+            ),
             is_interactive=True,
         )
         presenter.render_run(response, settings_file_mode)
@@ -198,7 +210,7 @@ class TestRenderRun:
 
         response = TaskRunResponse(
             task_name="failed-services",
-            outcome=_make_outcome(details={}),
+            outcome=_make_outcome(details=None),
             is_interactive=True,
         )
         presenter.render_run(response, settings_terminal_mode)
@@ -215,7 +227,7 @@ class TestRenderRun:
         verbose: bool,
     ):
 
-        outcome = _make_outcome(details={})
+        outcome = _make_outcome(details=None)
         response = TaskRunResponse(
             task_name="health-check", outcome=outcome, is_interactive=True
         )

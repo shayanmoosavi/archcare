@@ -11,6 +11,7 @@ _cleanup_old_reports() are a separate, natural follow-up pass.
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Callable
 from unittest.mock import MagicMock
 
 import pytest
@@ -30,6 +31,9 @@ from archcare.utils.notifications import NotificationManager
 
 _MODULE = "archcare.tasks.maintenance_check"
 _PATCH_CONFIG_LOADER = f"{_MODULE}.ConfigLoader"
+
+
+type MaintenanceCheckTaskFactory = Callable[..., MaintenanceCheckTask]
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
@@ -108,7 +112,9 @@ def task_with_thresholds(
 
 
 @pytest.fixture
-def make_task(maintenance_config: TaskConfig, settings: AppSettings, mocker):
+def make_task(
+    maintenance_config: TaskConfig, settings: AppSettings, mocker
+) -> MaintenanceCheckTaskFactory:
     """Builds a task and swaps in real tasks_config/state/scheduler."""
 
     def _make(
@@ -373,7 +379,9 @@ class TestCategorizeIssues:
 
 
 class TestCheckTask:
-    def test_never_run_task_returns_single_info_issue(self, make_task):
+    def test_never_run_task_returns_single_info_issue(
+        self, make_task: MaintenanceCheckTaskFactory
+    ):
         config = _task_config("test-task", "automated")
         tasks_config = TasksConfig(tasks={config.name: config})
         task = make_task(tasks_config=tasks_config)  # fresh AppState -> never run
@@ -384,7 +392,9 @@ class TestCheckTask:
         assert issues[0].severity == IssueSeverity.INFO
         assert "never been executed" in issues[0].description
 
-    def test_manual_task_not_due_returns_no_issues(self, make_task):
+    def test_manual_task_not_due_returns_no_issues(
+        self, make_task: MaintenanceCheckTaskFactory
+    ):
         config = _task_config("test-task", "manual", frequency=30)
         tasks_config = TasksConfig(tasks={config.name: config})
         state = AppState()
@@ -397,7 +407,9 @@ class TestCheckTask:
 
         assert task._check_task(config.name, config) == []
 
-    def test_manual_task_due_returns_warning_issue(self, make_task):
+    def test_manual_task_due_returns_warning_issue(
+        self, make_task: MaintenanceCheckTaskFactory
+    ):
         config = _task_config("test-task", "manual", frequency=30)
         tasks_config = TasksConfig(tasks={config.name: config})
         state = AppState()
@@ -423,7 +435,7 @@ class TestCheckTask:
         ],
     )
     def test_automated_task_overdue_but_not_failed_returns_single_issue(
-        self, make_task, status
+        self, make_task: MaintenanceCheckTaskFactory, status
     ):
 
         config = _task_config("test-task", "automated", frequency=7)
@@ -443,7 +455,9 @@ class TestCheckTask:
         assert issues[0].task_name == config.name
         assert "overdue" in issues[0].description
 
-    def test_automated_task_overdue_and_failed_returns_both_issues(self, make_task):
+    def test_automated_task_overdue_and_failed_returns_both_issues(
+        self, make_task: MaintenanceCheckTaskFactory
+    ):
         """
         An automated task that is overdue and failed should return two issues; One
         WARNING for failed automated task, and one CRITICAL for broken timer.
@@ -466,7 +480,9 @@ class TestCheckTask:
         assert "failed" in issues[0].description
         assert "broken" in issues[1].description
 
-    def test_automated_task_failed_and_due_returns_warning_issue(self, make_task):
+    def test_automated_task_failed_and_due_returns_warning_issue(
+        self, make_task: MaintenanceCheckTaskFactory
+    ):
         config = _task_config("test-task", "automated", frequency=7)
         tasks_config = TasksConfig(tasks={config.name: config})
         state = AppState()
@@ -491,7 +507,7 @@ class TestCheckTask:
 
 
 class TestExecute:
-    def test_no_issues_returns_success(self, make_task):
+    def test_no_issues_returns_success(self, make_task: MaintenanceCheckTaskFactory):
         config = _task_config("config-backup", "manual", frequency=30)
         tasks_config = TasksConfig(tasks={config.name: config})
         state = AppState()
@@ -503,12 +519,17 @@ class TestExecute:
         task = make_task(tasks_config=tasks_config, state=state)
 
         task_result = task.execute()
+        assert task_result.details is not None
+        maintenance_check_result = task_result.details.maintenance_result
 
         assert task_result.status == TaskStatus.SUCCESS
-        assert task.maintenance_check_result.total_tasks_monitored == 1
-        assert not task.maintenance_check_result.has_issues
+        assert maintenance_check_result is not None
+        assert maintenance_check_result.total_tasks_monitored == 1
+        assert not maintenance_check_result.has_issues
 
-    def test_skips_checking_itself(self, make_task, maintenance_config: TaskConfig):
+    def test_skips_checking_itself(
+        self, make_task: MaintenanceCheckTaskFactory, maintenance_config: TaskConfig
+    ):
         """
         The maintenance-check task itself must never appear in its own
         issue list, even though it's an enabled task like any other - a
@@ -517,12 +538,17 @@ class TestExecute:
         tasks_config = TasksConfig(tasks={maintenance_config.name: maintenance_config})
         task = make_task(tasks_config=tasks_config)
 
-        task.execute()
+        task_result = task.execute()
+        assert task_result.details is not None
+        maintenance_check_result = task_result.details.maintenance_result
 
-        assert task.maintenance_check_result.total_tasks_monitored == 1
-        assert not task.maintenance_check_result.has_issues
+        assert maintenance_check_result is not None
+        assert maintenance_check_result.total_tasks_monitored == 1
+        assert not maintenance_check_result.has_issues
 
-    def test_critical_issue_sets_failure_status(self, make_task):
+    def test_critical_issue_sets_failure_status(
+        self, make_task: MaintenanceCheckTaskFactory
+    ):
         config = _task_config("mirrorlist-update", "automated", frequency=7)
         tasks_config = TasksConfig(tasks={config.name: config})
         state = AppState()
@@ -534,11 +560,16 @@ class TestExecute:
         task = make_task(tasks_config=tasks_config, state=state)
 
         task_result = task.execute()
+        assert task_result.details is not None
+        maintenance_check_result = task_result.details.maintenance_result
 
         assert task_result.status == TaskStatus.FAILURE
-        assert task.maintenance_check_result.error_message is not None
+        assert maintenance_check_result is not None
+        assert maintenance_check_result.error_message is not None
 
-    def test_warning_only_sets_partial_status(self, make_task):
+    def test_warning_only_sets_partial_status(
+        self, make_task: MaintenanceCheckTaskFactory
+    ):
         config = _task_config("mirrorlist-update", "automated", frequency=7)
         tasks_config = TasksConfig(tasks={config.name: config})
         state = AppState()
@@ -553,25 +584,32 @@ class TestExecute:
 
         assert task_result.status == TaskStatus.PARTIAL
 
-    def test_info_only_sets_success_status(self, make_task):
+    def test_info_only_sets_success_status(
+        self, make_task: MaintenanceCheckTaskFactory
+    ):
         """A never-run task produces only an INFO issue - status stays SUCCESS."""
         config = _task_config("mirrorlist-update", "automated", frequency=7)
         tasks_config = TasksConfig(tasks={config.name: config})
         task = make_task(tasks_config=tasks_config)
 
         task_result = task.execute()
+        assert task_result.details is not None
+        maintenance_check_result = task_result.details.maintenance_result
 
         assert task_result.status == TaskStatus.SUCCESS
-        assert task.maintenance_check_result.info_issues
+        assert maintenance_check_result is not None
+        assert maintenance_check_result.info_issues
 
-    def test_details_carries_maintenance_result(self, make_task):
+    def test_details_carries_maintenance_result(
+        self, make_task: MaintenanceCheckTaskFactory
+    ):
         task = make_task()
 
         task_result = task.execute()
+        assert task_result.details is not None
+        maintenance_check_result = task_result.details.maintenance_result
 
-        assert (
-            task_result.details["maintenance_result"] is task.maintenance_check_result
-        )
+        assert maintenance_check_result is task.maintenance_check_result
 
 
 # ---------------------------------------------------------------------------
@@ -588,7 +626,9 @@ class TestPostExecute:
         with pytest.raises(ValueError):
             task.post_execute(MagicMock(spec=TaskResult))
 
-    def test_sends_notification_when_show_notifications_true(self, make_task, mocker):
+    def test_sends_notification_when_show_notifications_true(
+        self, make_task: MaintenanceCheckTaskFactory, mocker
+    ):
         task: MaintenanceCheckTask = make_task(
             task_settings=_settings(show_notifications=True)
         )
@@ -602,7 +642,9 @@ class TestPostExecute:
 
         mock_notify.assert_called_once_with(task.maintenance_check_result)
 
-    def test_skips_notification_when_show_notifications_false(self, make_task, mocker):
+    def test_skips_notification_when_show_notifications_false(
+        self, make_task: MaintenanceCheckTaskFactory, mocker
+    ):
         task = make_task(task_settings=_settings(show_notifications=False))
         task.maintenance_check_result = MaintenanceCheckResult(
             status=TaskStatus.SUCCESS
@@ -616,7 +658,7 @@ class TestPostExecute:
 
     @pytest.mark.parametrize("output_mode", ["file", "both"])
     def test_saves_report_when_output_mode_requires_it(
-        self, make_task, mocker, output_mode
+        self, make_task: MaintenanceCheckTaskFactory, mocker, output_mode
     ):
         task = make_task(
             task_settings=_settings(show_notifications=False, output_mode=output_mode)
@@ -631,7 +673,9 @@ class TestPostExecute:
 
         mock_save.assert_called_once_with(task.maintenance_check_result)
 
-    def test_skips_report_when_output_mode_is_terminal(self, make_task, mocker):
+    def test_skips_report_when_output_mode_is_terminal(
+        self, make_task: MaintenanceCheckTaskFactory, mocker
+    ):
         task = make_task(
             task_settings=_settings(show_notifications=False, output_mode="terminal")
         )
@@ -652,7 +696,9 @@ class TestPostExecute:
 
 
 class TestSendNotification:
-    def test_no_issues_does_not_notify(self, make_task, mocker):
+    def test_no_issues_does_not_notify(
+        self, make_task: MaintenanceCheckTaskFactory, mocker
+    ):
         task: MaintenanceCheckTask = make_task()
         task.notification_manager = MagicMock(spec=NotificationManager)
         mock_send: MagicMock = mocker.patch.object(
@@ -665,7 +711,7 @@ class TestSendNotification:
         mock_send.assert_not_called()
 
     def test_info_issue_below_warning_threshold_does_not_notify(
-        self, make_task, mocker
+        self, make_task: MaintenanceCheckTaskFactory, mocker
     ):
         """Default notification_level='warning' - an INFO-only result sits
         below that threshold and should not trigger a notification."""
@@ -688,7 +734,9 @@ class TestSendNotification:
 
         mock_send.assert_not_called()
 
-    def test_issue_at_notification_threshold_notifies(self, make_task):
+    def test_issue_at_notification_threshold_notifies(
+        self, make_task: MaintenanceCheckTaskFactory
+    ):
         task: MaintenanceCheckTask = make_task(
             task_settings=_settings(notification_level="warning")
         )
@@ -712,7 +760,9 @@ class TestSendNotification:
             summary=result.summary_message,
         )
 
-    def test_critical_issue_notifies_even_at_highest_threshold(self, make_task):
+    def test_critical_issue_notifies_even_at_highest_threshold(
+        self, make_task: MaintenanceCheckTaskFactory
+    ):
         task: MaintenanceCheckTask = make_task(
             task_settings=_settings(notification_level="critical")
         )
@@ -740,7 +790,9 @@ class TestSendNotification:
 
 class TestSaveReport:
     def test_creates_report_file(
-        self, make_task, settings_with_tmp_reports: AppSettings
+        self,
+        make_task: MaintenanceCheckTaskFactory,
+        settings_with_tmp_reports: AppSettings,
     ):
         task: MaintenanceCheckTask = make_task(task_settings=settings_with_tmp_reports)
         result = MaintenanceCheckResult(status=TaskStatus.SUCCESS)
@@ -753,7 +805,9 @@ class TestSaveReport:
         assert len(report_files) == 1
 
     def test_healthy_report_shows_no_issues_message(
-        self, make_task, settings_with_tmp_reports: AppSettings
+        self,
+        make_task: MaintenanceCheckTaskFactory,
+        settings_with_tmp_reports: AppSettings,
     ):
         task: MaintenanceCheckTask = make_task(task_settings=settings_with_tmp_reports)
         result = MaintenanceCheckResult(status=TaskStatus.SUCCESS)
@@ -764,7 +818,9 @@ class TestSaveReport:
         assert "No maintenance issues found" in content
 
     def test_report_includes_issue_sections_by_severity(
-        self, make_task, settings_with_tmp_reports: AppSettings
+        self,
+        make_task: MaintenanceCheckTaskFactory,
+        settings_with_tmp_reports: AppSettings,
     ):
         task: MaintenanceCheckTask = make_task(task_settings=settings_with_tmp_reports)
         issue = MaintenanceIssue(
@@ -786,7 +842,9 @@ class TestSaveReport:
         assert "run it now" in content
 
     def test_report_omits_absent_severity_sections(
-        self, make_task, settings_with_tmp_reports: AppSettings
+        self,
+        make_task: MaintenanceCheckTaskFactory,
+        settings_with_tmp_reports: AppSettings,
     ):
         task: MaintenanceCheckTask = make_task(task_settings=settings_with_tmp_reports)
         issue = MaintenanceIssue(
@@ -805,7 +863,10 @@ class TestSaveReport:
         assert "INFORMATION" in content
 
     def test_calls_cleanup_old_reports(
-        self, make_task, settings_with_tmp_reports: AppSettings, mocker
+        self,
+        make_task: MaintenanceCheckTaskFactory,
+        settings_with_tmp_reports: AppSettings,
+        mocker,
     ):
         task: MaintenanceCheckTask = make_task(task_settings=settings_with_tmp_reports)
         mock_cleanup: MagicMock = mocker.patch.object(task, "_cleanup_old_reports")
@@ -874,7 +935,9 @@ class TestFormatIssueText:
 
 
 class TestCleanupOldReports:
-    def test_returns_early_if_report_dir_missing(self, make_task, mocker, tmp_path):
+    def test_returns_early_if_report_dir_missing(
+        self, make_task: MaintenanceCheckTaskFactory, mocker, tmp_path
+    ):
         mocker.patch.object(
             AppSettings, "home_dir", property(lambda _: tmp_path / "does-not-exist")
         )
@@ -883,7 +946,9 @@ class TestCleanupOldReports:
         task._cleanup_old_reports()  # must not raise
 
     def test_deletes_files_older_than_retention(
-        self, make_task, settings_with_tmp_reports: AppSettings
+        self,
+        make_task: MaintenanceCheckTaskFactory,
+        settings_with_tmp_reports: AppSettings,
     ):
         old_file = settings_with_tmp_reports.report_dir / "maintenance-check_old.txt"
         old_file.write_text("old")
@@ -897,7 +962,9 @@ class TestCleanupOldReports:
         assert not old_file.exists()
 
     def test_keeps_files_within_retention(
-        self, make_task, settings_with_tmp_reports: AppSettings
+        self,
+        make_task: MaintenanceCheckTaskFactory,
+        settings_with_tmp_reports: AppSettings,
     ):
         recent_file = (
             settings_with_tmp_reports.report_dir / "maintenance-check_recent.txt"
@@ -910,7 +977,9 @@ class TestCleanupOldReports:
         assert recent_file.exists()
 
     def test_ignores_non_matching_filenames(
-        self, make_task, settings_with_tmp_reports: AppSettings
+        self,
+        make_task: MaintenanceCheckTaskFactory,
+        settings_with_tmp_reports: AppSettings,
     ):
         other_file: Path = settings_with_tmp_reports.report_dir / "unrelated.txt"
         other_file.write_text("x")
@@ -923,7 +992,10 @@ class TestCleanupOldReports:
         assert other_file.exists()  # glob only matches "maintenance-check_*.txt"
 
     def test_per_file_failure_does_not_stop_cleanup_of_others(
-        self, make_task, settings_with_tmp_reports: AppSettings, mocker
+        self,
+        make_task: MaintenanceCheckTaskFactory,
+        settings_with_tmp_reports: AppSettings,
+        mocker,
     ):
         old1: Path = settings_with_tmp_reports.report_dir / "maintenance-check_a.txt"
         old2: Path = settings_with_tmp_reports.report_dir / "maintenance-check_b.txt"

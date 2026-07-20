@@ -1,5 +1,7 @@
 """Unit tests for core data models."""
 
+from dataclasses import dataclass
+
 import pytest
 
 from archcare.config import SkipReason, TaskStatus
@@ -23,6 +25,12 @@ def _issue(name: str, severity: IssueSeverity) -> MaintenanceIssue:
     return MaintenanceIssue(
         task_name=name, severity=severity, description="d", recommendation="r"
     )
+
+
+@dataclass(frozen=True)
+class MockTaskDetails:
+    field_1: int = 0
+    field_2: str = "SENTINEL"
 
 
 # ---------------------------------------------------------------------------
@@ -294,14 +302,16 @@ class TestToTaskResult:
         )
 
         task_result = result.to_task_result()
+        details = task_result.details
 
         assert task_result.status == TaskStatus.FAILURE
         assert task_result.message == result.summary_message
-        assert task_result.details["total_tasks_monitored"] == 15
-        assert task_result.details["critical_count"] == 1
-        assert task_result.details["warning_count"] == 1
-        assert task_result.details["info_count"] == 0
-        assert task_result.details["tasks_needing_attention"] == [critical, warning]
+        assert details is not None
+        assert details.total_tasks_monitored == 15
+        assert details.critical_count == 1
+        assert details.warning_count == 1
+        assert details.info_count == 0
+        assert details.tasks_needing_attention == [critical, warning]
         assert task_result.error == "partial failure"
 
 
@@ -316,18 +326,23 @@ class TestSuccessFactory:
         assert result.status == TaskStatus.SUCCESS
         assert result.message == "Update completed"
 
-    def test_details_collected_from_kwargs(self):
-        result = success("x", packages_updated=45, duration_ms=1250)
-        assert result.details == {"packages_updated": 45, "duration_ms": 1250}
+    def test_sets_details_correctly(self):
+        mock_details = MockTaskDetails(field_1=45, field_2="x")
+        result = success("Update completed", details=mock_details)
+        assert result.details is not None
+        assert result.details.field_1 == 45
+        assert result.details.field_2 == "x"
 
 
 class TestFailedFactory:
     def test_sets_values_correctly(self):
         exc = ValueError("bad")
-        result = failed("Operation failed", error=str(exc), retry_count=3)
+        mock_details = MockTaskDetails(field_2="Critical filesystem error")
+        result = failed("Operation failed", error=str(exc), details=mock_details)
         assert result.status == TaskStatus.FAILURE
         assert result.error == "bad"
-        assert result.details == {"retry_count": 3}
+        assert result.details is not None
+        assert result.details.field_2 == "Critical filesystem error"
 
     def test_error_defaults_to_none(self):
         result = failed("Operation failed")
@@ -346,8 +361,10 @@ class TestSkippedFactory:
         assert result.skip_reason is None
 
     def test_details_collected_from_kwargs(self):
-        result = skipped("x", skip_reason=SkipReason.NOT_DUE, next_due_in_days=3)
-        assert result.details == {"next_due_in_days": 3}
+        mock_details = MockTaskDetails(field_2="Due in 3 days")
+        result = skipped("x", skip_reason=SkipReason.NOT_DUE, details=mock_details)
+        assert result.details is not None
+        assert result.details.field_2 == "Due in 3 days"
 
 
 class TestPartialFactory:
@@ -356,6 +373,9 @@ class TestPartialFactory:
         assert result.status == TaskStatus.PARTIAL
         assert result.message == "3 of 5 checks passed"
 
-    def test_details_collected_from_kwargs(self):
-        result = partial("x", passed=3, failed=2)
-        assert result.details == {"passed": 3, "failed": 2}
+    def test_sets_details_correctly(self):
+        mock_details = MockTaskDetails(field_1=3, field_2="2 checks failed")
+        result = partial("x", details=mock_details)
+        assert result.details is not None
+        assert result.details.field_1 == 3
+        assert result.details.field_2 == "2 checks failed"

@@ -9,7 +9,14 @@ from archcare.cli.presenters.formatters import (
     HealthCheckFormatter,
     MaintenanceCheckFormatter,
 )
-from archcare.core import MaintenanceIssue
+from archcare.core import (
+    FailedServiceInfo,
+    FailedServicesDetails,
+    HealthCheckDetails,
+    HealthCheckSummary,
+    MaintenanceCheckDetails,
+    MaintenanceIssue,
+)
 
 
 def _joined(lines: list[str]) -> str:
@@ -23,7 +30,11 @@ def _joined(lines: list[str]) -> str:
 
 class TestFailedServicesFormatter:
     def test_includes_summary_counts(self):
-        details = {"total_failed": 5, "actual_failures": 2, "ignored": 3}
+        details = FailedServicesDetails(
+            total_failed=5,
+            actual_failures=2,
+            ignored=3,
+        )
 
         output = _joined(FailedServicesFormatter().format(details))
 
@@ -32,15 +43,15 @@ class TestFailedServicesFormatter:
         assert "Ignored: 3" in output
 
     def test_lists_each_failed_service_with_description_and_status(self):
-        details = {
-            "failed_services": [
-                {
-                    "service": "sshd.service",
-                    "description": "SSH daemon",
-                    "active": "failed",
-                }
+        details = FailedServicesDetails(
+            failed_services=[
+                FailedServiceInfo(
+                    service="sshd.service",
+                    description="SSH daemon",
+                    active="failed",
+                )
             ]
-        }
+        )
 
         output = _joined(FailedServicesFormatter().format(details))
 
@@ -49,7 +60,14 @@ class TestFailedServicesFormatter:
         assert "Status: failed" in output
 
     def test_omits_description_line_when_absent(self):
-        details = {"failed_services": [{"service": "foo.service", "active": "failed"}]}
+        details = FailedServicesDetails(
+            failed_services=[
+                FailedServiceInfo(
+                    service="foo.service",
+                    active="failed",
+                )
+            ]
+        )
 
         lines = FailedServicesFormatter().format(details)
 
@@ -60,11 +78,15 @@ class TestFailedServicesFormatter:
 
     def test_includes_last_three_log_lines_only(self):
         logs = [f"log line {i}" for i in range(5)]
-        details = {
-            "failed_services": [
-                {"service": "foo.service", "active": "failed", "logs": logs}
+        details = FailedServicesDetails(
+            failed_services=[
+                FailedServiceInfo(
+                    service="foo.service",
+                    active="failed",
+                    logs=logs,
+                )
             ]
-        }
+        )
 
         output = _joined(FailedServicesFormatter().format(details))
 
@@ -76,11 +98,15 @@ class TestFailedServicesFormatter:
 
     def test_truncates_long_log_lines(self):
         long_log = "x" * 200
-        details = {
-            "failed_services": [
-                {"service": "foo.service", "active": "failed", "logs": [long_log]}
+        details = FailedServicesDetails(
+            failed_services=[
+                FailedServiceInfo(
+                    service="foo.service",
+                    active="failed",
+                    logs=[long_log],
+                )
             ]
-        }
+        )
 
         output = _joined(FailedServicesFormatter().format(details))
 
@@ -96,18 +122,22 @@ class TestFailedServicesFormatter:
 
 class TestHealthCheckFormatter:
     def test_no_critical_issues_section_when_empty(self):
-        output = _joined(HealthCheckFormatter().format({"issues": []}))
+        output = _joined(HealthCheckFormatter().format(HealthCheckDetails(issues=[])))
 
         assert "Critical Issues:" not in output
 
     def test_lists_critical_issues(self):
-        output = _joined(HealthCheckFormatter().format({"issues": ["disk failing"]}))
+        output = _joined(
+            HealthCheckFormatter().format(HealthCheckDetails(issues=["disk failing"]))
+        )
 
         assert "Critical Issues:" in output
         assert "disk failing" in output
 
     def test_lists_warnings(self):
-        output = _joined(HealthCheckFormatter().format({"warnings": ["low memory"]}))
+        output = _joined(
+            HealthCheckFormatter().format(HealthCheckDetails(warnings=["low memory"]))
+        )
 
         assert "Warnings:" in output
         assert "low memory" in output
@@ -133,20 +163,32 @@ class TestHealthCheckFormatter:
     def test_resource_usage_color_thresholds(self, key, pct, expected_color):
         summary = {key: pct}
 
-        output = _joined(HealthCheckFormatter().format({"summary": summary}))
+        output = _joined(
+            HealthCheckFormatter().format(
+                HealthCheckDetails(summary=HealthCheckSummary(**summary))
+            )
+        )
 
         assert f"[{expected_color}]{pct:.1f}%[/{expected_color}]" in output
 
     def test_filesystem_errors_hidden_when_zero(self):
         output = _joined(
-            HealthCheckFormatter().format({"summary": {"filesystem_errors_count": 0}})
+            HealthCheckFormatter().format(
+                HealthCheckDetails(
+                    summary=HealthCheckSummary(filesystem_errors_count=0)
+                )
+            )
         )
 
         assert "Filesystem Errors:" not in output
 
     def test_filesystem_errors_shown_when_present(self):
         output = _joined(
-            HealthCheckFormatter().format({"summary": {"filesystem_errors_count": 2}})
+            HealthCheckFormatter().format(
+                HealthCheckDetails(
+                    summary=HealthCheckSummary(filesystem_errors_count=2)
+                )
+            )
         )
 
         assert "Filesystem Errors:" in output
@@ -162,18 +204,28 @@ class TestHealthCheckFormatter:
         ],
     )
     def test_pacman_and_package_health_status(self, key, healthy, expected_fragment):
-        output = _joined(HealthCheckFormatter().format({"summary": {key: healthy}}))
+        output = _joined(
+            HealthCheckFormatter().format(
+                HealthCheckDetails(summary=HealthCheckSummary(**{key: healthy}))
+            )
+        )
 
         assert expected_fragment in output
 
     def test_uptime_defaults_to_unknown_when_absent(self):
-        output = _joined(HealthCheckFormatter().format({"summary": {}}))
+        output = _joined(
+            HealthCheckFormatter().format(
+                HealthCheckDetails(summary=HealthCheckSummary())
+            )
+        )
 
         assert "System Uptime: unknown" in output
 
     def test_uptime_shown_when_present(self):
         output = _joined(
-            HealthCheckFormatter().format({"summary": {"uptime": "3 days"}})
+            HealthCheckFormatter().format(
+                HealthCheckDetails(summary=HealthCheckSummary(uptime="3 days"))
+            )
         )
 
         assert "System Uptime: 3 days" in output
@@ -186,12 +238,12 @@ class TestHealthCheckFormatter:
 
 class TestMaintenanceCheckFormatter:
     def test_includes_summary_counts(self):
-        details = {
-            "total_tasks_monitored": 4,
-            "critical_count": 1,
-            "warning_count": 2,
-            "info_count": 0,
-        }
+        details = MaintenanceCheckDetails(
+            total_tasks_monitored=4,
+            critical_count=1,
+            warning_count=2,
+            info_count=0,
+        )
 
         output = _joined(MaintenanceCheckFormatter().format(details))
 
@@ -202,7 +254,9 @@ class TestMaintenanceCheckFormatter:
 
     def test_no_attention_section_when_list_empty(self):
         output = _joined(
-            MaintenanceCheckFormatter().format({"tasks_needing_attention": []})
+            MaintenanceCheckFormatter().format(
+                MaintenanceCheckDetails(tasks_needing_attention=[])
+            )
         )
 
         assert "Tasks needing attention:" not in output
@@ -223,7 +277,9 @@ class TestMaintenanceCheckFormatter:
         issue.severity = severity
 
         output = _joined(
-            MaintenanceCheckFormatter().format({"tasks_needing_attention": [issue]})
+            MaintenanceCheckFormatter().format(
+                MaintenanceCheckDetails(tasks_needing_attention=[issue])
+            )
         )
 
         assert "update-mirrorlist" in output
