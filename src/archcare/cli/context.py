@@ -3,10 +3,11 @@
 from dataclasses import dataclass, field
 
 from archcare.cli.interaction import CliInteraction
-from archcare.cli.presenters.formatters import (
+from archcare.cli.presenters import (
     FailedServicesFormatter,
     HealthCheckFormatter,
     MaintenanceCheckFormatter,
+    MirrorlistUpdateFormatter,
 )
 from archcare.config import AppSettings, ConfigLoader
 from archcare.core import TaskDescriptor, TaskRegistry
@@ -25,8 +26,9 @@ DEFAULT_TASK_REGISTRY = TaskRegistry(
     (
         TaskDescriptor("failed-services", FailedServicesTask, FailedServicesFormatter),
         TaskDescriptor("health-check", HealthCheckTask, HealthCheckFormatter),
-        # TODO: Add a formatter for mirrorlist-update task
-        TaskDescriptor("mirrorlist-update", MirrorlistUpdateTask),
+        TaskDescriptor(
+            "mirrorlist-update", MirrorlistUpdateTask, MirrorlistUpdateFormatter
+        ),
         TaskDescriptor(
             "maintenance-check", MaintenanceCheckTask, MaintenanceCheckFormatter
         ),

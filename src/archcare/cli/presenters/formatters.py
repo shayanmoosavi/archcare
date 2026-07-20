@@ -17,6 +17,7 @@ from archcare.core import (
     HealthCheckSummary,
     MaintenanceCheckDetails,
     MaintenanceIssue,
+    MirrorlistUpdateDetails,
 )
 
 
@@ -116,6 +117,24 @@ class HealthCheckFormatter:
 
         # Uptime
         lines.append(f"  System Uptime: {summary.uptime}")
+
+
+class MirrorlistUpdateFormatter:
+    """Formats details for the mirrorlist-update task."""
+
+    def format(self, details: MirrorlistUpdateDetails) -> list[str]:
+        lines = []
+
+        if details.old_mirrors is not None and details.new_mirrors is not None:
+            lines.append(f"  Mirrors: {details.old_mirrors} → {details.new_mirrors}")
+
+        if details.backup_path:
+            lines.append(f"  Backup: {details.backup_path}")
+
+        if last_modified := details.old_info.get("last_modified"):
+            lines.append(f"  Previous update: {last_modified}")
+
+        return lines
 
 
 class MaintenanceCheckFormatter:
