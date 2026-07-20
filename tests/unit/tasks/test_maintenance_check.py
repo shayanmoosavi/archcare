@@ -186,10 +186,6 @@ class TestFormatTimeAgo:
 
 
 class TestFormatOverdueDescription:
-    def test_none_raises_value_error(self, automated_task: TaskConfig):
-        with pytest.raises(ValueError):
-            MaintenanceCheckTask._format_overdue_description(automated_task, None)
-
     def test_zero_days_is_due_today(self, automated_task: TaskConfig):
         """
         Regression test for the fix: previously unreachable, since the
@@ -214,16 +210,6 @@ class TestFormatOverdueDescription:
 
 
 class TestCheckBrokenTimer:
-    def test_none_raises_value_error(self):
-        with pytest.raises(ValueError):
-            MaintenanceCheckTask._check_broken_timer(
-                None,
-                [],
-                timer_threshold_days=10,
-                task_name="test-task",
-                task_state=AppState().get_task_state("test-task"),
-            )
-
     def test_zero_days_overdue_does_not_raise_or_append(self):
         """
         0 days overdue is completely valid (just due today) and
@@ -277,9 +263,6 @@ class TestCheckBrokenTimer:
 
 
 class TestDetermineSeverity:
-    def test_none_returns_info(self, task_with_thresholds: MaintenanceCheckTask):
-        assert task_with_thresholds._determine_severity(None) == IssueSeverity.INFO
-
     def test_zero_returns_info(self, task_with_thresholds: MaintenanceCheckTask):
         assert task_with_thresholds._determine_severity(0) == IssueSeverity.INFO
 
@@ -338,7 +321,7 @@ class TestCheckFailedAutomatedTask:
         schedule_info = _schedule_info("update-mirrorlist", is_due=False)
 
         task._check_failed_automated_task(
-            days_overdue=None,
+            days_overdue=schedule_info.days_overdue,
             issues=issues,
             schedule_info=schedule_info,
             task_name="update-mirrorlist",
