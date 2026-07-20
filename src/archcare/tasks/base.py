@@ -6,6 +6,7 @@ All maintenance tasks inherit from BaseTask.
 
 import time
 from abc import ABC, abstractmethod
+from typing import Any
 
 from loguru import logger
 
@@ -55,7 +56,7 @@ class BaseTask(ABC):
         self._start_time = start_time or time.time()
 
     @abstractmethod
-    def execute(self) -> TaskResult:
+    def execute(self) -> TaskResult[Any]:
         """
         Execute the main task logic.
 
@@ -108,7 +109,7 @@ class BaseTask(ABC):
         """
         return True, "", None
 
-    def post_execute(self, result: TaskResult) -> None:
+    def post_execute(self, result: TaskResult[Any]) -> None:
         """
         Cleanup or follow-up actions after task execution.
 
@@ -157,7 +158,7 @@ class BaseTask(ABC):
         """
         logger.info(f"[{self.name}] {step}")
 
-    def run(self) -> TaskResult:
+    def run(self) -> TaskResult[Any]:
         """
         Run the complete task workflow with error handling.
 
@@ -231,7 +232,7 @@ class BaseTask(ABC):
             # Remove task-specific log handler
             logger.remove(handler_id)
 
-    def create_result(self, result: TaskResult) -> TaskResult:
+    def create_result(self, result: TaskResult[Any]) -> TaskResult[Any]:
         """
         Add timing information to result.
 

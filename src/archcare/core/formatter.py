@@ -1,12 +1,13 @@
 """Formatter port for the Archcare core layer."""
 
+import dataclasses
 from typing import Any, Protocol
 
 
 class TaskDetailFormatter(Protocol):
     """Port through which the presentation layer renders a task's execution details."""
 
-    def format(self, details: dict[str, Any]) -> list[str]:
+    def format(self, details: Any) -> list[str]:
         """Convert a task's details dictionary into formatted output lines."""
         ...
 
@@ -14,13 +15,17 @@ class TaskDetailFormatter(Protocol):
 class DefaultFormatter:
     """
     Default formatter used when a task has no dedicated formatter
-    registered (fallback for tests, unregistered tasks, or any caller
-    that doesn't need domain-specific rendering).
+    registered. Falls back to a generic field dump for any dataclass, or
+    a bare string representation for anything else.
     """
 
-    def format(self, details: dict[str, Any]) -> list[str]:
-        lines = []
-        for key, value in details.items():
-            if not key.startswith("_"):  # Skip internal keys
-                lines.append(f"  {key}: {value}")
-        return lines
+    def format(self, details: Any) -> list[str]:
+        if details is None:
+            return []
+        if dataclasses.is_dataclass(details):
+            return [
+                f"  {f.name}: {getattr(details, f.name)}"
+                for f in dataclasses.fields(details)
+                if not f.name.startswith("_")
+            ]
+        return [f"  {details}"]
