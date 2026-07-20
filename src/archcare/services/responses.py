@@ -29,7 +29,7 @@ class TaskStatusResponse:
     """Schedule information for one or all tasks."""
 
     schedule_info: list[TaskScheduleInfo]
-    summary: dict | None = None
+    summary: dict[str, int] | None = None
     due_only: bool = False
 
 
