@@ -266,6 +266,15 @@ class TestDetermineSeverity:
     def test_zero_returns_info(self, task_with_thresholds: MaintenanceCheckTask):
         assert task_with_thresholds._determine_severity(0) == IssueSeverity.INFO
 
+    def test_zero_with_zero_warning_threshold_returns_warning(
+        self, task: MaintenanceCheckTask
+    ):
+        """
+        Regression test: zero days overdue with zero warning threshold should
+        return WARNING severity.
+        """
+        assert task._determine_severity(0) == IssueSeverity.WARNING
+
     def test_below_warning_threshold_returns_info(
         self, task_with_thresholds: MaintenanceCheckTask
     ):
