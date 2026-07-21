@@ -423,16 +423,12 @@ class MaintenanceCheckTask(BaseTask):
         severity_map = {"info": 0, "warning": 1, "critical": 2}
         severity = IssueSeverity.INFO  # Default severity
 
-        critical_issues = check_result.get_issues_by_severity(IssueSeverity.CRITICAL)
-        warning_issues = check_result.get_issues_by_severity(IssueSeverity.WARNING)
-        info_issues = check_result.get_issues_by_severity(IssueSeverity.INFO)
-
         if check_result.has_issues:
-            if critical_issues:
+            if check_result.critical_issues:
                 severity = IssueSeverity.CRITICAL
-            elif warning_issues:
+            elif check_result.warning_issues:
                 severity = IssueSeverity.WARNING
-            elif info_issues:
+            elif check_result.info_issues:
                 severity = IssueSeverity.INFO
             else:
                 # This should never happen

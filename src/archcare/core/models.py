@@ -689,49 +689,6 @@ class MaintenanceCheckResult:
 
         return f"Found {', '.join(parts)} issue(s) requiring attention"
 
-    def get_issues_by_severity(self, severity: IssueSeverity) -> list[MaintenanceIssue]:
-        """
-        Get issues filtered by a specific severity level.
-
-        Returns all issues that match the specified severity classification, enabling
-        filtering of the issue list to focus on particular priority levels.
-
-        Args:
-            severity (IssueSeverity): The severity level to filter by. Can be
-                CRITICAL, WARNING, or INFO.
-
-        Returns:
-            list[MaintenanceIssue]: All issues matching the specified severity,
-                in the order they were added to the result.
-
-        Examples:
-            >>> check = MaintenanceCheckResult(
-            ...     status=TaskStatus.PARTIAL,
-            ...     critical_issues=[issue1, issue2],
-            ...     warning_issues=[issue3],
-            ...     info_issues=[issue4]
-            ... )
-            >>> critical = check.get_issues_by_severity(IssueSeverity.CRITICAL)
-            >>> len(critical)
-            2
-            >>> critical[0].task_name
-            'system-update'
-
-            >>> warning = check.get_issues_by_severity(IssueSeverity.WARNING)
-            >>> len(warning)
-            1
-
-            >>> info = check.get_issues_by_severity(IssueSeverity.INFO)
-            >>> len(info)
-            1
-        """
-        severity_map = {
-            IssueSeverity.CRITICAL: self.critical_issues,
-            IssueSeverity.WARNING: self.warning_issues,
-            IssueSeverity.INFO: self.info_issues,
-        }
-        return severity_map[severity]
-
     def to_task_result(self) -> TaskResult[MaintenanceCheckDetails]:
         """
         Convert this comprehensive result to a standard TaskResult format.

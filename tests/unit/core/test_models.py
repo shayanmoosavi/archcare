@@ -262,29 +262,6 @@ class TestSummaryMessage:
 
 
 # ---------------------------------------------------------------------------
-# MaintenanceCheckResult.get_issues_by_severity
-# ---------------------------------------------------------------------------
-
-
-class TestGetIssuesBySeverity:
-    @pytest.mark.parametrize(
-        "severity,list_attr",
-        [
-            (IssueSeverity.CRITICAL, "critical_issues"),
-            (IssueSeverity.WARNING, "warning_issues"),
-            (IssueSeverity.INFO, "info_issues"),
-        ],
-    )
-    def test_returns_matching_list(self, severity, list_attr):
-        issue = _issue("a", severity)
-        result = MaintenanceCheckResult(
-            status=TaskStatus.PARTIAL,
-            **{list_attr: [issue]},  # ty:ignore[invalid-argument-type]
-        )
-        assert result.get_issues_by_severity(severity) == [issue]
-
-
-# ---------------------------------------------------------------------------
 # MaintenanceCheckResult.to_task_result
 # ---------------------------------------------------------------------------
 
