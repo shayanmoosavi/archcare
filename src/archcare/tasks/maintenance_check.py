@@ -321,18 +321,15 @@ class MaintenanceCheckTask(BaseTask):
         critical_threshold = self.settings.maintenance_check.critical_threshold_days
         warning_threshold = self.settings.maintenance_check.warning_threshold_days
 
-        if not days_overdue:
-            return IssueSeverity.INFO
+        if days_overdue >= critical_threshold:
+            # Task severely overdue
+            return IssueSeverity.CRITICAL
+        elif days_overdue >= warning_threshold:
+            # Task overdue but not critical
+            return IssueSeverity.WARNING
         else:
-            if days_overdue >= critical_threshold:
-                # Task severely overdue
-                return IssueSeverity.CRITICAL
-            elif days_overdue >= warning_threshold:
-                # Task overdue but not critical
-                return IssueSeverity.WARNING
-            else:
-                # Task overdue but no immediate attention is required
-                return IssueSeverity.INFO
+            # Task overdue but no immediate attention is required
+            return IssueSeverity.INFO
 
     @staticmethod
     def _format_overdue_description(task_config: TaskConfig, days_overdue: int) -> str:
