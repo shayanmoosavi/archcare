@@ -10,6 +10,7 @@ from archcare.core import (
     HealthCheckDetails,
     HealthCheckSummary,
     MaintenanceCheckDetails,
+    MaintenanceCheckSummary,
     MirrorlistUpdateDetails,
 )
 
@@ -97,6 +98,118 @@ class TestFailedServicesDetails:
 
         assert first.ignored_services is not second.ignored_services
         assert first.failed_services is not second.failed_services
+
+
+# ---------------------------------------------------------------------------
+# MaintenanceCheckSummary
+# ---------------------------------------------------------------------------
+
+
+class TestMaintenanceCheckSummary:
+    def test_defaults(self):
+        summary = MaintenanceCheckSummary()
+
+        assert summary.total_tasks_monitored == 0
+        assert summary.critical_count == 0
+        assert summary.warning_count == 0
+        assert summary.info_count == 0
+
+    def test_custom_values(self):
+        summary = MaintenanceCheckSummary(
+            total_tasks_monitored=10,
+            critical_count=2,
+            warning_count=3,
+            info_count=5,
+        )
+
+        assert summary.total_tasks_monitored == 10
+        assert summary.critical_count == 2
+        assert summary.warning_count == 3
+        assert summary.info_count == 5
+
+    def test_is_frozen(self):
+        summary = MaintenanceCheckSummary()
+
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            summary.total_tasks_monitored = 10  # ty:ignore[invalid-assignment]
+
+    def test_total_issues(self):
+        summary = MaintenanceCheckSummary(
+            total_tasks_monitored=10,
+            critical_count=0,
+            warning_count=3,
+            info_count=2,
+        )
+
+        assert (
+            summary.total_issues
+            == summary.critical_count + summary.warning_count + summary.info_count
+        )
+
+    def test_has_issues(self):
+        summary = MaintenanceCheckSummary(
+            total_tasks_monitored=10,
+            critical_count=0,
+            warning_count=3,
+            info_count=2,
+        )
+
+        assert summary.has_issues
+
+        summary = MaintenanceCheckSummary(
+            total_tasks_monitored=10,
+            critical_count=0,
+            warning_count=0,
+            info_count=0,
+        )
+
+        assert not summary.has_issues
+
+
+class TestSummaryMessage:
+    def test_all_clear_when_no_issues(self):
+        summary = MaintenanceCheckSummary(
+            total_tasks_monitored=10,
+            critical_count=0,
+            warning_count=0,
+            info_count=0,
+        )
+        assert summary.summary_message == "All maintenance tasks are up to date!"
+
+    def test_single_severity_type(self):
+        summary = MaintenanceCheckSummary(
+            total_tasks_monitored=10,
+            warning_count=1,
+        )
+        assert summary.summary_message == "Found 1 warning issue(s) requiring attention"
+
+    def test_multiple_severity_types_are_comma_joined(self):
+        summary = MaintenanceCheckSummary(
+            total_tasks_monitored=10,
+            critical_count=2,
+            warning_count=1,
+        )
+        assert (
+            summary.summary_message
+            == "Found 2 critical, 1 warning issue(s) requiring attention"
+        )
+
+    def test_zero_count_categories_are_omitted(self):
+        """
+        critical+info present, warning absent - the message must not
+        mention '0 warning' at all, only categories that actually have
+        issues. Easy to break with an off-by-one in the join logic.
+        """
+        summary = MaintenanceCheckSummary(
+            total_tasks_monitored=10,
+            critical_count=1,
+            info_count=1,
+        )
+        assert (
+            summary.summary_message
+            == "Found 1 critical, 1 info issue(s) requiring attention"
+        )
+        assert "warning" not in summary.summary_message
 
 
 # ---------------------------------------------------------------------------
