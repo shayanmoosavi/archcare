@@ -112,6 +112,10 @@ class TestTasksConfig:
 
 
 class TestAppSettingsPaths:
+    @pytest.fixture(autouse=True)
+    def patch_path_exists(self, mocker):
+        mocker.patch.object(Path, "exists", return_value=True)
+
     def test_home_dir_is_path_home_when_user_is_none(self, monkeypatch):
         monkeypatch.delenv("SUDO_USER", raising=False)
         settings = AppSettings(user=None)

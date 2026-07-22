@@ -8,6 +8,7 @@ from datetime import datetime
 from enum import Enum
 from os import getenv
 from pathlib import Path
+from pwd import getpwnam
 from typing import Self
 
 from pydantic import (
@@ -302,12 +303,48 @@ class AppSettings(BaseModel):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def home_dir(self) -> Path:
-        """Home directory of the user."""
-        # Handle sudo case: if running with sudo, use SUDO_USER's home instead of root's
+        """Home directory of the user.
+
+        Resolution priority:
+        1. SUDO_USER's home (if running via sudo)
+        2. self.user's home (if ARCHCARE_USER or explicitly set)
+        3. Current user's home (interactive fallback)
+
+        Uses pwd.getpwnam for robust resolution instead of hardcoded /home/ paths.
+        """
         sudo_user = getenv("SUDO_USER")
         if sudo_user:
-            return Path(f"/home/{sudo_user}")
-        return Path(f"/home/{self.user}") if self.user else Path.home()
+            return self._resolve_user_home(sudo_user)
+
+        if self.user:
+            return self._resolve_user_home(self.user)
+
+        return Path.home()
+
+    @staticmethod
+    def _resolve_user_home(username: str) -> Path:
+        """Resolve a user's home directory using pwd, with fallback.
+
+        Args:
+            username: The username to look up.
+
+        Returns:
+            Path to the user's home directory.
+
+        Raises:
+            ValueError: If the user does not exist or home cannot be resolved.
+        """
+        try:
+            return Path(getpwnam(username).pw_dir)
+        except KeyError:
+            # Fallback: try common path for systems where pwd might not work
+            fallback = Path(f"/home/{username}")
+            if fallback.exists():
+                return fallback
+            raise ValueError(
+                f"Cannot resolve home directory for user '{username}'. "
+                f"User does not exist or is not queryable."
+            )
 
     @computed_field  # type: ignore[prop-decorator]
     @property
