@@ -494,9 +494,9 @@ class MaintenanceCheckTask(BaseTask):
             f"Tasks Monitored: {details.summary.total_tasks_monitored}",
         ]
 
-        if details.tasks_needing_attention:
+        if tasks_needing_attention := details.tasks_needing_attention:
             lines.append("Tasks needing attention:")
-            for maintenance_issue in details.tasks_needing_attention:
+            for maintenance_issue in tasks_needing_attention:
                 lines.append(
                     f"  - {maintenance_issue.task_name} ({str(maintenance_issue.severity).upper()})"
                 )

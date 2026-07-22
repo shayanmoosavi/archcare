@@ -243,7 +243,8 @@ class TestMaintenanceCheckDetails:
         details = MaintenanceCheckDetails(
             critical_issues=[critical], warning_issues=[warning], info_issues=[info]
         )
-        assert details.tasks_needing_attention == [critical, warning]
+        tasks_needing_attention = details.tasks_needing_attention
+        assert tasks_needing_attention == [critical, warning]
         assert info not in details.tasks_needing_attention
 
 
