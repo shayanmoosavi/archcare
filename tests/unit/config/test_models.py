@@ -27,12 +27,12 @@ def clear_sudo_user(monkeypatch):
     monkeypatch.delenv("SUDO_USER", raising=False)
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def patch_path_exists(mocker):
     mocker.patch.object(Path, "exists", return_value=True)
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def mock_pwd(mocker) -> MagicMock:
     return mocker.patch("archcare.config.models.getpwnam")
 
@@ -132,6 +132,7 @@ class TestTasksConfig:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.usefixtures("patch_path_exists")
 class TestAppSettingsPaths:
     def test_home_dir_is_path_home_when_user_is_none(self):
         settings = AppSettings(user=None)
