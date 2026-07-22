@@ -51,6 +51,8 @@ class TaskPresenter:
                     is_interactive=response.is_interactive,
                     require_acknowledgment=mc_settings.require_acknowledgment,
                 )
+                if mc_settings.output_mode == "both":
+                    print_info(f"You can also find the report in {report_dir}")
             else:
                 print_info(
                     f"Output mode was set to 'file', check the report in {report_dir}"

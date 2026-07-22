@@ -168,6 +168,25 @@ class TestRenderRun:
             details, is_interactive=True, require_acknowledgment=True
         )
 
+    def test_shows_report_directory_in_both_mode(
+        self,
+        presenter: TaskPresenter,
+        mock_info: MagicMock,
+    ):
+        settings_both = AppSettings(
+            maintenance_check=MaintenanceCheckSettings(output_mode="both")
+        )
+        presenter.render_run(
+            TaskRunResponse(
+                task_name="maintenance-check",
+                outcome=_make_outcome(details=MaintenanceCheckDetails()),
+                is_interactive=True,
+            ),
+            settings_both,
+        )
+
+        assert str(settings_both.report_dir) in mock_info.call_args.args[0]
+
     def test_shows_file_mode_message_instead_of_table(
         self,
         presenter: TaskPresenter,
