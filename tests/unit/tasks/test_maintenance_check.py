@@ -20,7 +20,8 @@ from archcare.config import AppSettings, AppState, TaskConfig, TasksConfig, Task
 from archcare.config.models import MaintenanceCheckSettings
 from archcare.core import (
     IssueSeverity,
-    MaintenanceCheckResult,
+    MaintenanceCheckDetails,
+    MaintenanceCheckSummary,
     MaintenanceIssue,
     TaskResult,
     TaskScheduleInfo,
@@ -354,15 +355,17 @@ class TestCategorizeIssues:
             (IssueSeverity.INFO, "info_issues"),
         ],
     )
-    def test_routes_to_correct_list(self, severity, list_attr):
+    def test_routes_to_correct_list(
+        self, severity, list_attr, make_task: MaintenanceCheckTaskFactory
+    ):
         issue = MaintenanceIssue(
             task_name="x", severity=severity, description="d", recommendation="r"
         )
-        result = MaintenanceCheckResult(status=TaskStatus.SUCCESS)
+        details = MaintenanceCheckDetails(**{list_attr: [issue]})  # ty:ignore[invalid-argument-type]
+        task = make_task()
+        task._categorize_issues([issue])
 
-        MaintenanceCheckTask._categorize_issues([issue], result)
-
-        assert getattr(result, list_attr) == [issue]
+        assert getattr(details, list_attr) == [issue]
 
 
 # ---------------------------------------------------------------------------
@@ -512,12 +515,11 @@ class TestExecute:
 
         task_result = task.execute()
         assert task_result.details is not None
-        maintenance_check_result = task_result.details.maintenance_result
+        details = task_result.details
 
         assert task_result.status == TaskStatus.SUCCESS
-        assert maintenance_check_result is not None
-        assert maintenance_check_result.total_tasks_monitored == 1
-        assert not maintenance_check_result.has_issues
+        assert details.summary.total_tasks_monitored == 1
+        assert not details.summary.has_issues
 
     def test_skips_checking_itself(
         self, make_task: MaintenanceCheckTaskFactory, maintenance_config: TaskConfig
@@ -532,11 +534,10 @@ class TestExecute:
 
         task_result = task.execute()
         assert task_result.details is not None
-        maintenance_check_result = task_result.details.maintenance_result
+        details = task_result.details
 
-        assert maintenance_check_result is not None
-        assert maintenance_check_result.total_tasks_monitored == 1
-        assert not maintenance_check_result.has_issues
+        assert details.summary.total_tasks_monitored == 1
+        assert not details.summary.has_issues
 
     def test_critical_issue_sets_failure_status(
         self, make_task: MaintenanceCheckTaskFactory
@@ -553,11 +554,9 @@ class TestExecute:
 
         task_result = task.execute()
         assert task_result.details is not None
-        maintenance_check_result = task_result.details.maintenance_result
 
         assert task_result.status == TaskStatus.FAILURE
-        assert maintenance_check_result is not None
-        assert maintenance_check_result.error_message is not None
+        assert task_result.error is not None
 
     def test_warning_only_sets_partial_status(
         self, make_task: MaintenanceCheckTaskFactory
@@ -586,22 +585,11 @@ class TestExecute:
 
         task_result = task.execute()
         assert task_result.details is not None
-        maintenance_check_result = task_result.details.maintenance_result
+        details = task_result.details
 
         assert task_result.status == TaskStatus.SUCCESS
-        assert maintenance_check_result is not None
-        assert maintenance_check_result.info_issues
-
-    def test_details_carries_maintenance_result(
-        self, make_task: MaintenanceCheckTaskFactory
-    ):
-        task = make_task()
-
-        task_result = task.execute()
-        assert task_result.details is not None
-        maintenance_check_result = task_result.details.maintenance_result
-
-        assert maintenance_check_result is task.maintenance_check_result
+        assert details is not None
+        assert details.info_issues
 
 
 # ---------------------------------------------------------------------------
@@ -610,13 +598,12 @@ class TestExecute:
 
 
 class TestPostExecute:
-    def test_raises_when_maintenance_check_result_is_none(
-        self, task: MaintenanceCheckTask
-    ):
-        task.maintenance_check_result = None
+    def test_raises_when_details_is_none(self, task: MaintenanceCheckTask):
+        mock_result = MagicMock(spec=TaskResult)
+        mock_result.details = None
 
         with pytest.raises(ValueError):
-            task.post_execute(MagicMock(spec=TaskResult))
+            task.post_execute(mock_result)
 
     def test_sends_notification_when_show_notifications_true(
         self, make_task: MaintenanceCheckTaskFactory, mocker
@@ -624,23 +611,18 @@ class TestPostExecute:
         task: MaintenanceCheckTask = make_task(
             task_settings=_settings(show_notifications=True)
         )
-        task.maintenance_check_result = MaintenanceCheckResult(
-            status=TaskStatus.SUCCESS
-        )
         mock_notify: MagicMock = mocker.patch.object(task, "_send_notification")
         mocker.patch.object(task, "_save_report")
+        mock_result = MagicMock(spec=TaskResult)
 
-        task.post_execute(MagicMock(spec=TaskResult))
+        task.post_execute(mock_result)
 
-        mock_notify.assert_called_once_with(task.maintenance_check_result)
+        mock_notify.assert_called_once_with(mock_result.details)
 
     def test_skips_notification_when_show_notifications_false(
         self, make_task: MaintenanceCheckTaskFactory, mocker
     ):
         task = make_task(task_settings=_settings(show_notifications=False))
-        task.maintenance_check_result = MaintenanceCheckResult(
-            status=TaskStatus.SUCCESS
-        )
         mock_notify = mocker.patch.object(task, "_send_notification")
         mocker.patch.object(task, "_save_report")
 
@@ -655,24 +637,23 @@ class TestPostExecute:
         task = make_task(
             task_settings=_settings(show_notifications=False, output_mode=output_mode)
         )
-        task.maintenance_check_result = MaintenanceCheckResult(
-            status=TaskStatus.SUCCESS
-        )
+        mock_result = MagicMock(spec=TaskResult)
+        mock_result.timestamp = MagicMock()
+        mock_result.status = TaskStatus.SUCCESS
         mocker.patch.object(task, "_send_notification")
         mock_save = mocker.patch.object(task, "_save_report")
 
-        task.post_execute(MagicMock())
+        task.post_execute(mock_result)
 
-        mock_save.assert_called_once_with(task.maintenance_check_result)
+        mock_save.assert_called_once_with(
+            mock_result.details, mock_result.timestamp, mock_result.status
+        )
 
     def test_skips_report_when_output_mode_is_terminal(
         self, make_task: MaintenanceCheckTaskFactory, mocker
     ):
         task = make_task(
             task_settings=_settings(show_notifications=False, output_mode="terminal")
-        )
-        task.maintenance_check_result = MaintenanceCheckResult(
-            status=TaskStatus.SUCCESS
         )
         mocker.patch.object(task, "_send_notification")
         mock_save = mocker.patch.object(task, "_save_report")
@@ -696,9 +677,9 @@ class TestSendNotification:
         mock_send: MagicMock = mocker.patch.object(
             task.notification_manager, "send_maintenance_notification"
         )
-        result = MaintenanceCheckResult(status=TaskStatus.SUCCESS)
+        details = MaintenanceCheckDetails()
 
-        task._send_notification(result)
+        task._send_notification(details)
 
         mock_send.assert_not_called()
 
@@ -720,9 +701,12 @@ class TestSendNotification:
             description="d",
             recommendation="r",
         )
-        result = MaintenanceCheckResult(status=TaskStatus.SUCCESS, info_issues=[issue])
+        details = MaintenanceCheckDetails(
+            info_issues=[issue],
+            summary=MaintenanceCheckSummary(total_tasks_monitored=1, info_count=1),
+        )
 
-        task._send_notification(result)
+        task._send_notification(details)
 
         mock_send.assert_not_called()
 
@@ -740,16 +724,17 @@ class TestSendNotification:
             description="d",
             recommendation="r",
         )
-        result = MaintenanceCheckResult(
-            status=TaskStatus.PARTIAL, warning_issues=[issue]
+        details = MaintenanceCheckDetails(
+            warning_issues=[issue],
+            summary=MaintenanceCheckSummary(total_tasks_monitored=1, warning_count=1),
         )
 
-        task._send_notification(result)
+        task._send_notification(details)
 
         mock_manager.send_maintenance_notification.assert_called_once_with(
             severity=IssueSeverity.WARNING,
             tasks_count=1,
-            summary=result.summary_message,
+            summary=details.summary.summary_message,
         )
 
     def test_critical_issue_notifies_even_at_highest_threshold(
@@ -766,11 +751,12 @@ class TestSendNotification:
             description="d",
             recommendation="r",
         )
-        result = MaintenanceCheckResult(
-            status=TaskStatus.FAILURE, critical_issues=[issue]
+        details = MaintenanceCheckDetails(
+            critical_issues=[issue],
+            summary=MaintenanceCheckSummary(total_tasks_monitored=1, critical_count=1),
         )
 
-        task._send_notification(result)
+        task._send_notification(details)
 
         mock_manager.send_maintenance_notification.assert_called_once()
 
@@ -781,15 +767,27 @@ class TestSendNotification:
 
 
 class TestSaveReport:
+    @staticmethod
+    def _make_result(
+        details: MaintenanceCheckDetails | None = None,
+        status: TaskStatus = TaskStatus.SUCCESS,
+    ) -> TaskResult[MaintenanceCheckDetails]:
+        result = MagicMock(spec=TaskResult)
+        result.details = details or MaintenanceCheckDetails()
+        result.status = status
+        result.timestamp = MagicMock()
+        return result
+
     def test_creates_report_file(
         self,
         make_task: MaintenanceCheckTaskFactory,
         settings_with_tmp_reports: AppSettings,
     ):
         task: MaintenanceCheckTask = make_task(task_settings=settings_with_tmp_reports)
-        result = MaintenanceCheckResult(status=TaskStatus.SUCCESS)
+        result = self._make_result()
 
-        task._save_report(result)
+        assert result.details is not None
+        task._save_report(result.details, result.timestamp, result.status)
 
         report_files = list(
             settings_with_tmp_reports.report_dir.glob("maintenance-check_*.txt")
@@ -802,9 +800,10 @@ class TestSaveReport:
         settings_with_tmp_reports: AppSettings,
     ):
         task: MaintenanceCheckTask = make_task(task_settings=settings_with_tmp_reports)
-        result = MaintenanceCheckResult(status=TaskStatus.SUCCESS)
+        result = self._make_result()
 
-        task._save_report(result)
+        assert result.details is not None
+        task._save_report(result.details, result.timestamp, result.status)
 
         content = next(settings_with_tmp_reports.report_dir.glob("*.txt")).read_text()
         assert "No maintenance issues found" in content
@@ -821,11 +820,14 @@ class TestSaveReport:
             description="severely overdue",
             recommendation="run it now",
         )
-        result = MaintenanceCheckResult(
-            status=TaskStatus.FAILURE, critical_issues=[issue]
+        details = MaintenanceCheckDetails(
+            critical_issues=[issue],
+            summary=MaintenanceCheckSummary(total_tasks_monitored=1, critical_count=1),
         )
+        result = self._make_result(details)
+        assert result.details is not None
 
-        task._save_report(result)
+        task._save_report(result.details, result.timestamp, result.status)
 
         content = next(settings_with_tmp_reports.report_dir.glob("*.txt")).read_text()
         assert "CRITICAL ISSUES" in content
@@ -845,9 +847,14 @@ class TestSaveReport:
             description="d",
             recommendation="r",
         )
-        result = MaintenanceCheckResult(status=TaskStatus.SUCCESS, info_issues=[issue])
+        details = MaintenanceCheckDetails(
+            info_issues=[issue],
+            summary=MaintenanceCheckSummary(total_tasks_monitored=1, info_count=1),
+        )
+        result = self._make_result(details)
+        assert result.details is not None
 
-        task._save_report(result)
+        task._save_report(result.details, result.timestamp, result.status)
 
         content = next(settings_with_tmp_reports.report_dir.glob("*.txt")).read_text()
         assert "CRITICAL ISSUES" not in content
@@ -862,9 +869,10 @@ class TestSaveReport:
     ):
         task: MaintenanceCheckTask = make_task(task_settings=settings_with_tmp_reports)
         mock_cleanup: MagicMock = mocker.patch.object(task, "_cleanup_old_reports")
-        result = MaintenanceCheckResult(status=TaskStatus.SUCCESS)
+        result = self._make_result()
+        assert result.details is not None
 
-        task._save_report(result)
+        task._save_report(result.details, result.timestamp, result.status)
 
         mock_cleanup.assert_called_once()
 
