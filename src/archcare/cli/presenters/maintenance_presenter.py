@@ -9,7 +9,7 @@ from archcare.utils.output import console
 
 
 class MaintenanceCheckPresenter:
-    """Renders MaintenanceCheckResult to the terminal."""
+    """Renders per severity issues table to the terminal."""
 
     @staticmethod
     def render(
@@ -21,7 +21,7 @@ class MaintenanceCheckPresenter:
         Render the full maintenance check output.
 
         Args:
-            result: The maintenance check result to render.
+            details: Maintenance check details to render.
             is_interactive: Whether the command is running interactively.
                 Non-interactive (systemd) runs skip the acknowledgment prompt.
             require_acknowledgment: Whether to block on user acknowledgment
