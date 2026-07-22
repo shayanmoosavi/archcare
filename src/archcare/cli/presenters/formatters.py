@@ -8,14 +8,13 @@ core.task_registry.TaskRegistry, not here - this module only supplies the
 CLI-specific rendering for each domain.
 """
 
-from typing import Any
-
 from archcare.core import (
     FailedServiceInfo,
     FailedServicesDetails,
     HealthCheckDetails,
     HealthCheckSummary,
     MaintenanceCheckDetails,
+    MaintenanceCheckSummary,
     MirrorlistUpdateDetails,
 )
 
@@ -78,7 +77,7 @@ class HealthCheckFormatter:
         return lines
 
     @staticmethod
-    def _format_summary(lines: list[Any], summary: HealthCheckSummary):
+    def _format_summary(lines: list[str], summary: HealthCheckSummary):
         lines.append("\n[bold]System Summary:[/bold]")
 
         # Format resource usage metrics
@@ -138,15 +137,9 @@ class MaintenanceCheckFormatter:
     """Formats details for the maintenance-check task."""
 
     def format(self, details: MaintenanceCheckDetails) -> list[str]:
-        lines = [
-            "\n[bold]Summary: [/bold]",
-            f"  Total tasks monitored: {details.total_tasks_monitored}",
-            f"  Critical issues: {details.critical_count}",
-            f"  Warning issues: {details.warning_count}",
-            f"  Informational issues: {details.info_count}\n",
-        ]
 
-        # Summary statistics
+        lines = []
+
         if tasks_needing_attention := details.tasks_needing_attention:
             severity_mapping = {
                 "critical": "[red]❗ CRITICAL[/red]",
@@ -159,4 +152,20 @@ class MaintenanceCheckFormatter:
                 sev_key = str(issue.severity)
                 lines.append(f"    ‒ {severity_mapping[sev_key]}")
 
+        # Show summary statistics
+        summary = details.summary
+        self._format_summary(lines, summary)
+
         return lines
+
+    @staticmethod
+    def _format_summary(lines: list[str], summary: MaintenanceCheckSummary):
+        lines.extend(
+            [
+                "\n[bold]Summary: [/bold]",
+                f"  Total tasks monitored: {summary.total_tasks_monitored}",
+                f"  Critical issues: {summary.critical_count}",
+                f"  Warning issues: {summary.warning_count}",
+                f"  Informational issues: {summary.info_count}\n",
+            ]
+        )

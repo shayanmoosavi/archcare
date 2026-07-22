@@ -16,6 +16,7 @@ from archcare.core import (
     HealthCheckDetails,
     HealthCheckSummary,
     MaintenanceCheckDetails,
+    MaintenanceCheckSummary,
     MaintenanceIssue,
     MirrorlistUpdateDetails,
 )
@@ -241,10 +242,12 @@ class TestHealthCheckFormatter:
 class TestMaintenanceCheckFormatter:
     def test_includes_summary_counts(self):
         details = MaintenanceCheckDetails(
-            total_tasks_monitored=4,
-            critical_count=1,
-            warning_count=2,
-            info_count=0,
+            summary=MaintenanceCheckSummary(
+                total_tasks_monitored=4,
+                critical_count=1,
+                warning_count=2,
+                info_count=0,
+            )
         )
 
         output = _joined(MaintenanceCheckFormatter().format(details))
@@ -255,11 +258,7 @@ class TestMaintenanceCheckFormatter:
         assert "Informational issues: 0" in output
 
     def test_no_attention_section_when_list_empty(self):
-        output = _joined(
-            MaintenanceCheckFormatter().format(
-                MaintenanceCheckDetails(tasks_needing_attention=[])
-            )
-        )
+        output = _joined(MaintenanceCheckFormatter().format(MaintenanceCheckDetails()))
 
         assert "Tasks needing attention:" not in output
 
@@ -277,9 +276,15 @@ class TestMaintenanceCheckFormatter:
         issue.task_name = "update-mirrorlist"
         issue.severity = severity
 
+        details_key = f"{severity}_issues"
+        summary_key = f"{severity}_count"
+
         output = _joined(
             MaintenanceCheckFormatter().format(
-                MaintenanceCheckDetails(tasks_needing_attention=[issue])
+                MaintenanceCheckDetails(
+                    **{details_key: [issue]},  # ty:ignore[invalid-argument-type]
+                    summary=MaintenanceCheckSummary(**{summary_key: 1}),
+                )
             )
         )
 
