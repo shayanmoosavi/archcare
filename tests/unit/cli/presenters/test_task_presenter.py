@@ -10,7 +10,6 @@ from archcare.config import AppSettings, TaskConfig, TaskStatus
 from archcare.config.models import MaintenanceCheckSettings
 from archcare.core import (
     MaintenanceCheckDetails,
-    MaintenanceCheckResult,
     TaskRegistry,
     TaskResult,
     TaskScheduleInfo,
