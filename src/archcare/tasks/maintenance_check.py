@@ -408,7 +408,7 @@ class MaintenanceCheckTask(BaseTask):
         details = result.details
         if not details:
             # Shouldn't happen, but being defensive
-            raise ValueError("`maintenance_check_result` should not be `None`")
+            raise ValueError("`details` should not be `None`")
 
         # Send notification if enabled
         if self.settings.maintenance_check.show_notifications:
