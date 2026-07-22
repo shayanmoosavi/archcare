@@ -370,22 +370,33 @@ class AppSettings(BaseModel):
         """Directory for maintenance check reports."""
         return self.home_dir / ".local/state/archcare/reports"
 
-    @classmethod
-    def expand_paths(cls, v: Path) -> Path:
-        """Expand user home directory in paths."""
-        return v.expanduser().resolve()
-
     @model_validator(mode="after")
     def validate_paths(self) -> Self:
-        paths: list[Path] = [
+        """Validate that all computed paths are absolute and well-formed.
+
+        Checks:
+        - Paths are absolute (not relative)
+        - Paths are syntactically valid (resolvable without requiring existence)
+
+        Does NOT create directories; ensure_directories() handles that.
+        """
+        paths = [
             self.log_dir,
             self.state_file,
             self.config_dir,
             self.report_dir,
         ]
 
-        if not all(self.expand_paths(path) for path in paths):
-            raise ValueError("All paths must be valid and accessible.")
+        for path in paths:
+            if not path.is_absolute():
+                raise ValueError(f"Path must be absolute: {path}")
+
+            # resolve(strict=False) validates path syntax and resolves ., .., ~
+            # without requiring the path to actually exist on disk
+            try:
+                path.resolve(strict=False)
+            except (OSError, RuntimeError) as e:
+                raise ValueError(f"Malformed path {path}: {e}")
 
         return self
 
@@ -395,10 +406,14 @@ class AppSettings(BaseModel):
 
     def ensure_directories(self) -> None:
         """Create necessary directories if they don't exist."""
-        self.log_dir.mkdir(parents=True, exist_ok=True)
-        self.state_file.parent.mkdir(parents=True, exist_ok=True)
-        self.config_dir.mkdir(parents=True, exist_ok=True)
-        self.report_dir.mkdir(parents=True, exist_ok=True)
+        paths = [
+            self.log_dir,
+            self.state_file.parent,
+            self.config_dir,
+            self.report_dir,
+        ]
+        for path in paths:
+            path.mkdir(parents=True, exist_ok=True)
 
 
 class TaskState(BaseModel):
