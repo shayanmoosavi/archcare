@@ -28,11 +28,6 @@ def clear_sudo_user(monkeypatch):
 
 
 @pytest.fixture
-def patch_path_exists(mocker):
-    mocker.patch.object(Path, "exists", return_value=True)
-
-
-@pytest.fixture
 def mock_pwd(mocker) -> MagicMock:
     return mocker.patch("archcare.config.models.getpwnam")
 
@@ -132,7 +127,6 @@ class TestTasksConfig:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.usefixtures("patch_path_exists")
 class TestAppSettingsPaths:
     def test_home_dir_is_path_home_when_user_is_none(self):
         settings = AppSettings(user=None)
@@ -161,9 +155,12 @@ class TestAppSettingsPaths:
         result = AppSettings._resolve_user_home("alice")
         assert result == Path("/var/lib/custom")
 
-    def test_resolve_user_home_fallback_when_user_not_found(self, mock_pwd: MagicMock):
+    def test_resolve_user_home_fallback_when_user_not_found(
+        self, mock_pwd: MagicMock, mocker
+    ):
         """_resolve_user_home returns home directory when user is not found."""
         mock_pwd.side_effect = KeyError("unknown")
+        mocker.patch.object(Path, "exists", return_value=True)
 
         result = AppSettings._resolve_user_home("unknown")
         assert result == Path("/home/unknown")
