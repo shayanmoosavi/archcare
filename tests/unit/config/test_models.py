@@ -2,6 +2,7 @@
 
 from datetime import datetime, timedelta
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from pydantic import ValidationError
@@ -16,10 +17,24 @@ from archcare.config import (
 )
 from archcare.config.models import MaintenanceCheckSettings, MirrorlistSettings
 
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def clear_sudo_user(monkeypatch):
     monkeypatch.delenv("SUDO_USER", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def patch_path_exists(mocker):
+    mocker.patch.object(Path, "exists", return_value=True)
+
+
+@pytest.fixture(autouse=True)
+def mock_pwd(mocker) -> MagicMock:
+    return mocker.patch("archcare.config.models.getpwnam")
 
 
 # ---------------------------------------------------------------------------
@@ -118,22 +133,49 @@ class TestTasksConfig:
 
 
 class TestAppSettingsPaths:
-    @pytest.fixture(autouse=True)
-    def patch_path_exists(self, mocker):
-        mocker.patch.object(Path, "exists", return_value=True)
-
     def test_home_dir_is_path_home_when_user_is_none(self):
         settings = AppSettings(user=None)
         assert settings.home_dir == Path.home()
 
-    def test_home_dir_uses_user_name(self):
-        settings = AppSettings(user="alice")
-        assert settings.home_dir == Path("/home/alice")
+    def test_home_dir_uses_user_name(self, mock_pwd: MagicMock):
+        mock_pwd.return_value.pw_dir = "/home/alice"
 
-    def test_sudo_user_overrides_user(self, monkeypatch):
-        monkeypatch.setenv("SUDO_USER", "bob")
         settings = AppSettings(user="alice")
+
+        assert settings.home_dir == Path("/home/alice")
+        assert mock_pwd.call_args_list[0].args[0] == "alice"
+
+    def test_sudo_user_overrides_user(self, monkeypatch, mock_pwd: MagicMock):
+        monkeypatch.setenv("SUDO_USER", "bob")
+        mock_pwd.return_value.pw_dir = "/home/bob"
+
+        settings = AppSettings(user="alice")
+
         assert settings.home_dir == Path("/home/bob")
+
+    def test_resolve_user_home_uses_pwd(self, mock_pwd: MagicMock):
+        """_resolve_user_home calls pwd.getpwnam and returns pw_dir."""
+        mock_pwd.return_value.pw_dir = "/var/lib/custom"
+
+        result = AppSettings._resolve_user_home("alice")
+        assert result == Path("/var/lib/custom")
+
+    def test_resolve_user_home_fallback_when_user_not_found(self, mock_pwd: MagicMock):
+        """_resolve_user_home returns home directory when user is not found."""
+        mock_pwd.side_effect = KeyError("unknown")
+
+        result = AppSettings._resolve_user_home("unknown")
+        assert result == Path("/home/unknown")
+
+    def test_resolve_user_home_raises_when_no_fallback(
+        self, mock_pwd: MagicMock, mocker
+    ):
+        """_resolve_user_home raises when no fallback is available."""
+        mock_pwd.side_effect = KeyError("ghost")
+        mocker.patch.object(Path, "exists", return_value=False)
+
+        with pytest.raises(ValueError, match="Cannot resolve home directory"):
+            AppSettings._resolve_user_home("ghost")
 
     @pytest.mark.parametrize(
         "path,expected",
@@ -144,9 +186,46 @@ class TestAppSettingsPaths:
             ("state_file", Path("/home/alice/.local/state/archcare/state.json")),
         ],
     )
-    def test_paths_are_under_home(self, path, expected):
+    def test_paths_are_under_home(self, path, expected, mock_pwd: MagicMock):
+        mock_pwd.return_value.pw_dir = "/home/alice"
         settings = AppSettings(user="alice")
         assert getattr(settings, path) == expected
+
+
+class TestValidatePaths:
+    def test_validate_paths_accepts_valid_paths(self, mock_pwd: MagicMock):
+        """Valid absolute paths should pass validation."""
+        mock_pwd.return_value.pw_dir = "/home/alice"
+
+        # Should not raise
+        settings = AppSettings(user="alice")
+        assert settings.home_dir == Path("/home/alice")
+
+    def test_validate_paths_rejects_relative_paths(self, monkeypatch):
+        """Relative paths should raise ValidationError."""
+        # Force Path.home() to return a relative path
+        monkeypatch.setattr(Path, "home", staticmethod(lambda: Path("relative/path")))
+
+        with pytest.raises(ValidationError, match="Path must be absolute"):
+            AppSettings(user=None)
+
+    def test_validate_paths_rejects_unresolvable_paths(
+        self, mock_pwd: MagicMock, mocker
+    ):
+        """Unresolvable paths should raise ValidationError."""
+        mock_pwd.return_value.pw_dir = "/home/alice"
+
+        original_resolve = Path.resolve
+
+        def failing_resolve(self, strict=False):
+            if ".local" in str(self):  # Target one of the computed paths
+                raise OSError("Invalid path")
+            return original_resolve(self, strict=strict)
+
+        mocker.patch.object(Path, "resolve", failing_resolve)
+
+        with pytest.raises(ValidationError, match="Malformed path"):
+            AppSettings(user="alice")
 
 
 class TestAppSettingsEnsureDirectories:
