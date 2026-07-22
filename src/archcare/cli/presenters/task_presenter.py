@@ -5,7 +5,7 @@ Owns all terminal rendering for TaskService results.
 """
 
 from archcare.config import AppSettings, TaskStatus
-from archcare.core import MaintenanceCheckResult, TaskRegistry, TaskResult
+from archcare.core import MaintenanceCheckDetails, TaskRegistry, TaskResult
 from archcare.services.responses import (
     TaskListResponse,
     TaskRunResponse,
@@ -37,20 +37,17 @@ class TaskPresenter:
         if not response.outcome.is_skipped():
             print_header(f"Running Task: {response.task_name}")
 
-        # The maintenance-check task has this in TaskResult details dictionary
-        maintenance_result: MaintenanceCheckResult | None = getattr(
-            response.outcome.details, "maintenance_result", None
-        )
+        details = response.outcome.details
 
         # Maintenance issues table rendering
-        if maintenance_result:
+        if isinstance(details, MaintenanceCheckDetails):
             report_dir = settings.report_dir
             mc_settings = settings.maintenance_check
 
             # Do not render if output_mode = 'file'
             if mc_settings.output_mode != "file":
                 MaintenanceCheckPresenter.render(
-                    maintenance_result,
+                    details,
                     is_interactive=response.is_interactive,
                     require_acknowledgment=mc_settings.require_acknowledgment,
                 )
