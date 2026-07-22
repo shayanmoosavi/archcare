@@ -16,6 +16,12 @@ from archcare.config import (
 )
 from archcare.config.models import MaintenanceCheckSettings, MirrorlistSettings
 
+
+@pytest.fixture(autouse=True)
+def clear_sudo_user(monkeypatch):
+    monkeypatch.delenv("SUDO_USER", raising=False)
+
+
 # ---------------------------------------------------------------------------
 # TaskConfig
 # ---------------------------------------------------------------------------
@@ -116,13 +122,11 @@ class TestAppSettingsPaths:
     def patch_path_exists(self, mocker):
         mocker.patch.object(Path, "exists", return_value=True)
 
-    def test_home_dir_is_path_home_when_user_is_none(self, monkeypatch):
-        monkeypatch.delenv("SUDO_USER", raising=False)
+    def test_home_dir_is_path_home_when_user_is_none(self):
         settings = AppSettings(user=None)
         assert settings.home_dir == Path.home()
 
-    def test_home_dir_uses_user_name(self, monkeypatch):
-        monkeypatch.delenv("SUDO_USER", raising=False)
+    def test_home_dir_uses_user_name(self):
         settings = AppSettings(user="alice")
         assert settings.home_dir == Path("/home/alice")
 
@@ -131,25 +135,18 @@ class TestAppSettingsPaths:
         settings = AppSettings(user="alice")
         assert settings.home_dir == Path("/home/bob")
 
-    def test_log_dir_is_under_home(self, monkeypatch):
-        monkeypatch.delenv("SUDO_USER", raising=False)
-        s = AppSettings(user="alice")
-        assert s.log_dir == Path("/home/alice/.local/state/archcare/logs")
-
-    def test_config_dir_is_under_home(self, monkeypatch):
-        monkeypatch.delenv("SUDO_USER", raising=False)
-        s = AppSettings(user="alice")
-        assert s.config_dir == Path("/home/alice/.config/archcare")
-
-    def test_state_file_is_under_home(self, monkeypatch):
-        monkeypatch.delenv("SUDO_USER", raising=False)
-        s = AppSettings(user="alice")
-        assert s.state_file == Path("/home/alice/.local/state/archcare/state.json")
-
-    def test_report_dir_is_under_home(self, monkeypatch):
-        monkeypatch.delenv("SUDO_USER", raising=False)
-        s = AppSettings(user="alice")
-        assert s.report_dir == Path("/home/alice/.local/state/archcare/reports")
+    @pytest.mark.parametrize(
+        "path,expected",
+        [
+            ("log_dir", Path("/home/alice/.local/state/archcare/logs")),
+            ("config_dir", Path("/home/alice/.config/archcare")),
+            ("report_dir", Path("/home/alice/.local/state/archcare/reports")),
+            ("state_file", Path("/home/alice/.local/state/archcare/state.json")),
+        ],
+    )
+    def test_paths_are_under_home(self, path, expected):
+        settings = AppSettings(user="alice")
+        assert getattr(settings, path) == expected
 
 
 class TestAppSettingsEnsureDirectories:
@@ -158,7 +155,6 @@ class TestAppSettingsEnsureDirectories:
         Redirect Path.home() to tmp_path so ensure_directories() writes to a
         temp location instead of the real home directory.
         """
-        monkeypatch.delenv("SUDO_USER", raising=False)
         monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
         settings = AppSettings(user=None)
 
@@ -171,7 +167,6 @@ class TestAppSettingsEnsureDirectories:
 
     def test_ensure_directories_is_idempotent(self, tmp_path, monkeypatch):
         """Calling twice must not raise even if directories already exist."""
-        monkeypatch.delenv("SUDO_USER", raising=False)
         monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
         settings = AppSettings(user=None)
 
