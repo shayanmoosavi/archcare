@@ -9,7 +9,10 @@ from archcare.core import (
     FailedServicesDetails,
     HealthCheckDetails,
     HealthCheckSummary,
+    IssueSeverity,
     MaintenanceCheckDetails,
+    MaintenanceCheckSummary,
+    MaintenanceIssue,
     MirrorlistUpdateDetails,
 )
 
@@ -100,6 +103,151 @@ class TestFailedServicesDetails:
 
 
 # ---------------------------------------------------------------------------
+# MaintenanceCheckSummary
+# ---------------------------------------------------------------------------
+
+
+class TestMaintenanceCheckSummary:
+    def test_defaults(self):
+        summary = MaintenanceCheckSummary()
+
+        assert summary.total_tasks_monitored == 0
+        assert summary.critical_count == 0
+        assert summary.warning_count == 0
+        assert summary.info_count == 0
+
+    def test_custom_values(self):
+        summary = MaintenanceCheckSummary(
+            total_tasks_monitored=10,
+            critical_count=2,
+            warning_count=3,
+            info_count=5,
+        )
+
+        assert summary.total_tasks_monitored == 10
+        assert summary.critical_count == 2
+        assert summary.warning_count == 3
+        assert summary.info_count == 5
+
+    def test_is_frozen(self):
+        summary = MaintenanceCheckSummary()
+
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            summary.total_tasks_monitored = 10  # ty:ignore[invalid-assignment]
+
+    def test_total_issues(self):
+        summary = MaintenanceCheckSummary(
+            total_tasks_monitored=10,
+            critical_count=0,
+            warning_count=3,
+            info_count=2,
+        )
+
+        assert (
+            summary.total_issues
+            == summary.critical_count + summary.warning_count + summary.info_count
+        )
+
+    def test_has_issues(self):
+        summary = MaintenanceCheckSummary(
+            total_tasks_monitored=10,
+            critical_count=0,
+            warning_count=3,
+            info_count=2,
+        )
+
+        assert summary.has_issues
+
+        summary = MaintenanceCheckSummary(
+            total_tasks_monitored=10,
+            critical_count=0,
+            warning_count=0,
+            info_count=0,
+        )
+
+        assert not summary.has_issues
+
+
+class TestSummaryMessage:
+    def test_all_clear_when_no_issues(self):
+        summary = MaintenanceCheckSummary(
+            total_tasks_monitored=10,
+            critical_count=0,
+            warning_count=0,
+            info_count=0,
+        )
+        assert summary.summary_message == "All maintenance tasks are up to date!"
+
+    def test_single_severity_type(self):
+        summary = MaintenanceCheckSummary(
+            total_tasks_monitored=10,
+            warning_count=1,
+        )
+        assert summary.summary_message == "Found 1 warning issue(s) requiring attention"
+
+    def test_multiple_severity_types_are_comma_joined(self):
+        summary = MaintenanceCheckSummary(
+            total_tasks_monitored=10,
+            critical_count=2,
+            warning_count=1,
+        )
+        assert (
+            summary.summary_message
+            == "Found 2 critical, 1 warning issue(s) requiring attention"
+        )
+
+    def test_zero_count_categories_are_omitted(self):
+        """
+        critical+info present, warning absent - the message must not
+        mention '0 warning' at all, only categories that actually have
+        issues. Easy to break with an off-by-one in the join logic.
+        """
+        summary = MaintenanceCheckSummary(
+            total_tasks_monitored=10,
+            critical_count=1,
+            info_count=1,
+        )
+        assert (
+            summary.summary_message
+            == "Found 1 critical, 1 info issue(s) requiring attention"
+        )
+        assert "warning" not in summary.summary_message
+
+
+# ---------------------------------------------------------------------------
+# MaintenanceCheckDetails
+# ---------------------------------------------------------------------------
+
+
+class TestMaintenanceCheckDetails:
+    @staticmethod
+    def _issue(name: str, severity: IssueSeverity) -> MaintenanceIssue:
+        return MaintenanceIssue(
+            task_name=name, severity=severity, description="d", recommendation="r"
+        )
+
+    def test_default_lists_are_not_shared_across_instances(self):
+        first = MaintenanceCheckDetails()
+        second = MaintenanceCheckDetails()
+
+        assert first.critical_issues is not second.critical_issues
+        assert first.warning_issues is not second.warning_issues
+        assert first.info_issues is not second.info_issues
+
+    def test_excludes_info_issues(self):
+        critical, warning, info = (
+            self._issue("a", IssueSeverity.CRITICAL),
+            self._issue("b", IssueSeverity.WARNING),
+            self._issue("c", IssueSeverity.INFO),
+        )
+        details = MaintenanceCheckDetails(
+            critical_issues=[critical], warning_issues=[warning], info_issues=[info]
+        )
+        assert details.tasks_needing_attention == [critical, warning]
+        assert info not in details.tasks_needing_attention
+
+
+# ---------------------------------------------------------------------------
 # HealthCheckSummary
 # ---------------------------------------------------------------------------
 
@@ -187,47 +335,6 @@ class TestHealthCheckDetails:
         assert first.issues is not second.issues
         assert first.warnings is not second.warnings
         assert first.summary is not second.summary
-
-
-# ---------------------------------------------------------------------------
-# MaintenanceCheckDetails
-# ---------------------------------------------------------------------------
-
-
-class TestMaintenanceCheckDetails:
-    def test_defaults(self):
-        details = MaintenanceCheckDetails()
-
-        assert details.total_tasks_monitored == 0
-        assert details.tasks_needing_attention == []
-        assert details.critical_count == 0
-        assert details.warning_count == 0
-        assert details.info_count == 0
-        assert details.maintenance_result is None
-
-    def test_custom_values(self):
-        details = MaintenanceCheckDetails(
-            total_tasks_monitored=10,
-            critical_count=2,
-            warning_count=1,
-            info_count=0,
-        )
-
-        assert details.total_tasks_monitored == 10
-        assert details.critical_count == 2
-        assert details.warning_count == 1
-
-    def test_is_frozen(self):
-        details = MaintenanceCheckDetails()
-
-        with pytest.raises(dataclasses.FrozenInstanceError):
-            details.critical_count = 99  # ty:ignore[invalid-assignment]
-
-    def test_default_tasks_needing_attention_not_shared_across_instances(self):
-        first = MaintenanceCheckDetails()
-        second = MaintenanceCheckDetails()
-
-        assert first.tasks_needing_attention is not second.tasks_needing_attention
 
 
 # ---------------------------------------------------------------------------

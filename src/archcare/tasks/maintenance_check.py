@@ -19,7 +19,7 @@ from archcare.config import (
 from archcare.core import (
     IssueSeverity,
     MaintenanceCheckDetails,
-    MaintenanceCheckResult,
+    MaintenanceCheckSummary,
     MaintenanceIssue,
     TaskResult,
     TaskScheduleInfo,
@@ -56,8 +56,10 @@ class MaintenanceCheckTask(BaseTask):
         """
         super().__init__(config, settings, *args, **kwargs)
 
-        # MaintenanceCheckResult instance to store the necessary information, initialized to None
-        self.maintenance_check_result: MaintenanceCheckResult | None = None
+        # Initialize issue lists
+        self._info_issues: list[MaintenanceIssue] = []
+        self._warning_issues: list[MaintenanceIssue] = []
+        self._critical_issues: list[MaintenanceIssue] = []
 
         # Initialize loader and load fresh state/tasks
         self.config_loader = ConfigLoader(user=settings.user)
@@ -70,22 +72,16 @@ class MaintenanceCheckTask(BaseTask):
         Execute maintenance check.
 
         Returns:
-            MaintenanceCheckResult with categorized issues
+            TaskResult with maintenance check details
         """
 
         logger.info("Starting maintenance check")
 
-        # Initialize result
-        result = MaintenanceCheckResult(  # type: ignore[call-arg]
-            task_name=self.config.name,
-            status=TaskStatus.SUCCESS,  # Will update based on findings
-        )
-
         # Get all enabled tasks
         enabled_tasks = self.tasks_config.get_enabled_tasks()
-        result.total_tasks_monitored = len(enabled_tasks)
+        total_tasks_monitored = len(enabled_tasks)
 
-        logger.info(f"Checking {result.total_tasks_monitored} enabled tasks")
+        logger.info(f"Checking {total_tasks_monitored} enabled tasks")
 
         # Check each task
         for task_name, task_config in enabled_tasks.items():
@@ -93,47 +89,61 @@ class MaintenanceCheckTask(BaseTask):
             if task_name == self.config.name:
                 continue
 
-            issues = self._check_task(task_name, task_config)
+            task_issues = self._check_task(task_name, task_config)
 
             # Categorize issues by severity
-            self._categorize_issues(issues, result)
+            self._categorize_issues(task_issues)
+
+        summary = MaintenanceCheckSummary(
+            total_tasks_monitored=total_tasks_monitored,
+            critical_count=len(self._critical_issues),
+            warning_count=len(self._warning_issues),
+            info_count=len(self._info_issues),
+        )
 
         # Determine overall status
-        if result.critical_issues:
-            result.error_message = (
-                f"{len(result.critical_issues)} critical issues found"
-            )
-            result.status = TaskStatus.FAILURE
-            logger.error(result.error_message)
-        elif result.warning_issues:
-            result.status = TaskStatus.PARTIAL
-            logger.warning(f"{len(result.warning_issues)} warning issues found")
-        elif result.info_issues:
-            result.status = TaskStatus.SUCCESS
+        error_message = None
+        if self._critical_issues:
+            error_message = f"{len(self._critical_issues)} critical issues found"
+            status = TaskStatus.FAILURE
+            logger.error(error_message)
+        elif self._warning_issues:
+            status = TaskStatus.PARTIAL
+            logger.warning(f"{len(self._warning_issues)} warning issues found")
+        elif self._info_issues:
+            status = TaskStatus.SUCCESS
             logger.success(
-                f"{len(result.info_issues)} info issues found. No immediate attention required"
+                f"{len(self._info_issues)} info issues found. No immediate attention required"
             )
         else:
-            result.status = TaskStatus.SUCCESS
+            status = TaskStatus.SUCCESS
             logger.success("No issues found")
 
         logger.info("Maintenance check complete")
 
-        self.maintenance_check_result = result
-        return result.to_task_result()
+        details = MaintenanceCheckDetails(
+            critical_issues=self._critical_issues,
+            warning_issues=self._warning_issues,
+            info_issues=self._info_issues,
+            summary=summary,
+        )
 
-    @staticmethod
-    def _categorize_issues(
-        issues: list[MaintenanceIssue], result: MaintenanceCheckResult
-    ):
+        return TaskResult(
+            status=status,
+            message=summary.summary_message,
+            details=details,
+            error=error_message,
+        )
+
+    def _categorize_issues(self, issues: list[MaintenanceIssue]):
         for issue in issues:
             match issue.severity:
                 case IssueSeverity.CRITICAL:
-                    result.critical_issues.append(issue)
+                    self._critical_issues.append(issue)
                 case IssueSeverity.WARNING:
-                    result.warning_issues.append(issue)
+                    self._warning_issues.append(issue)
                 case IssueSeverity.INFO:
-                    result.info_issues.append(issue)
+                    self._info_issues.append(issue)
 
     def _check_task(
         self, task_name: str, task_config: TaskConfig
@@ -395,26 +405,26 @@ class MaintenanceCheckTask(BaseTask):
         Args:
             result: The result from execute()
         """
-        check_result = self.maintenance_check_result
-        if not check_result:
+        details = result.details
+        if not details:
             # Shouldn't happen, but being defensive
             raise ValueError("`maintenance_check_result` should not be `None`")
 
         # Send notification if enabled
         if self.settings.maintenance_check.show_notifications:
-            self._send_notification(check_result)
+            self._send_notification(details)
 
         # Save report if output_mode requires it
         output_mode = self.settings.maintenance_check.output_mode
         if output_mode in ("file", "both"):
-            self._save_report(check_result)
+            self._save_report(details, result.timestamp, result.status)
 
-    def _send_notification(self, check_result: MaintenanceCheckResult):
+    def _send_notification(self, details: MaintenanceCheckDetails):
         """
         Send desktop notification based on check results.
 
         Args:
-            check_result: Maintenance check result
+            details: Maintenance check details
         """
 
         notification_level = self.settings.maintenance_check.notification_level
@@ -423,16 +433,14 @@ class MaintenanceCheckTask(BaseTask):
         severity_map = {"info": 0, "warning": 1, "critical": 2}
         severity = IssueSeverity.INFO  # Default severity
 
-        critical_issues = check_result.get_issues_by_severity(IssueSeverity.CRITICAL)
-        warning_issues = check_result.get_issues_by_severity(IssueSeverity.WARNING)
-        info_issues = check_result.get_issues_by_severity(IssueSeverity.INFO)
+        summary = details.summary
 
-        if check_result.has_issues:
-            if critical_issues:
+        if summary.has_issues:
+            if details.critical_issues:
                 severity = IssueSeverity.CRITICAL
-            elif warning_issues:
+            elif details.warning_issues:
                 severity = IssueSeverity.WARNING
-            elif info_issues:
+            elif details.info_issues:
                 severity = IssueSeverity.INFO
             else:
                 # This should never happen
@@ -454,57 +462,63 @@ class MaintenanceCheckTask(BaseTask):
         if self.notification_manager:
             self.notification_manager.send_maintenance_notification(
                 severity=severity,
-                tasks_count=len(check_result.all_issues),
-                summary=check_result.summary_message,
+                tasks_count=summary.total_issues,
+                summary=summary.summary_message,
             )
 
-    def _save_report(self, result: MaintenanceCheckResult):
+    def _save_report(
+        self, details: MaintenanceCheckDetails, timestamp: datetime, status: TaskStatus
+    ):
         """
         Save maintenance check report to file.
 
         Args:
-            result: Maintenance check result
+            details: Maintenance check details
+            timestamp: Report generation timestamp
+            status: Status of maintenance check
         """
         # Generate report filename with timestamp
-        timestamp = result.timestamp.strftime("%Y%m%d_%H%M%S")
-        report_file = self.settings.report_dir / f"maintenance-check_{timestamp}.txt"
+        timestamp_str = timestamp.strftime("%Y%m%d_%H%M%S")
+        report_file = (
+            self.settings.report_dir / f"maintenance-check_{timestamp_str}.txt"
+        )
 
         # Build report content
         lines = [
             "=" * 80,
             "Archcare Maintenance Check Report",
-            f"Generated: {result.timestamp.strftime('%Y-%m-%d %H:%M:%S')}",
+            f"Generated: {timestamp.strftime('%Y-%m-%d %H:%M:%S')}",
             "=" * 80,
             "\n",
-            f"Status: {result.status.value.upper()}",
-            f"Tasks Monitored: {result.total_tasks_monitored}",
+            f"Status: {str(status).upper()}",
+            f"Tasks Monitored: {details.summary.total_tasks_monitored}",
         ]
 
-        if result.tasks_needing_attention:
+        if details.tasks_needing_attention:
             lines.append("Tasks needing attention:")
-            for maintenance_issue in result.tasks_needing_attention:
+            for maintenance_issue in details.tasks_needing_attention:
                 lines.append(
                     f"  - {maintenance_issue.task_name} ({str(maintenance_issue.severity).upper()})"
                 )
             lines.append("\n")
 
-        if not result.has_issues:
+        if not details.summary.has_issues:
             lines.append("✓ No maintenance issues found! Your system is healthy :)")
             lines.append("\n")
         else:
             # Add issues by severity
-            if result.critical_issues:
+            if details.critical_issues:
                 self._add_issues_section(
-                    lines, "🟥 CRITICAL ISSUES", result.critical_issues
+                    lines, "🟥 CRITICAL ISSUES", details.critical_issues
                 )
 
-            if result.warning_issues:
+            if details.warning_issues:
                 self._add_issues_section(
-                    lines, "🟨 WARNING ISSUES", result.warning_issues
+                    lines, "🟨 WARNING ISSUES", details.warning_issues
                 )
 
-            if result.info_issues:
-                self._add_issues_section(lines, "🟦 INFORMATION", result.info_issues)
+            if details.info_issues:
+                self._add_issues_section(lines, "🟦 INFORMATION", details.info_issues)
 
         lines.append("End of report")
         lines.append("=" * 80)

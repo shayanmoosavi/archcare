@@ -7,7 +7,12 @@ import pytest
 
 from archcare.cli.presenters.maintenance_presenter import MaintenanceCheckPresenter
 from archcare.config import TaskStatus
-from archcare.core import IssueSeverity, MaintenanceCheckResult, MaintenanceIssue
+from archcare.core import (
+    IssueSeverity,
+    MaintenanceCheckDetails,
+    MaintenanceCheckSummary,
+    MaintenanceIssue,
+)
 
 _MODULE = "archcare.cli.presenters.maintenance_presenter"
 
@@ -52,10 +57,21 @@ def info_issue() -> MaintenanceIssue:
     )
 
 
-def _result(**overrides) -> MaintenanceCheckResult:
-    defaults = {"status": TaskStatus.SUCCESS}
-    return MaintenanceCheckResult(
-        **{**defaults, **overrides}  # ty:ignore[invalid-argument-type]
+def _details(
+    critical_issues: list[MaintenanceIssue] = [],
+    warning_issues: list[MaintenanceIssue] = [],
+    info_issues: list[MaintenanceIssue] = [],
+) -> MaintenanceCheckDetails:
+    return MaintenanceCheckDetails(
+        critical_issues=critical_issues,
+        warning_issues=warning_issues,
+        info_issues=info_issues,
+        summary=MaintenanceCheckSummary(
+            total_tasks_monitored=3,
+            critical_count=len(critical_issues),
+            warning_count=len(warning_issues),
+            info_count=len(info_issues),
+        ),
     )
 
 
@@ -79,7 +95,7 @@ class TestRenderNoIssues:
     def test_shows_healthy_panel(self, mock_console: MagicMock, mocker):
         mock_panel: MagicMock = mocker.patch(_PATCH_PANEL)
 
-        MaintenanceCheckPresenter.render(_result())
+        MaintenanceCheckPresenter.render(_details())
 
         msg = "✓ No maintenance issues found! Your system is healthy :)"
         mock_panel.assert_called_once_with(
@@ -94,7 +110,7 @@ class TestRenderNoIssues:
             MaintenanceCheckPresenter, "_render_issues_table"
         )
 
-        MaintenanceCheckPresenter.render(_result())
+        MaintenanceCheckPresenter.render(_details())
 
         mock_render_table.assert_not_called()
 
@@ -102,7 +118,7 @@ class TestRenderNoIssues:
         mocker.patch(_PATCH_PANEL)
 
         MaintenanceCheckPresenter.render(
-            _result(), is_interactive=True, require_acknowledgment=True
+            _details(), is_interactive=True, require_acknowledgment=True
         )
 
         mock_console.input.assert_not_called()
@@ -121,7 +137,7 @@ class TestRenderIssueDispatch:
             MaintenanceCheckPresenter, "_render_issues_table"
         )
 
-        result = _result(status=TaskStatus.FAILURE, critical_issues=[critical_issue])
+        result = _details(critical_issues=[critical_issue])
         MaintenanceCheckPresenter.render(result)
 
         mock_render_table.assert_called_once_with(
@@ -132,11 +148,11 @@ class TestRenderIssueDispatch:
         )
 
     @pytest.mark.parametrize(
-        "issue_fixture,status,title,style",
+        "issue_fixture,title,style",
         [
-            ("critical_issue", TaskStatus.FAILURE, "🟥 Critical Issues", "red"),
-            ("warning_issue", TaskStatus.PARTIAL, "🟨 Warning Issues", "yellow"),
-            ("info_issue", TaskStatus.SUCCESS, "🟦 Information", "blue"),
+            ("critical_issue", "🟥 Critical Issues", "red"),
+            ("warning_issue", "🟨 Warning Issues", "yellow"),
+            ("info_issue", "🟦 Information", "blue"),
         ],
     )
     def test_issues_render_table(
@@ -145,7 +161,6 @@ class TestRenderIssueDispatch:
         request,
         mocker,
         issue_fixture: str,
-        status,
         title: str,
         style: str,
     ):
@@ -157,11 +172,11 @@ class TestRenderIssueDispatch:
         # Resolve the requested issue fixture to get the MaintenanceIssue instance
         issue = request.getfixturevalue(issue_fixture)
 
-        # Build the kwarg name expected by _result (e.g. 'critical_issues')
+        # Build the kwarg name expected by _details (e.g. 'critical_issues')
         key = f"{issue_fixture.split('_')[0]}_issues"
-        result = _result(status=status, **{key: [issue]})
+        details = _details(**{key: [issue]})
 
-        MaintenanceCheckPresenter.render(result)
+        MaintenanceCheckPresenter.render(details)
 
         mock_render_table.assert_called_once_with(
             mock_console, title=title, issues=[issue], style=style
@@ -179,13 +194,12 @@ class TestRenderIssueDispatch:
             MaintenanceCheckPresenter, "_render_issues_table"
         )
 
-        result = _result(
-            status=TaskStatus.FAILURE,
+        details = _details(
             critical_issues=[critical_issue],
             warning_issues=[warning_issue],
             info_issues=[info_issue],
         )
-        MaintenanceCheckPresenter.render(result)
+        MaintenanceCheckPresenter.render(details)
 
         assert mock_render_table.call_count == 3
         titles = [call.kwargs["title"] for call in mock_render_table.call_args_list]
@@ -210,9 +224,9 @@ class TestRenderAcknowledgmentPrompt:
     ):
         mocker.patch.object(MaintenanceCheckPresenter, "_render_issues_table")
 
-        result = _result(status=TaskStatus.PARTIAL, critical_issues=[critical_issue])
+        details = _details(critical_issues=[critical_issue])
         MaintenanceCheckPresenter.render(
-            result, is_interactive=True, require_acknowledgment=True
+            details, is_interactive=True, require_acknowledgment=True
         )
 
         mock_console.input.assert_called_once_with("Press Enter to acknowledge... ")
@@ -222,9 +236,9 @@ class TestRenderAcknowledgmentPrompt:
     ):
         mocker.patch.object(MaintenanceCheckPresenter, "_render_issues_table")
 
-        result = _result(status=TaskStatus.FAILURE, critical_issues=[critical_issue])
+        details = _details(critical_issues=[critical_issue])
         MaintenanceCheckPresenter.render(
-            result, is_interactive=True, require_acknowledgment=False
+            details, is_interactive=True, require_acknowledgment=False
         )
 
         mock_console.input.assert_not_called()
@@ -238,9 +252,9 @@ class TestRenderAcknowledgmentPrompt:
         """
         mocker.patch.object(MaintenanceCheckPresenter, "_render_issues_table")
 
-        result = _result(status=TaskStatus.FAILURE, critical_issues=[critical_issue])
+        details = _details(critical_issues=[critical_issue])
         MaintenanceCheckPresenter.render(
-            result, is_interactive=False, require_acknowledgment=True
+            details, is_interactive=False, require_acknowledgment=True
         )
 
         mock_console.input.assert_not_called()
@@ -252,9 +266,9 @@ class TestRenderAcknowledgmentPrompt:
         empty - the prompt must not fire on warnings/info alone."""
         mocker.patch.object(MaintenanceCheckPresenter, "_render_issues_table")
 
-        result = _result(status=TaskStatus.PARTIAL, warning_issues=[warning_issue])
+        details = _details(warning_issues=[warning_issue])
         MaintenanceCheckPresenter.render(
-            result, is_interactive=True, require_acknowledgment=True
+            details, is_interactive=True, require_acknowledgment=True
         )
 
         mock_console.input.assert_not_called()

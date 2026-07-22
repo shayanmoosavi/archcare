@@ -3,14 +3,13 @@ Per-task detail schemas.
 
 Concrete dataclasses describing the `details` payload each task produces,
 replacing free-form **kwargs dicts. Tasks construct one of these explicitly
-and pass it to a TaskResult factory (success/failed/skipped/partial); the
-factory flattens it into TaskResult.details for backward-compatible
-consumption by existing formatters/presenters, which still read details as
-a plain dict[str, Any].
+and pass it to a TaskResult factory (success/failed/skipped/partial).
 """
 
 from dataclasses import dataclass, field
 from typing import Any
+
+from .models import MaintenanceIssue
 
 
 @dataclass(frozen=True)
@@ -33,6 +32,56 @@ class FailedServicesDetails:
     ignored: int = 0
     ignored_services: list[str] = field(default_factory=list)
     failed_services: list[FailedServiceInfo] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class MaintenanceCheckSummary:
+    """The `summary` sub-structure within MaintenanceCheckDetails."""
+
+    total_tasks_monitored: int = 0
+    critical_count: int = 0
+    warning_count: int = 0
+    info_count: int = 0
+
+    @property
+    def total_issues(self) -> int:
+        return self.critical_count + self.warning_count + self.info_count
+
+    @property
+    def has_issues(self) -> bool:
+        return (
+            self.critical_count != 0 or self.warning_count != 0 or self.info_count != 0
+        )
+
+    @property
+    def summary_message(self) -> str:
+        if not self.has_issues:
+            return "All maintenance tasks are up to date!"
+
+        parts = []
+        if self.critical_count:
+            parts.append(f"{self.critical_count} critical")
+        if self.warning_count:
+            parts.append(f"{self.warning_count} warning")
+        if self.info_count:
+            parts.append(f"{self.info_count} info")
+
+        return f"Found {', '.join(parts)} issue(s) requiring attention"
+
+
+@dataclass(frozen=True)
+class MaintenanceCheckDetails:
+    """Details produced by MaintenanceCheckTask.execute()."""
+
+    critical_issues: list[MaintenanceIssue] = field(default_factory=list)
+    warning_issues: list[MaintenanceIssue] = field(default_factory=list)
+    info_issues: list[MaintenanceIssue] = field(default_factory=list)
+
+    summary: MaintenanceCheckSummary = field(default_factory=MaintenanceCheckSummary)
+
+    @property
+    def tasks_needing_attention(self) -> list[MaintenanceIssue]:
+        return self.critical_issues + self.warning_issues
 
 
 @dataclass(frozen=True)

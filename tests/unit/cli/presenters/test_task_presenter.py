@@ -10,7 +10,6 @@ from archcare.config import AppSettings, TaskConfig, TaskStatus
 from archcare.config.models import MaintenanceCheckSettings
 from archcare.core import (
     MaintenanceCheckDetails,
-    MaintenanceCheckResult,
     TaskRegistry,
     TaskResult,
     TaskScheduleInfo,
@@ -157,18 +156,16 @@ class TestRenderRun:
     ):
         mocker.patch(_PATCH_INFO)
 
-        mock_result = MagicMock(spec=MaintenanceCheckResult)
+        details = MaintenanceCheckDetails()
         response = TaskRunResponse(
             task_name="maintenance-check",
-            outcome=_make_outcome(
-                details=MaintenanceCheckDetails(maintenance_result=mock_result)
-            ),
+            outcome=_make_outcome(details=details),
             is_interactive=True,
         )
         presenter.render_run(response, settings_terminal_mode)
 
         mock_mc_presenter.render.assert_called_once_with(
-            mock_result, is_interactive=True, require_acknowledgment=True
+            details, is_interactive=True, require_acknowledgment=True
         )
 
     def test_shows_file_mode_message_instead_of_table(
@@ -187,11 +184,7 @@ class TestRenderRun:
 
         response = TaskRunResponse(
             task_name="maintenance-check",
-            outcome=_make_outcome(
-                details=MaintenanceCheckDetails(
-                    maintenance_result=MagicMock(spec=MaintenanceCheckResult)
-                )
-            ),
+            outcome=_make_outcome(details=MaintenanceCheckDetails()),
             is_interactive=True,
         )
         presenter.render_run(response, settings_file_mode)

@@ -4,16 +4,16 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from archcare.core import MaintenanceCheckResult, MaintenanceIssue
+from archcare.core import MaintenanceCheckDetails, MaintenanceIssue
 from archcare.utils.output import console
 
 
 class MaintenanceCheckPresenter:
-    """Renders MaintenanceCheckResult to the terminal."""
+    """Renders per severity issues table to the terminal."""
 
     @staticmethod
     def render(
-        result: MaintenanceCheckResult,
+        details: MaintenanceCheckDetails,
         is_interactive: bool = True,
         require_acknowledgment: bool = False,
     ) -> None:
@@ -21,14 +21,14 @@ class MaintenanceCheckPresenter:
         Render the full maintenance check output.
 
         Args:
-            result: The maintenance check result to render.
+            details: Maintenance check details to render.
             is_interactive: Whether the command is running interactively.
                 Non-interactive (systemd) runs skip the acknowledgment prompt.
             require_acknowledgment: Whether to block on user acknowledgment
                 when critical issues are found (from settings).
         """
 
-        if not result.has_issues:
+        if not details.summary.has_issues:
             msg = "✓ No maintenance issues found! Your system is healthy :)"
             console.print()
             console.print(
@@ -43,31 +43,31 @@ class MaintenanceCheckPresenter:
 
         console.print()
 
-        if result.critical_issues:
+        if details.critical_issues:
             MaintenanceCheckPresenter._render_issues_table(
                 console,
                 title="🟥 Critical Issues",
-                issues=result.critical_issues,
+                issues=details.critical_issues,
                 style="red",
             )
 
-        if result.warning_issues:
+        if details.warning_issues:
             MaintenanceCheckPresenter._render_issues_table(
                 console,
                 title="🟨 Warning Issues",
-                issues=result.warning_issues,
+                issues=details.warning_issues,
                 style="yellow",
             )
 
-        if result.info_issues:
+        if details.info_issues:
             MaintenanceCheckPresenter._render_issues_table(
                 console,
                 title="🟦 Information",
-                issues=result.info_issues,
+                issues=details.info_issues,
                 style="blue",
             )
 
-        if result.critical_issues and require_acknowledgment and is_interactive:
+        if details.critical_issues and require_acknowledgment and is_interactive:
             console.print()
             console.print(
                 "[bold red]Critical issues require your attention![/bold red]"
