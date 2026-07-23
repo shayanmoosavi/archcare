@@ -129,9 +129,9 @@ class FailedServicesTask(BaseTask):
             failure_details.append(
                 FailedServiceInfo(
                     service=service_name,
-                    description=status.get("description", ""),
-                    active=status.get("active", "unknown"),
-                    main_pid=status.get("main_pid"),
+                    description=status.description,
+                    active=status.active,
+                    main_pid=status.main_pid,
                     logs=logs[-10:] if logs else [],
                 )
             )
