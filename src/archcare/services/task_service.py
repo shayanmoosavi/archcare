@@ -3,6 +3,7 @@
 from loguru import logger
 
 from archcare.config import TaskType
+from archcare.config.exceptions import UnknownTaskError
 from archcare.core import TaskScheduler
 from archcare.core.executor import TaskExecutor
 from archcare.services.exceptions import (
@@ -40,7 +41,7 @@ class TaskService:
             raise InvalidTasksFileError()
         try:
             tasks_config.get_task(task_name)
-        except ValueError:
+        except UnknownTaskError:
             raise TaskNotFoundError(task_name)
 
         # Whether the task is being run interactively by user or via systemd timer
@@ -106,7 +107,7 @@ class TaskService:
         if task_name:
             try:
                 info = scheduler.get_schedule_info(task_name)
-            except ValueError:
+            except UnknownTaskError:
                 raise TaskNotFoundError(task_name)
 
             return TaskStatusResponse(schedule_info=[info])
