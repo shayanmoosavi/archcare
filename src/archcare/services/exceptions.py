@@ -1,11 +1,13 @@
 """Domain exceptions for the Archcare service layer."""
 
+from archcare.exceptions import ArchcareError
 
-class ArchcareError(Exception):
+
+class ArchcareServiceError(ArchcareError):
     """Base class for all service-layer errors."""
 
 
-class TaskNotFoundError(ArchcareError):
+class TaskNotFoundError(ArchcareServiceError):
     """Raised when a referenced task name does not exist in configuration."""
 
     def __init__(self, task_name: str) -> None:
@@ -13,14 +15,14 @@ class TaskNotFoundError(ArchcareError):
         super().__init__(f"Task not found: {task_name}")
 
 
-class InvalidTasksFileError(ArchcareError):
+class InvalidTasksFileError(ArchcareServiceError):
     """Raised when the tasks file is empty."""
 
     def __init__(self):
         super().__init__("Tasks file is empty!")
 
 
-class InvalidTaskTypeError(ArchcareError):
+class InvalidTaskTypeError(ArchcareServiceError):
     """Raised when a task type filter is neither 'automated' nor 'manual'."""
 
     def __init__(self, task_type: str) -> None:
@@ -30,7 +32,7 @@ class InvalidTaskTypeError(ArchcareError):
         )
 
 
-class NotRootError(ArchcareError):
+class NotRootError(ArchcareServiceError):
     """Raised when a command requiring root privileges is run without it."""
 
     def __init__(self) -> None:
@@ -39,7 +41,7 @@ class NotRootError(ArchcareError):
         )
 
 
-class UserDetectionError(ArchcareError):
+class UserDetectionError(ArchcareServiceError):
     """
     Raised when the target (non-root) user for systemd setup can't be
     determined - either SUDO_USER isn't set, or it refers to a user that
@@ -47,14 +49,14 @@ class UserDetectionError(ArchcareError):
     """
 
 
-class SystemdReloadError(ArchcareError):
+class SystemdReloadError(ArchcareServiceError):
     """Raised when `systemctl daemon-reload` fails."""
 
     def __init__(self) -> None:
         super().__init__("Failed to reload systemd")
 
 
-class ConfigNotInitializedError(ArchcareError):
+class ConfigNotInitializedError(ArchcareServiceError):
     """
     Raised when a command requiring configuration is run before
     `archcare setup config` has been executed.
@@ -68,7 +70,7 @@ class ConfigNotInitializedError(ArchcareError):
         super().__init__("Archcare is not initialized.")
 
 
-class InvalidSeverityError(ArchcareError):
+class InvalidSeverityError(ArchcareServiceError):
     """Raised when a notification severity isn't critical/warning/info."""
 
     def __init__(self, severity: str, valid: list[str]) -> None:
@@ -77,14 +79,14 @@ class InvalidSeverityError(ArchcareError):
         super().__init__(f"Invalid severity: {severity!r} (expected one of {valid})")
 
 
-class NotificationUnavailableError(ArchcareError):
+class NotificationUnavailableError(ArchcareServiceError):
     """Raised when notify-send/libnotify isn't available on this system."""
 
     def __init__(self) -> None:
         super().__init__("Desktop notifications are not available on this system")
 
 
-class NotificationSendError(ArchcareError):
+class NotificationSendError(ArchcareServiceError):
     """Raised when send_notification() reports failure."""
 
     def __init__(self, severity: str) -> None:
