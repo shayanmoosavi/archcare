@@ -352,9 +352,6 @@ class MaintenanceCheckTask(BaseTask):
 
         Returns:
             Formatted description
-
-        Raises:
-            ValueError: If days_overdue is None
         """
         if days_overdue == 0:
             return f"Task `{task_config.name}` is due today"
@@ -445,7 +442,7 @@ class MaintenanceCheckTask(BaseTask):
             else:
                 # This should never happen
                 raise ValueError(
-                    "result cannot have issues and empty issues at the same time"
+                    "details cannot have issues and empty issues at the same time"
                 )
 
             should_notify = severity_map.get(str(severity), -1) >= severity_map.get(
