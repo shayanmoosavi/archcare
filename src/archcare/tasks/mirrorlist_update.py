@@ -75,8 +75,8 @@ class MirrorlistUpdateTask(BaseTask):
         logger.debug("Getting current mirrorlist info")
         old_info = get_mirrorlist_info(self.mirrorlist_path)
         logger.info(
-            f"Current mirrorlist: {old_info['total_mirrors']} mirrors, "
-            f"last modified: {old_info['last_modified']}"
+            f"Current mirrorlist: {old_info.total_mirrors} mirrors, "
+            f"last modified: {old_info.last_modified}"
         )
 
         # Create backup
@@ -131,13 +131,13 @@ class MirrorlistUpdateTask(BaseTask):
 
         # Get new mirrorlist info
         new_info = get_mirrorlist_info(self.mirrorlist_path)
-        logger.info(f"New mirrorlist: {new_info['total_mirrors']} mirrors")
+        logger.info(f"New mirrorlist: {new_info.total_mirrors} mirrors")
 
         return success(
-            f"Mirrorlist updated successfully with {new_info['total_mirrors']} mirrors",
+            f"Mirrorlist updated successfully with {new_info.total_mirrors} mirrors",
             details=MirrorlistUpdateDetails(
-                old_mirrors=old_info["total_mirrors"],
-                new_mirrors=new_info["total_mirrors"],
+                old_mirrors=old_info.total_mirrors,
+                new_mirrors=new_info.total_mirrors,
                 old_info=old_info,
                 new_info=new_info,
                 backup_path=str(self.backup_path),

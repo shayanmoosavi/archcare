@@ -7,7 +7,8 @@ and pass it to a TaskResult factory (success/failed/skipped/partial).
 """
 
 from dataclasses import dataclass, field
-from typing import Any
+
+from archcare.utils.info_models import MirrorlistInfo
 
 from .models import MaintenanceIssue
 
@@ -113,6 +114,6 @@ class MirrorlistUpdateDetails:
 
     old_mirrors: int | None = None
     new_mirrors: int | None = None
-    old_info: dict[str, Any] = field(default_factory=dict)
-    new_info: dict[str, Any] = field(default_factory=dict)
+    old_info: MirrorlistInfo = field(default_factory=MirrorlistInfo)
+    new_info: MirrorlistInfo = field(default_factory=MirrorlistInfo)
     backup_path: str | None = None

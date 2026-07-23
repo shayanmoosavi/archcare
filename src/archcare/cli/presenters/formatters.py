@@ -127,7 +127,7 @@ class MirrorlistUpdateFormatter:
         if details.backup_path:
             lines.append(f"  Backup: {details.backup_path}")
 
-        if last_modified := details.old_info.get("last_modified"):
+        if last_modified := details.old_info.last_modified:
             lines.append(f"  Previous update: {last_modified}")
 
         return lines
