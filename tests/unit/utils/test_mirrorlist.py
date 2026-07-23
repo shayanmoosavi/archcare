@@ -106,9 +106,9 @@ class TestValidateMirrorlist:
 class TestGetMirrorlistInfo:
     def test_returns_defaults_if_missing(self, tmp_path):
         info = get_mirrorlist_info(tmp_path / "missing")
-        assert info["total_mirrors"] == 0
-        assert info["protocols"] == set()
-        assert info["last_modified"] is None
+        assert info.total_mirrors == 0
+        assert info.protocols == set()
+        assert info.last_modified is None
 
     def test_extracts_protocols_and_counts(self, tmp_path):
         mirrorlist: Path = tmp_path / "mirrorlist"
@@ -122,11 +122,11 @@ class TestGetMirrorlistInfo:
 
         info = get_mirrorlist_info(mirrorlist)
 
-        assert info["total_mirrors"] == 4
+        assert info.total_mirrors == 4
         # Ensure protocols aren't duplicated
-        assert info["protocols"] == {"https", "http", "rsync"}
+        assert info.protocols == {"https", "http", "rsync"}
         # Ensure timestamp was generated
-        assert info["last_modified"] is not None
+        assert info.last_modified is not None
 
     def test_unrecognized_protocol_counted_but_not_categorized(self, tmp_path):
         mirrorlist: Path = tmp_path / "mirrorlist"
@@ -136,8 +136,8 @@ class TestGetMirrorlistInfo:
 
         info = get_mirrorlist_info(mirrorlist)
 
-        assert info["total_mirrors"] == 2
-        assert info["protocols"] == {"https"}
+        assert info.total_mirrors == 2
+        assert info.protocols == {"https"}
 
 
 # ---------------------------------------------------------------------------

@@ -15,6 +15,7 @@ from archcare.core import (
     MaintenanceIssue,
     MirrorlistUpdateDetails,
 )
+from archcare.utils.info_models import MirrorlistInfo
 
 # ---------------------------------------------------------------------------
 # FailedServiceInfo
@@ -349,22 +350,22 @@ class TestMirrorlistUpdateDetails:
 
         assert details.old_mirrors is None
         assert details.new_mirrors is None
-        assert details.old_info == {}
-        assert details.new_info == {}
+        assert details.old_info == MirrorlistInfo()
+        assert details.new_info == MirrorlistInfo()
         assert details.backup_path is None
 
     def test_custom_values(self):
         details = MirrorlistUpdateDetails(
             old_mirrors=5,
             new_mirrors=8,
-            old_info={"total_mirrors": 5, "last_modified": "2026-01-01"},
-            new_info={"total_mirrors": 8},
+            old_info=MirrorlistInfo(total_mirrors=5, last_modified="2026-01-01"),
+            new_info=MirrorlistInfo(total_mirrors=8),
             backup_path="/etc/pacman.d/mirrorlist_20260101.backup",
         )
 
         assert details.old_mirrors == 5
         assert details.new_mirrors == 8
-        assert details.old_info["last_modified"] == "2026-01-01"
+        assert details.old_info.last_modified == "2026-01-01"
         assert details.backup_path == "/etc/pacman.d/mirrorlist_20260101.backup"
 
     def test_is_frozen(self):

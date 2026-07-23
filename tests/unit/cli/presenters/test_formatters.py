@@ -20,6 +20,7 @@ from archcare.core import (
     MaintenanceIssue,
     MirrorlistUpdateDetails,
 )
+from archcare.utils.info_models import MirrorlistInfo
 
 
 def _joined(lines: list[str]) -> str:
@@ -347,14 +348,16 @@ class TestMirrorlistUpdateFormatter:
         assert "Backup:" not in output
 
     def test_shows_previous_update_when_last_modified_present(self):
-        details = MirrorlistUpdateDetails(old_info={"last_modified": "2026-01-01"})
+        details = MirrorlistUpdateDetails(
+            old_info=MirrorlistInfo(last_modified="2026-01-01")
+        )
 
         output = _joined(MirrorlistUpdateFormatter().format(details))
 
         assert "2026-01-01" in output
 
     def test_omits_previous_update_when_last_modified_absent(self):
-        details = MirrorlistUpdateDetails(old_info={"total_mirrors": 5})
+        details = MirrorlistUpdateDetails(old_info=MirrorlistInfo(total_mirrors=5))
 
         output = _joined(MirrorlistUpdateFormatter().format(details))
 
