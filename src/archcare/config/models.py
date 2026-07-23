@@ -20,6 +20,12 @@ from pydantic import (
     model_validator,
 )
 
+from .exceptions import (
+    HomeDirectoryResolutionError,
+    InvalidTaskTypeFilterError,
+    UnknownTaskError,
+)
+
 
 class LogLevel(Enum):
     DEBUG = "DEBUG"
@@ -104,9 +110,14 @@ class TasksConfig(BaseModel):
         return {name: task for name, task in self.tasks.items() if task.enabled}
 
     def get_tasks_by_type(self, task_type: str) -> dict[str, TaskConfig]:
-        """Return tasks filtered by type."""
+        """
+        Return tasks filtered by type.
+
+        Raises:
+            InvalidTaskTypeFilterError: If task_type is not 'automated' or 'manual'.
+        """
         if task_type not in ["automated", "manual"]:
-            raise ValueError("task_type must be 'automated' or 'manual'")
+            raise InvalidTaskTypeFilterError(task_type)
         return {
             name: task
             for name, task in self.tasks.items()
@@ -114,10 +125,15 @@ class TasksConfig(BaseModel):
         }
 
     def get_task(self, name: str) -> TaskConfig:
-        """Get a specific task by name."""
+        """
+        Get a specific task by name.
+
+        Raises:
+            UnknownTaskError: If the task does not exist.
+        """
         task_name = self.tasks.get(name)
         if not task_name:
-            raise ValueError(f"Task not found: {name}")
+            raise UnknownTaskError(name)
         return task_name
 
 
@@ -332,7 +348,8 @@ class AppSettings(BaseModel):
             Path to the user's home directory.
 
         Raises:
-            ValueError: If the user does not exist or home cannot be resolved.
+            HomeDirectoryResolutionError: If the user does not exist or
+                home cannot be resolved.
         """
         try:
             return Path(getpwnam(username).pw_dir)
@@ -341,10 +358,7 @@ class AppSettings(BaseModel):
             fallback = Path(f"/home/{username}")
             if fallback.exists():
                 return fallback
-            raise ValueError(
-                f"Cannot resolve home directory for user '{username}'. "
-                f"User does not exist or is not queryable."
-            )
+            raise HomeDirectoryResolutionError(username)
 
     @computed_field  # type: ignore[prop-decorator]
     @property

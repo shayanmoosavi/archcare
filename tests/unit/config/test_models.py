@@ -15,6 +15,11 @@ from archcare.config import (
     TasksConfig,
     TaskStatus,
 )
+from archcare.config.exceptions import (
+    HomeDirectoryResolutionError,
+    InvalidTaskTypeFilterError,
+    UnknownTaskError,
+)
 from archcare.config.models import MaintenanceCheckSettings, MirrorlistSettings
 
 # ---------------------------------------------------------------------------
@@ -73,7 +78,7 @@ class TestTasksConfig:
         assert result == automated_task
 
     def test_get_task_raises_for_unknown_name(self, tasks_config: TasksConfig):
-        with pytest.raises(ValueError):
+        with pytest.raises(UnknownTaskError):
             tasks_config.get_task("does-not-exist")
 
     def test_get_enabled_tasks_excludes_disabled(
@@ -115,7 +120,7 @@ class TestTasksConfig:
         assert automated_task.name not in result
 
     def test_get_tasks_by_type_raises_for_invalid_type(self, tasks_config: TasksConfig):
-        with pytest.raises(ValueError):
+        with pytest.raises(InvalidTaskTypeFilterError):
             tasks_config.get_tasks_by_type("weekly")
 
     def test_empty_config_has_no_enabled_tasks(self, empty_tasks_config: TasksConfig):
@@ -172,7 +177,9 @@ class TestAppSettingsPaths:
         mock_pwd.side_effect = KeyError("ghost")
         mocker.patch.object(Path, "exists", return_value=False)
 
-        with pytest.raises(ValueError, match="Cannot resolve home directory"):
+        with pytest.raises(
+            HomeDirectoryResolutionError, match="Cannot resolve home directory"
+        ):
             AppSettings._resolve_user_home("ghost")
 
     @pytest.mark.parametrize(
