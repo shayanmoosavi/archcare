@@ -9,9 +9,10 @@ import subprocess
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from loguru import logger
+
+from .info_models import ServiceStatusInfo
 
 
 @dataclass
@@ -325,7 +326,7 @@ def _get_service_description(service_name: str) -> str:
     return parts[4] if len(parts) >= 5 else ""
 
 
-def get_service_status(service_name: str) -> dict[str, Any]:
+def get_service_status(service_name: str) -> ServiceStatusInfo:
     """
     Get detailed status information for a service.
 
@@ -333,42 +334,40 @@ def get_service_status(service_name: str) -> dict[str, Any]:
         service_name: Name of the service
 
     Returns:
-        Dictionary with service status information:
-        - loaded: bool
-        - active: str (active, inactive, failed, etc.)
-        - running: bool
-        - description: str
-        - main_pid: int | None
+        Structured ServiceStatusInfo object
     """
     result = run_systemctl(["status", service_name, "--no-pager"])
 
-    status_info = {
-        "loaded": False,
-        "active": "unknown",
-        "running": False,
-        "description": "",
-        "main_pid": None,
-    }
+    loaded = False
+    active = "unknown"
+    running = False
+    main_pid = None
 
     # Parse the status output line by line
     for line in result.stdout.splitlines():
         line = line.strip()
 
         if "Loaded:" in line:
-            status_info["loaded"] = _parse_loaded_status(line)
+            loaded = _parse_loaded_status(line)
 
         elif "Active:" in line:
             active_state, is_running = _parse_active_status(line)
-            status_info["active"] = active_state
-            status_info["running"] = is_running
+            active = active_state
+            running = is_running
 
         elif line.startswith("Main PID:"):
-            status_info["main_pid"] = _parse_main_pid(line)
+            main_pid = _parse_main_pid(line)
 
     # Get description separately
-    status_info["description"] = _get_service_description(service_name)
+    description = _get_service_description(service_name)
 
-    return status_info
+    return ServiceStatusInfo(
+        loaded=loaded,
+        active=active,
+        running=running,
+        description=description,
+        main_pid=main_pid,
+    )
 
 
 def get_service_logs(
