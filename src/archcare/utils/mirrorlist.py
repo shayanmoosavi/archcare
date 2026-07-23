@@ -7,10 +7,10 @@ Provides functions to manage and update pacman mirrorlists.
 from datetime import datetime
 from pathlib import Path
 from subprocess import CalledProcessError
-from typing import Any
 
 from loguru import logger
 
+from .info_models import MirrorlistInfo
 from .system import CommandResult, check_command_exists, run_command_with_sudo
 
 
@@ -167,7 +167,7 @@ def validate_mirrorlist(mirrorlist_path: Path) -> tuple[bool, str]:
     return True, f"Valid mirrorlist with {mirror_count} mirrors"
 
 
-def get_mirrorlist_info(mirrorlist_path: Path) -> dict[str, Any]:
+def get_mirrorlist_info(mirrorlist_path: Path) -> MirrorlistInfo:
     """
     Get information about a mirrorlist file.
 
@@ -175,18 +175,11 @@ def get_mirrorlist_info(mirrorlist_path: Path) -> dict[str, Any]:
         mirrorlist_path: Path to mirrorlist file
 
     Returns:
-        Dictionary with mirrorlist info:
-        - total_mirrors: Total number of mirror entries
-        - protocols: Set of protocols found
-        - last_modified: Last modification time
+        MirrorlistInfo object with mirrorlist information
     """
 
     if not mirrorlist_path.exists():
-        return {
-            "total_mirrors": 0,
-            "protocols": set(),
-            "last_modified": None,
-        }
+        return MirrorlistInfo()
 
     content = mirrorlist_path.read_text()
 
@@ -213,8 +206,8 @@ def get_mirrorlist_info(mirrorlist_path: Path) -> dict[str, Any]:
         "%Y-%m-%d %H:%M:%S"
     )
 
-    return {
-        "total_mirrors": len(mirrors),
-        "protocols": protocols,
-        "last_modified": last_modified,
-    }
+    return MirrorlistInfo(
+        total_mirrors=len(mirrors),
+        protocols=protocols,
+        last_modified=last_modified,
+    )
