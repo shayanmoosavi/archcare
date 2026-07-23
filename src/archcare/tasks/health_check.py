@@ -158,9 +158,9 @@ class HealthCheckTask(BaseTask):
         logger.debug("Checking CPU load")
         cpu = get_cpu_info()
 
-        cpu_percent = cpu["percent"]
-        load_avg = cpu["load_avg"]
-        cpu_count = cpu["count"] or 1
+        cpu_percent = cpu.percent
+        load_avg = cpu.load_avg
+        cpu_count = cpu.cores or 1
 
         if cpu_percent > 90:
             warnings.append(f"High CPU usage at {cpu_percent}%")
@@ -180,16 +180,16 @@ class HealthCheckTask(BaseTask):
         logger.debug("Checking memory usage")
         memory = get_memory_info()
 
-        mem_percent = memory["percent"]
-        swap_percent = memory["swap_percent"]
+        mem_percent = memory.percent
+        swap_percent = memory.swap_percent
 
         if mem_percent > 90:
             issues.append(
-                f"Memory usage at {mem_percent}% ({format_bytes(memory['available'])} available)"
+                f"Memory usage at {mem_percent}% ({format_bytes(memory.available)} available)"
             )
         elif mem_percent > 80:
             warnings.append(
-                f"Memory usage at {mem_percent}% ({format_bytes(memory['available'])} available)"
+                f"Memory usage at {mem_percent}% ({format_bytes(memory.available)} available)"
             )
 
         if swap_percent > 50:
@@ -202,18 +202,18 @@ class HealthCheckTask(BaseTask):
         logger.debug("Checking disk space")
         disk = get_disk_usage("/")
 
-        disk_percent = disk["percent"]
+        disk_percent = disk.percent
         if disk_percent > 90:
             issues.append(
-                f"Disk usage at {disk_percent}% ({format_bytes(disk['free'])} free)"
+                f"Disk usage at {disk_percent}% ({format_bytes(disk.free)} free)"
             )
         elif disk_percent > 80:
             warnings.append(
-                f"Disk usage at {disk_percent}% ({format_bytes(disk['free'])} free)"
+                f"Disk usage at {disk_percent}% ({format_bytes(disk.free)} free)"
             )
         else:
             logger.debug(
-                f"Disk usage: {disk_percent}% ({format_bytes(disk['free'])} free)"
+                f"Disk usage: {disk_percent}% ({format_bytes(disk.free)} free)"
             )
 
         return disk_percent

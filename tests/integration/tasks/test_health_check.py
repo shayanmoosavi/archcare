@@ -11,6 +11,7 @@ import pytest
 from typer.testing import CliRunner
 
 from archcare.cli.app import app
+from archcare.utils.info_models import CpuInfo, DiskUsageInfo, MemoryInfo
 from archcare.utils.system import CommandResult
 
 runner = CliRunner()
@@ -43,23 +44,27 @@ def mock_hardware(mocker):
     """
     mocker.patch(
         f"{_MODULE}.get_disk_usage",
-        return_value={
-            "percent": 45.0,
-            "free": 500_000_000_000,
-            "total": 1_000_000_000_000,
-        },
+        return_value=DiskUsageInfo(
+            percent=45.0,
+            free=500_000_000_000,
+            total=1_000_000_000_000,
+        ),
     )
     mocker.patch(
         f"{_MODULE}.get_memory_info",
-        return_value={
-            "percent": 35.0,
-            "available": 8_000_000_000,
-            "swap_percent": 10.0,
-        },
+        return_value=MemoryInfo(
+            percent=35.0,
+            available=8_000_000_000,
+            swap_percent=10.0,
+        ),
     )
     mocker.patch(
         f"{_MODULE}.get_cpu_info",
-        return_value={"percent": 12.0, "count": 8, "load_avg": (0.5, 0.6, 0.7)},
+        return_value=CpuInfo(
+            percent=12.0,
+            cores=8,
+            load_avg=(0.5, 0.6, 0.7),
+        ),
     )
     mocker.patch(f"{_MODULE}.get_system_uptime", return_value="5 days, 3 hours")
 
@@ -97,7 +102,7 @@ class TestHealthCheckTask:
         # Simulate high disk usage
         mocker.patch(
             f"{_MODULE}.get_disk_usage",
-            return_value={"percent": 95.0, "free": 10_000_000_000},
+            return_value=DiskUsageInfo(percent=95.0, free=10_000_000_000),
         )
 
         runner.invoke(app, ["setup", "config"])
@@ -111,11 +116,11 @@ class TestHealthCheckTask:
     def test_warning_level_disk_usage_is_partial(self, mocker, archcare_home: Path):
         mocker.patch(
             f"{_MODULE}.get_memory_info",
-            return_value={
-                "percent": 85.0,
-                "available": 2_000_000_000,
-                "swap_percent": 0.0,
-            },
+            return_value=MemoryInfo(
+                percent=85.0,
+                available=2_000_000_000,
+                swap_percent=0.0,
+            ),
         )
 
         runner.invoke(app, ["setup", "config"])
@@ -130,7 +135,11 @@ class TestHealthCheckTask:
         mocker.patch(
             f"{_MODULE}.get_cpu_info",
             # 8 cores * 2 = 16 threshold. 17.5 should trigger the warning.
-            return_value={"percent": 12.0, "count": 8, "load_avg": (17.5, 5.0, 4.0)},
+            return_value=CpuInfo(
+                percent=12.0,
+                cores=8,
+                load_avg=(17.5, 5.0, 4.0),
+            ),
         )
 
         runner.invoke(app, ["setup", "config"])
@@ -144,11 +153,11 @@ class TestHealthCheckTask:
         """Verify high swap usage triggers a warning even if RAM is healthy."""
         mocker.patch(
             f"{_MODULE}.get_memory_info",
-            return_value={
-                "percent": 45.0,  # RAM is healthy
-                "available": 8_000_000_000,
-                "swap_percent": 65.0,  # Swap is high
-            },
+            return_value=MemoryInfo(
+                percent=45.0,  # RAM is healthy
+                available=8_000_000_000,
+                swap_percent=65.0,  # Swap is high
+            ),
         )
 
         runner.invoke(app, ["setup", "config"])
