@@ -99,7 +99,7 @@ class TestRenderNoIssues:
 
         msg = "✓ No maintenance issues found! Your system is healthy :)"
         mock_panel.assert_called_once_with(
-            msg, style="green", border_style="green", width=len(msg) + 4
+            msg, style="green", border_style="green", padding=(0, 2), expand=False
         )
         mock_console.print.assert_any_call(mock_panel.return_value)
 

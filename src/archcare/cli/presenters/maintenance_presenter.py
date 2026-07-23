@@ -36,7 +36,8 @@ class MaintenanceCheckPresenter:
                     msg,
                     style="green",
                     border_style="green",
-                    width=len(msg) + 4,
+                    padding=(0, 2),
+                    expand=False,
                 )
             )
             return
