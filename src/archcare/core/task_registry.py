@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from archcare.tasks.base import BaseTask
 
+from .exceptions import TaskNotRegisteredError
 from .formatter import DefaultFormatter, TaskDetailFormatter
 
 
@@ -30,11 +31,11 @@ class TaskRegistry:
         Look up the task class registered under `name`.
 
         Raises:
-            ValueError: If no task is registered under that name.
+            TaskNotRegisteredError: If no task is registered under that name.
         """
         descriptor = self._by_name.get(name)
         if descriptor is None:
-            raise ValueError(
+            raise TaskNotRegisteredError(
                 f"No task registered for: {name}. "
                 f"Available tasks: {list(self._by_name.keys())}"
             )
@@ -46,11 +47,11 @@ class TaskRegistry:
         no formatter is registered.
 
         Raises:
-            ValueError: If no task is registered under that name.
+            TaskNotRegisteredError: If no task is registered under that name.
         """
         descriptor = self._by_name.get(name)
         if descriptor is None:
-            raise ValueError(
+            raise TaskNotRegisteredError(
                 f"No task registered for: {name}. "
                 f"Available tasks: {list(self._by_name.keys())}"
             )

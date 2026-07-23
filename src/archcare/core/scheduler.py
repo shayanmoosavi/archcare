@@ -55,7 +55,8 @@ class TaskScheduler:
             TaskScheduleInfo with schedule details
 
         Raises:
-            ValueError: If task doesn't exist
+            UnknownTaskError: If task doesn't exist (propagated from
+                TasksConfig.get_task()).
         """
         task_config = self.tasks_config.get_task(task_name)
 

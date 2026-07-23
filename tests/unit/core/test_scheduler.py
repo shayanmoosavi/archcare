@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from archcare.config import AppState, TasksConfig, TaskStatus
+from archcare.config.exceptions import UnknownTaskError
 from archcare.core import TaskScheduler
 
 # ---------------------------------------------------------------------------
@@ -26,7 +27,7 @@ class TestGetScheduleInfo:
         self, tasks_config: TasksConfig, fresh_state: AppState
     ):
         scheduler = _scheduler(tasks_config, fresh_state)
-        with pytest.raises(ValueError, match="Task not found") as exc_info:
+        with pytest.raises(UnknownTaskError, match="Task not found") as exc_info:
             scheduler.get_schedule_info("does-not-exist")
         assert "does-not-exist" in str(exc_info.value)
 

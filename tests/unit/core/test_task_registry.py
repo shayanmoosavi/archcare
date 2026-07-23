@@ -4,6 +4,7 @@ from typing import Any
 
 import pytest
 
+from archcare.core.exceptions import TaskNotRegisteredError
 from archcare.core.formatter import DefaultFormatter
 from archcare.core.task_registry import TaskDescriptor, TaskRegistry
 from archcare.tasks.base import BaseTask
@@ -38,12 +39,12 @@ class TestGetTaskClass:
     def test_returns_registered_task_class(self, registry: TaskRegistry):
         assert registry.get_task_class("task-a") is FakeTaskA
 
-    def test_raises_value_error_for_unregistered_name(self, registry: TaskRegistry):
-        with pytest.raises(ValueError, match="task-c"):
+    def test_raises_for_unregistered_name(self, registry: TaskRegistry):
+        with pytest.raises(TaskNotRegisteredError, match="task-c"):
             registry.get_task_class("task-c")
 
     def test_error_message_lists_available_tasks(self, registry: TaskRegistry):
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(TaskNotRegisteredError) as exc_info:
             registry.get_task_class("task-c")
 
         assert "task-a" in str(exc_info.value)
@@ -59,8 +60,8 @@ class TestGetFormatterClass:
     ):
         assert registry.get_formatter_class("task-b") is DefaultFormatter
 
-    def test_raises_value_error_for_unregistered_name(self, registry: TaskRegistry):
-        with pytest.raises(ValueError, match="task-c"):
+    def test_raises_for_unregistered_name(self, registry: TaskRegistry):
+        with pytest.raises(TaskNotRegisteredError, match="task-c"):
             registry.get_formatter_class("task-c")
 
 

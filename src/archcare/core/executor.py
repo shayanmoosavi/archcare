@@ -95,7 +95,8 @@ class TaskExecutor:
             Instantiated task object
 
         Raises:
-            ValueError: If task name is not registered
+            TaskNotRegisteredError: If task name is not registered
+                (propagated from TaskRegistry.get_task_class()).
         """
         task_class = self.task_registry.get_task_class(task_config.name)
 
@@ -117,7 +118,8 @@ class TaskExecutor:
             TaskResult from task execution
 
         Raises:
-            ValueError: If task is not found
+            UnknownTaskError: If task is not found (propagated from
+                TasksConfig.get_task()).
         """
         # Load task configuration
         tasks_config = self.config_loader.load_tasks()
