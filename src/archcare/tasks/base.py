@@ -230,7 +230,8 @@ class BaseTask(ABC):
             )
         finally:
             # Remove task-specific log handler
-            logger.remove(handler_id)
+            if handler_id is not None:
+                logger.remove(handler_id)
 
     def create_result(self, result: TaskResult[Any]) -> TaskResult[Any]:
         """
