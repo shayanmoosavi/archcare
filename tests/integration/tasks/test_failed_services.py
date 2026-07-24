@@ -79,14 +79,23 @@ def mock_run_command(mocker):
 
 
 class TestFailedServicesTask:
-    def test_reports_failed_service_with_details(self):
+    def test_reports_failed_services(self):
         runner.invoke(app, ["setup", "config"])
 
-        # Failed services name currently only shown with --verbose.
+        result = runner.invoke(app, ["task", "run", "failed-services"])
+
+        assert result.exit_code == 0
+        assert "nginx.service" in result.output
+
+    def test_reports_failed_services_verbose_mode(self):
+        runner.invoke(app, ["setup", "config"])
         result = runner.invoke(app, ["task", "run", "failed-services", "--verbose"])
 
         assert result.exit_code == 0
         assert "nginx.service" in result.output
+        assert "nginx web server" in result.output
+        assert "log line 1" in result.output
+        assert "log line 2" in result.output
 
     def test_skips_when_no_failed_services(self, archcare_home: Path, mock_run_command):
         mock_run_command.side_effect = None
