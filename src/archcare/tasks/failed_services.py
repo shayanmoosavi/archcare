@@ -136,7 +136,10 @@ class FailedServicesTask(BaseTask):
                 )
             )
 
-        message = f"Found {len(actual_failures)} failed service(s) requiring attention: \n    {'\n'.join(actual_failures)}"
+        message = (
+            f"Found {len(actual_failures)} failed service(s) requiring attention:"
+            f"\n    [bold red]• {'\n'.join(actual_failures)}[/bold red]"
+        )
 
         return partial(
             message=message,
