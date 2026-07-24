@@ -21,6 +21,7 @@ from .system import (
     get_system_uptime,
     get_systemd_failed_services,
     is_root,
+    is_valid_systemd_unit_name,
     run_command,
     run_command_with_sudo,
     run_systemctl,
@@ -42,6 +43,7 @@ __all__ = [
     "get_systemd_failed_services",
     "get_service_status",
     "get_service_logs",
+    "is_valid_systemd_unit_name",
     # System information
     "check_filesystem_errors",
     "format_bytes",

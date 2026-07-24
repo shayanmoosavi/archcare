@@ -20,9 +20,12 @@ from pydantic import (
     model_validator,
 )
 
+from archcare.utils import is_valid_systemd_unit_name
+
 from .exceptions import (
     HomeDirectoryResolutionError,
     InvalidTaskTypeFilterError,
+    InvalidUnitNameError,
     UnknownTaskError,
 )
 
@@ -140,10 +143,17 @@ class TasksConfig(BaseModel):
 class IgnoredServicesConfig(BaseModel):
     """Configuration for services to ignore in failed-services check."""
 
-    # TODO: add proper service name validation so it's a valid systemd service name
     services: list[str] = Field(
         default_factory=list, description="List of systemd service names to ignore"
     )
+
+    @field_validator("services")
+    @classmethod
+    def validate_service_names(cls, v: list[str]) -> list[str]:
+        invalid = [name for name in v if not is_valid_systemd_unit_name(name)]
+        if invalid:
+            raise InvalidUnitNameError(invalid)
+        return v
 
     def is_ignored(self, service_name: str) -> bool:
         """Check if a service should be ignored."""

@@ -41,3 +41,17 @@ class HomeDirectoryResolutionError(ArchcareConfigError, ValueError):
             f"Cannot resolve home directory for user '{username}'. "
             f"User does not exist or is not queryable."
         )
+
+
+class InvalidUnitNameError(ArchcareConfigError, ValueError):
+    """
+    Raised when a configured ignored-service entry isn't a valid systemd
+    unit name. Must keep ValueError in its MRO because it's raised from within a
+    Pydantic field_validator.
+    """
+
+    def __init__(self, invalid_names: list[str]) -> None:
+        self.invalid_names = invalid_names
+        super().__init__(
+            f"Invalid systemd unit name(s) in ignored-services config: {invalid_names}"
+        )

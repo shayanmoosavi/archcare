@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from archcare.config import (
     AppSettings,
     AppState,
+    IgnoredServicesConfig,
     SkipReason,
     TaskConfig,
     TasksConfig,
@@ -313,6 +314,23 @@ class TestAppState:
         _update(fresh_state, "task-b", TaskStatus.FAILURE)
         assert fresh_state.get_task_state("task-a").last_status == TaskStatus.SUCCESS
         assert fresh_state.get_task_state("task-b").last_status == TaskStatus.FAILURE
+
+
+# ---------------------------------------------------------------------------
+# IgnoredServicesConfig validators
+# ---------------------------------------------------------------------------
+
+
+class TestIgnoredServicesConfig:
+    def test_valid_services_accepted(self):
+        config = IgnoredServicesConfig(
+            services=["service-a.service", "template@instance.service"]
+        )
+        assert config.services == ["service-a.service", "template@instance.service"]
+
+    def test_invalid_services_raises(self):
+        with pytest.raises(ValidationError):
+            IgnoredServicesConfig(services=["invalid"])
 
 
 # ---------------------------------------------------------------------------
