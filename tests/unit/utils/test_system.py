@@ -550,7 +550,7 @@ class TestIsValidSystemdUnitName:
         "invalid",
         [
             ".service",  # Empty base name
-            "@.service"  # Empty template name
+            "@.service",  # Empty template name
             "my-service@.service",  # Empty instance name
         ],
     )
