@@ -259,3 +259,8 @@ and `core/task_details.py` for the pattern every existing task follows.
   boundaries described above
 - Implementing progress bars, spinners, etc., for long-running tasks.
 - Implementing the rest of the tasks in the default `tasks.toml`
+
+## License
+
+This project is licensed under the GNU General Public License v3.0. See
+[LICENSE](LICENSE) for details.
