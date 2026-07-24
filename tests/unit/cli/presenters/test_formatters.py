@@ -15,6 +15,7 @@ from archcare.core import (
     FailedServicesDetails,
     HealthCheckDetails,
     HealthCheckSummary,
+    IssueSeverity,
     MaintenanceCheckDetails,
     MaintenanceCheckSummary,
     MaintenanceIssue,
@@ -266,8 +267,8 @@ class TestMaintenanceCheckFormatter:
     @pytest.mark.parametrize(
         "severity,expected_fragment",
         [
-            ("critical", "CRITICAL"),
-            ("warning", "WARNING"),
+            (IssueSeverity.CRITICAL, "CRITICAL"),
+            (IssueSeverity.WARNING, "WARNING"),
         ],
     )
     def test_lists_tasks_needing_attention_with_severity(

@@ -13,6 +13,7 @@ from archcare.core import (
     FailedServicesDetails,
     HealthCheckDetails,
     HealthCheckSummary,
+    IssueSeverity,
     MaintenanceCheckDetails,
     MaintenanceCheckSummary,
     MirrorlistUpdateDetails,
@@ -142,15 +143,13 @@ class MaintenanceCheckFormatter:
 
         if tasks_needing_attention := details.tasks_needing_attention:
             severity_mapping = {
-                "critical": "[red]❗ CRITICAL[/red]",
-                "warning": "[yellow]⚠ WARNING[/yellow]",
+                IssueSeverity.CRITICAL: "[red]❗ CRITICAL[/red]",
+                IssueSeverity.WARNING: "[yellow]⚠ WARNING[/yellow]",
             }
             lines.append("[bold]Tasks needing attention: [/bold]")
             for issue in tasks_needing_attention:
                 lines.append(f"[blue]  • {issue.task_name}[/blue]")
-                # Safely get severity name string if it's an Enum
-                sev_key = str(issue.severity)
-                lines.append(f"    ‒ {severity_mapping[sev_key]}")
+                lines.append(f"    ‒ {severity_mapping[issue.severity]}")
 
         # Show summary statistics
         summary = details.summary
