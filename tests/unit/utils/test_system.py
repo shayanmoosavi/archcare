@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from archcare.utils.system import (
+    _VALID_UNIT_SUFFIXES,
     CommandResult,
     _get_boot_time,
     _get_service_description,
@@ -19,6 +20,7 @@ from archcare.utils.system import (
     format_bytes,
     get_system_uptime,
     get_systemd_failed_services,
+    is_valid_systemd_unit_name,
     run_command,
     run_command_with_sudo,
 )
@@ -517,3 +519,54 @@ class TestChangeOwnershipToUser:
         change_ownership_to_user(target_file, "alice")  # Must not raise
 
         mock_chown.assert_called_once_with(target_file, 1000, 1000)
+
+
+# ---------------------------------------------------------------------------
+# is_valid_systemd_unit_name
+# ---------------------------------------------------------------------------
+
+
+class TestIsValidSystemdUnitName:
+    def test_simple_valid_name(self):
+        assert is_valid_systemd_unit_name("my-service.service")
+
+    def test_empty_string_is_invalid(self):
+        assert not is_valid_systemd_unit_name("")
+
+    def test_having_no_suffix_is_invalid(self):
+        assert not is_valid_systemd_unit_name("my-service")
+
+    def test_exceeding_char_limit_is_invalid(self):
+        assert not is_valid_systemd_unit_name("a" * 256 + ".service")
+
+    @pytest.mark.parametrize("suffix", _VALID_UNIT_SUFFIXES)
+    def test_valid_suffix(self, suffix: str):
+        assert is_valid_systemd_unit_name(f"my-service.{suffix}")
+
+    def test_having_multiple_dots_is_allowed(self):
+        assert is_valid_systemd_unit_name("org.freedesktop.NetworkManager.service")
+
+    @pytest.mark.parametrize(
+        "invalid",
+        [
+            ".service",  # Empty base name
+            "@.service"  # Empty template name
+            "my-service@.service",  # Empty instance name
+        ],
+    )
+    def test_empty_section_names_are_invalid(self, invalid: str):
+        assert not is_valid_systemd_unit_name(invalid)
+
+    def test_template_unit_instances_are_allowed(self):
+        assert is_valid_systemd_unit_name("my-service@instance.service")
+
+    @pytest.mark.parametrize(
+        "invalid",
+        [
+            "my&invalid/-service@instance.service",  # Invalid chars in base name
+            "my-service@invalid&.service",  # Invalid chars in instance name
+            "my&invalid.service",  # Invalid chars in simple name
+        ],
+    )
+    def test_invalid_chars_are_invalid(self, invalid: str):
+        assert not is_valid_systemd_unit_name(invalid)

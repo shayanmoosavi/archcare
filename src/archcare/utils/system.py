@@ -4,6 +4,7 @@ System command utilities for archcare.
 Provides safe wrappers around subprocess for executing system commands.
 """
 
+import re
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -13,6 +14,31 @@ from pathlib import Path
 from loguru import logger
 
 from .info_models import ServiceStatusInfo
+
+# Recognized systemd unit type suffixes:
+# https://www.freedesktop.org/software/systemd/man/latest/systemd.unit.html
+_VALID_UNIT_SUFFIXES = frozenset(
+    {
+        "service",
+        "socket",
+        "device",
+        "mount",
+        "automount",
+        "swap",
+        "target",
+        "path",
+        "timer",
+        "slice",
+        "scope",
+    }
+)
+
+# Systemd unit names allow ASCII letters, digits, and : - _ . \
+# (backslash covers escape sequences like \x2d, used when a character
+# that can't appear literally - e.g. a literal '/' - needs encoding).
+_ALLOWED_CHARS = re.compile(r"^[A-Za-z0-9:_.\\-]+$")
+
+_MAX_UNIT_NAME_LENGTH = 255  # systemd's UNIT_NAME_MAX
 
 
 @dataclass
@@ -518,3 +544,33 @@ def change_ownership_to_user(path: Path, user: str) -> None:
         logger.warning(f"Permission denied when changing ownership of {path} to {user}")
     except Exception as e:
         logger.warning(f"Failed to change ownership of {path} to {user}: {e}")
+
+
+def is_valid_systemd_unit_name(name: str) -> bool:
+    """
+    Validate a systemd unit name (e.g. "sshd.service", "getty@tty1.service").
+
+    Returns:
+        True if the name is a valid systemd unit name, False otherwise.
+    """
+
+    # Check basic structure: non-empty, within length limit, and contains a dot
+    if not name or len(name) > _MAX_UNIT_NAME_LENGTH or "." not in name:
+        return False
+
+    # Extracting the base name (before the dot) and suffix (after the dot)
+    base, _, suffix = name.rpartition(".")
+    if suffix not in _VALID_UNIT_SUFFIXES or not base:
+        return False
+
+    # Extracting the template name (before the @) and instance (after the @)
+    if "@" in base:
+        template_name, _, instance = base.partition("@")
+        if not template_name or not instance:
+            return False
+        # It must contain only allowed characters
+        return bool(
+            _ALLOWED_CHARS.match(template_name) and _ALLOWED_CHARS.match(instance)
+        )
+
+    return bool(_ALLOWED_CHARS.match(base))
