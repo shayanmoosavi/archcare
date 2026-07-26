@@ -101,9 +101,7 @@ class TestLoadTasks:
         config: TasksConfig = loader.load_tasks()
         assert config.tasks == {}
 
-    def test_empty_file_returns_empty_config(
-        self, loader: ConfigLoader, config_dir: Path
-    ):
+    def test_empty_file_returns_empty_config(self, loader: ConfigLoader, config_dir: Path):
         tasks_file: Path = config_dir / "tasks.toml"
         tasks_file.touch()
         config: TasksConfig = loader.load_tasks(tasks_file)
@@ -180,9 +178,7 @@ class TestLoadIgnoredServices:
         config = loader.load_ignored_services()
         assert config.services == []
 
-    def test_empty_file_returns_empty_list(
-        self, loader: ConfigLoader, config_dir: Path
-    ):
+    def test_empty_file_returns_empty_list(self, loader: ConfigLoader, config_dir: Path):
         services_file: Path = config_dir / "ignored-services.toml"
         services_file.touch()
         config = loader.load_ignored_services(services_file)
@@ -251,9 +247,7 @@ class TestConfigLoaderSettings:
         # Should fallback gracefully rather than raising ValidationError
         assert isinstance(settings.log_retention_days, int)
 
-    def test_valid_file_overrides_defaults(
-        self, loader: ConfigLoader, config_dir: Path
-    ):
+    def test_valid_file_overrides_defaults(self, loader: ConfigLoader, config_dir: Path):
         settings_toml = """\
 log_level = "DEBUG"
 dry_run = true
@@ -286,9 +280,7 @@ number_of_mirrors = 3
         _w(config_dir / "settings.toml", 'log_level = "VERBOSE"\n')
         assert loader.load_settings().log_level.value == "INFO"
 
-    def test_parses_maintenance_check_section(
-        self, loader: ConfigLoader, config_dir: Path
-    ):
+    def test_parses_maintenance_check_section(self, loader: ConfigLoader, config_dir: Path):
         _w(
             config_dir / "settings.toml",
             """\
@@ -309,9 +301,7 @@ require_acknowledgment = false
         assert loader._settings.log_retention_days == 99
 
     def test_save_and_load_roundtrip(self, loader: ConfigLoader, config_dir: Path):
-        settings = AppSettings(
-            user="testuser", log_level=LogLevel.WARNING, dry_run=True
-        )
+        settings = AppSettings(user="testuser", log_level=LogLevel.WARNING, dry_run=True)
         loader.save_settings(settings)
 
         fresh_loader = ConfigLoader(user="testuser", config_dir=config_dir)
@@ -349,9 +339,7 @@ class TestStateManagement:
         assert isinstance(result, AppState)
         assert result.tasks == {}
 
-    def test_round_trip_preserves_last_status(
-        self, loader: ConfigLoader, state_file: Path
-    ):
+    def test_round_trip_preserves_last_status(self, loader: ConfigLoader, state_file: Path):
         state = AppState()
         state.update_task_state(
             task_name="test-task",
@@ -365,9 +353,7 @@ class TestStateManagement:
         reloaded = loader.load_state(state_file=state_file)
         assert reloaded.get_task_state("test-task").last_status == TaskStatus.SUCCESS
 
-    def test_round_trip_preserves_run_count(
-        self, loader: ConfigLoader, state_file: Path
-    ):
+    def test_round_trip_preserves_run_count(self, loader: ConfigLoader, state_file: Path):
         state = AppState()
         for _ in range(3):
             state.update_task_state(

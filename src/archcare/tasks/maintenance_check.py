@@ -113,7 +113,8 @@ class MaintenanceCheckTask(BaseTask):
         elif self._info_issues:
             status = TaskStatus.SUCCESS
             logger.success(
-                f"{len(self._info_issues)} info issues found. No immediate attention required"
+                f"{len(self._info_issues)} info issues found. "
+                "No immediate attention required"
             )
         else:
             status = TaskStatus.SUCCESS
@@ -215,7 +216,8 @@ class MaintenanceCheckTask(BaseTask):
         task_state: TaskState,
     ):
         """
-        Checks whether a manual task is overdue and appends the MaintenanceIssue to the issues list if so.
+        Checks whether a manual task is overdue and appends
+        the MaintenanceIssue to the issues list if so.
 
         Args:
             days_overdue: Number of days overdue.
@@ -249,13 +251,14 @@ class MaintenanceCheckTask(BaseTask):
         task_state: TaskState,
     ):
         """
-        Checks whether the systemd timer for an automated task is broken and appends the MaintenanceIssue
-        to the issues list if so.
+        Checks whether the systemd timer for an automated task is broken and appends
+        the MaintenanceIssue to the issues list if so.
 
         Args:
             days_overdue: Number of days overdue.
             issues: List of maintenance issues found
-            timer_threshold_days: The threshold for the days overdue to be considered critical
+            timer_threshold_days: The threshold for the days overdue
+             to be considered critical
             task_name: Name of the task
             task_state: The current state of the task
         """
@@ -274,7 +277,8 @@ class MaintenanceCheckTask(BaseTask):
                     last_status=task_state.last_status,
                     recommendation=(
                         f"Check timer: systemctl status archcare@{task_name}.timer\n"
-                        f"Enable timer: sudo systemctl enable --now archcare@{task_name}.timer"
+                        "Enable timer: sudo systemctl enable --now "
+                        f"archcare@{task_name}.timer"
                     ),
                 )
             )
@@ -288,7 +292,8 @@ class MaintenanceCheckTask(BaseTask):
         task_state: TaskState,
     ):
         """
-        Check whether a failed automated task is overdue and appends the MaintenanceIssue to the issues list if so.
+        Check whether a failed automated task is overdue and appends
+        the MaintenanceIssue to the issues list if so.
 
         Args:
             days_overdue: Number of days overdue.
@@ -491,7 +496,8 @@ class MaintenanceCheckTask(BaseTask):
             lines.append("Tasks needing attention:")
             for maintenance_issue in tasks_needing_attention:
                 lines.append(
-                    f"  - {maintenance_issue.task_name} ({str(maintenance_issue.severity).upper()})"
+                    f"  - {maintenance_issue.task_name} "
+                    f"({str(maintenance_issue.severity).upper()})"
                 )
             lines.append("\n")
 

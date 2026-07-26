@@ -118,9 +118,7 @@ class TestRenderConfigInit:
         assert "tasks.toml" in mock_print.call_args_list[0].args[0]
 
     @pytest.mark.usefixtures("mock_success")
-    def test_prints_both_created_and_skipped_files(
-        self, tmp_path, mock_print: MagicMock
-    ):
+    def test_prints_both_created_and_skipped_files(self, tmp_path, mock_print: MagicMock):
         SetupPresenter.render_config_init(
             ConfigInitResponse(
                 config_dir=tmp_path,

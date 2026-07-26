@@ -179,9 +179,7 @@ class TestHealthCheckFormatter:
     def test_filesystem_errors_hidden_when_zero(self):
         output = _joined(
             HealthCheckFormatter().format(
-                HealthCheckDetails(
-                    summary=HealthCheckSummary(filesystem_errors_count=0)
-                )
+                HealthCheckDetails(summary=HealthCheckSummary(filesystem_errors_count=0))
             )
         )
 
@@ -190,9 +188,7 @@ class TestHealthCheckFormatter:
     def test_filesystem_errors_shown_when_present(self):
         output = _joined(
             HealthCheckFormatter().format(
-                HealthCheckDetails(
-                    summary=HealthCheckSummary(filesystem_errors_count=2)
-                )
+                HealthCheckDetails(summary=HealthCheckSummary(filesystem_errors_count=2))
             )
         )
 
@@ -219,9 +215,7 @@ class TestHealthCheckFormatter:
 
     def test_uptime_defaults_to_unknown_when_absent(self):
         output = _joined(
-            HealthCheckFormatter().format(
-                HealthCheckDetails(summary=HealthCheckSummary())
-            )
+            HealthCheckFormatter().format(HealthCheckDetails(summary=HealthCheckSummary()))
         )
 
         assert "System Uptime: unknown" in output
@@ -271,9 +265,7 @@ class TestMaintenanceCheckFormatter:
             (IssueSeverity.WARNING, "WARNING"),
         ],
     )
-    def test_lists_tasks_needing_attention_with_severity(
-        self, severity, expected_fragment
-    ):
+    def test_lists_tasks_needing_attention_with_severity(self, severity, expected_fragment):
         issue = Mock(spec=MaintenanceIssue)
         issue.task_name = "update-mirrorlist"
         issue.severity = severity
@@ -322,18 +314,14 @@ class TestMirrorlistUpdateFormatter:
         ],
     )
     def test_omits_mirror_line_when_either_side_missing(self, old_mirrors, new_mirrors):
-        details = MirrorlistUpdateDetails(
-            old_mirrors=old_mirrors, new_mirrors=new_mirrors
-        )
+        details = MirrorlistUpdateDetails(old_mirrors=old_mirrors, new_mirrors=new_mirrors)
 
         output = _joined(MirrorlistUpdateFormatter().format(details))
 
         assert "Mirrors:" not in output
 
     def test_shows_backup_path_when_present(self):
-        details = MirrorlistUpdateDetails(
-            backup_path="/etc/pacman.d/mirrorlist_x.backup"
-        )
+        details = MirrorlistUpdateDetails(backup_path="/etc/pacman.d/mirrorlist_x.backup")
 
         output = _joined(MirrorlistUpdateFormatter().format(details))
 
@@ -341,9 +329,7 @@ class TestMirrorlistUpdateFormatter:
 
     def test_omits_backup_line_when_absent(self):
         output = _joined(
-            MirrorlistUpdateFormatter().format(
-                MirrorlistUpdateDetails(backup_path=None)
-            )
+            MirrorlistUpdateFormatter().format(MirrorlistUpdateDetails(backup_path=None))
         )
 
         assert "Backup:" not in output

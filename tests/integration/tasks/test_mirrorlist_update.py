@@ -85,9 +85,7 @@ def sandbox(archcare_home: Path, mocker):
     # 4. Patch command dependencies globally for this test class
     mocker.patch(f"{_MODULE}.check_command_exists", return_value=True)
     mocker.patch(f"{_SYSTEM_MODULE}.check_command_exists", return_value=True)
-    mocker.patch(
-        f"{_SYSTEM_MODULE}.run_command_with_sudo", side_effect=_fake_run_with_sudo
-    )
+    mocker.patch(f"{_SYSTEM_MODULE}.run_command_with_sudo", side_effect=_fake_run_with_sudo)
 
     return sandbox_mirrorlist
 
@@ -129,9 +127,7 @@ class TestMirrorlistUpdateTask:
         # File should remain untouched, no backups created
         assert len(list(sandbox.parent.glob("*.backup"))) == 0
 
-    def test_backup_creation_failure_aborts_and_fails_cleanly(
-        self, sandbox: Path, mocker
-    ):
+    def test_backup_creation_failure_aborts_and_fails_cleanly(self, sandbox: Path, mocker):
         """
         Verify task aborts the execution immediately and fails cleanly if
         backup creation fails.
@@ -164,9 +160,7 @@ class TestMirrorlistUpdateTask:
                 )
             return _fake_run_with_sudo(command, **kwargs)  # Fallback to handle cp
 
-        mocker.patch(
-            f"{_SYSTEM_MODULE}.run_command_with_sudo", side_effect=_fail_reflector
-        )
+        mocker.patch(f"{_SYSTEM_MODULE}.run_command_with_sudo", side_effect=_fail_reflector)
 
         # Running with --devel to output log messages
         result = runner.invoke(app, ["--devel", "task", "run", "mirrorlist-update"])
@@ -196,9 +190,7 @@ class TestMirrorlistUpdateTask:
                 )
             return _fake_run_with_sudo(command, **kwargs)
 
-        mocker.patch(
-            f"{_SYSTEM_MODULE}.run_command_with_sudo", side_effect=_write_garbage
-        )
+        mocker.patch(f"{_SYSTEM_MODULE}.run_command_with_sudo", side_effect=_write_garbage)
 
         result = runner.invoke(app, ["task", "run", "mirrorlist-update"])
 
@@ -226,10 +218,12 @@ class TestMirrorlistUpdateTask:
             past_time = time.time() - (100 - i) * 60
             os.utime(old_backup, (past_time, past_time))
 
-        # Sanity check before run: We should have 1 sandbox mirrorlist + 6 backups = 7 files total
+        # Sanity check before run:
+        # We should have 1 sandbox mirrorlist + 6 backups = 7 files total
         assert len(list(backup_dir.glob("mirrorlist_*.backup"))) == 6
 
-        # It creates 1 new backup (total 7), then post_execute purges the oldest 2 (leaving 5).
+        # It creates 1 new backup (total 7), then post_execute purges
+        # the oldest 2 (leaving 5).
         result = runner.invoke(app, ["task", "run", "mirrorlist-update"])
 
         assert result.exit_code == 0

@@ -32,7 +32,8 @@ def setup_logging(
     if devel_mode:
         logger.add(
             sys.stderr,
-            format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>",
+            format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | "
+            "<level>{message}</level>",
             level=LogLevel.INFO.value,
             colorize=True,
         )
@@ -44,7 +45,8 @@ def setup_logging(
     log_file = settings.log_dir / "archcare.log"
     logger.add(
         log_file,
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}",
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} |"
+        " {message}",
         level=settings.log_level.value,
         rotation="10 MB",  # Rotate when file reaches 10MB
         retention=f"{settings.log_retention_days} days",

@@ -31,28 +31,20 @@ class TestGetScheduleInfo:
             scheduler.get_schedule_info("does-not-exist")
         assert "does-not-exist" in str(exc_info.value)
 
-    def test_never_run_task_is_due(
-        self, tasks_config: TasksConfig, fresh_state: AppState
-    ):
-        info = _scheduler(tasks_config, fresh_state).get_schedule_info(
-            "test-manual-task"
-        )
+    def test_never_run_task_is_due(self, tasks_config: TasksConfig, fresh_state: AppState):
+        info = _scheduler(tasks_config, fresh_state).get_schedule_info("test-manual-task")
         assert info.is_due is True
 
     def test_never_run_task_has_no_last_run(
         self, tasks_config: TasksConfig, fresh_state: AppState
     ):
-        info = _scheduler(tasks_config, fresh_state).get_schedule_info(
-            "test-manual-task"
-        )
+        info = _scheduler(tasks_config, fresh_state).get_schedule_info("test-manual-task")
         assert info.last_run is None
 
     def test_never_run_task_reason_mentions_never(
         self, tasks_config: TasksConfig, fresh_state: AppState
     ):
-        info = _scheduler(tasks_config, fresh_state).get_schedule_info(
-            "test-manual-task"
-        )
+        info = _scheduler(tasks_config, fresh_state).get_schedule_info("test-manual-task")
         assert "never" in info.reason.lower()
 
     def test_future_next_due_task_is_not_due(
@@ -156,15 +148,11 @@ class TestGetMaintenanceSummary:
         summary = _scheduler(tasks_config, fresh_state).get_maintenance_summary()
         assert summary["total"] == len(tasks_config.get_enabled_tasks())
 
-    def test_all_due_when_never_run(
-        self, tasks_config: TasksConfig, fresh_state: AppState
-    ):
+    def test_all_due_when_never_run(self, tasks_config: TasksConfig, fresh_state: AppState):
         summary = _scheduler(tasks_config, fresh_state).get_maintenance_summary()
         assert summary["due"] == len(tasks_config.get_enabled_tasks())
 
-    def test_zero_due_when_all_tasks_have_future_next_due(
-        self, tasks_config: TasksConfig
-    ):
+    def test_zero_due_when_all_tasks_have_future_next_due(self, tasks_config: TasksConfig):
         state = AppState()
         for name in tasks_config.get_enabled_tasks():
             state.update_task_state(

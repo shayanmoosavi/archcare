@@ -94,9 +94,7 @@ def task(
 
 
 @pytest.fixture
-def task_with_thresholds(
-    maintenance_config: TaskConfig, mocker
-) -> MaintenanceCheckTask:
+def task_with_thresholds(maintenance_config: TaskConfig, mocker) -> MaintenanceCheckTask:
     """
     Custom, non-default thresholds - the real defaults (critical=7,
     warning=0) make it impossible to ever reach the INFO/WARNING branches
@@ -240,9 +238,7 @@ class TestCheckBrokenTimer:
     def test_above_threshold_appends_critical_issue(self):
         issues: list[MaintenanceIssue] = []
         state = AppState()
-        state.update_task_state(
-            task_name="update-mirrorlist", status=TaskStatus.FAILURE
-        )
+        state.update_task_state(task_name="update-mirrorlist", status=TaskStatus.FAILURE)
 
         MaintenanceCheckTask._check_broken_timer(
             20,
@@ -306,9 +302,7 @@ class TestCheckFailedAutomatedTask:
     def test_due_appends_warning_issue(self, task: MaintenanceCheckTask):
         issues: list[MaintenanceIssue] = []
         state = AppState()
-        state.update_task_state(
-            task_name="update-mirrorlist", status=TaskStatus.FAILURE
-        )
+        state.update_task_state(task_name="update-mirrorlist", status=TaskStatus.FAILURE)
         schedule_info = _schedule_info("update-mirrorlist", is_due=True)
 
         task._check_failed_automated_task(
@@ -325,9 +319,7 @@ class TestCheckFailedAutomatedTask:
     def test_not_due_appends_nothing(self, task: MaintenanceCheckTask):
         issues: list[MaintenanceIssue] = []
         state = AppState()
-        state.update_task_state(
-            task_name="update-mirrorlist", status=TaskStatus.FAILURE
-        )
+        state.update_task_state(task_name="update-mirrorlist", status=TaskStatus.FAILURE)
         schedule_info = _schedule_info("update-mirrorlist", is_due=False)
 
         task._check_failed_automated_task(
@@ -484,8 +476,7 @@ class TestCheckTask:
         state.update_task_state(
             task_name=config.name,
             status=TaskStatus.FAILURE,
-            next_due=datetime.now()
-            - timedelta(days=2),  # due, below 7*1.5=10.5 threshold
+            next_due=datetime.now() - timedelta(days=2),  # due, below 7*1.5=10.5 threshold
         )
         task: MaintenanceCheckTask = make_task(tasks_config=tasks_config, state=state)
 
@@ -558,9 +549,7 @@ class TestExecute:
         assert task_result.status == TaskStatus.FAILURE
         assert task_result.error is not None
 
-    def test_warning_only_sets_partial_status(
-        self, make_task: MaintenanceCheckTaskFactory
-    ):
+    def test_warning_only_sets_partial_status(self, make_task: MaintenanceCheckTaskFactory):
         config = _task_config("mirrorlist-update", "automated", frequency=7)
         tasks_config = TasksConfig(tasks={config.name: config})
         state = AppState()
@@ -575,9 +564,7 @@ class TestExecute:
 
         assert task_result.status == TaskStatus.PARTIAL
 
-    def test_info_only_sets_success_status(
-        self, make_task: MaintenanceCheckTaskFactory
-    ):
+    def test_info_only_sets_success_status(self, make_task: MaintenanceCheckTaskFactory):
         """A never-run task produces only an INFO issue - status stays SUCCESS."""
         config = _task_config("mirrorlist-update", "automated", frequency=7)
         tasks_config = TasksConfig(tasks={config.name: config})
@@ -966,9 +953,7 @@ class TestCleanupOldReports:
         make_task: MaintenanceCheckTaskFactory,
         settings_with_tmp_reports: AppSettings,
     ):
-        recent_file = (
-            settings_with_tmp_reports.report_dir / "maintenance-check_recent.txt"
-        )
+        recent_file = settings_with_tmp_reports.report_dir / "maintenance-check_recent.txt"
         recent_file.write_text("recent")  # mtime defaults to now - within retention
         task: MaintenanceCheckTask = make_task(task_settings=settings_with_tmp_reports)
 

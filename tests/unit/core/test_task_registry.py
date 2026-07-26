@@ -55,9 +55,7 @@ class TestGetFormatterClass:
     def test_returns_registered_formatter(self, registry: TaskRegistry):
         assert registry.get_formatter_class("task-a") is FakeFormatter
 
-    def test_defaults_to_default_formatter_when_not_specified(
-        self, registry: TaskRegistry
-    ):
+    def test_defaults_to_default_formatter_when_not_specified(self, registry: TaskRegistry):
         assert registry.get_formatter_class("task-b") is DefaultFormatter
 
     def test_raises_for_unregistered_name(self, registry: TaskRegistry):

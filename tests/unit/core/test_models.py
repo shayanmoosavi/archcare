@@ -76,15 +76,11 @@ class TestTaskResultStr:
         assert str(result) == "[SUCCESS] Cleanup completed"
 
     def test_zero_duration_is_omitted(self):
-        result = TaskResult(
-            status=TaskStatus.SUCCESS, message="x", duration_seconds=0.0
-        )
+        result = TaskResult(status=TaskStatus.SUCCESS, message="x", duration_seconds=0.0)
         assert str(result) == "[SUCCESS] x"
 
     def test_positive_duration_is_included_and_formatted(self):
-        result = TaskResult(
-            status=TaskStatus.SUCCESS, message="x", duration_seconds=5.234
-        )
+        result = TaskResult(status=TaskStatus.SUCCESS, message="x", duration_seconds=5.234)
         assert str(result) == "[SUCCESS] x (5.23s)"
 
     def test_error_is_appended_when_present(self):

@@ -185,9 +185,7 @@ class TestSetupTimersMainFlow:
         mock_timer_service.setup_timers.assert_called_once_with(
             mock_timer_service.get_automated_tasks.return_value, False, True
         )
-        mock_presenter.render_timer_setup.assert_called_once_with(
-            "SETUP_RESPONSE_SENTINEL"
-        )
+        mock_presenter.render_timer_setup.assert_called_once_with("SETUP_RESPONSE_SENTINEL")
         mock_presenter.no_automated_tasks.assert_not_called()
 
     def test_no_automated_tasks_shows_message_without_calling_setup_timers(

@@ -183,11 +183,13 @@ class HealthCheckTask(BaseTask):
 
         if mem_percent > 90:
             issues.append(
-                f"Memory usage at {mem_percent}% ({format_bytes(memory.available)} available)"
+                f"Memory usage at {mem_percent}% "
+                f"({format_bytes(memory.available)} available)"
             )
         elif mem_percent > 80:
             warnings.append(
-                f"Memory usage at {mem_percent}% ({format_bytes(memory.available)} available)"
+                f"Memory usage at {mem_percent}% "
+                f"({format_bytes(memory.available)} available)"
             )
 
         if swap_percent > 50:

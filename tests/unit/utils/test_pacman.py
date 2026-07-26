@@ -51,9 +51,7 @@ class TestCheckPacmanDatabase:
     def test_returns_false_when_database_check_fails(self, mocker, mock_run_command):
         mocker.patch(_PATCH_CHECK_COMMAND, return_value=True)
 
-        mock_run_command.return_value = MockResult(
-            success=False, stderr="data corrupted"
-        )
+        mock_run_command.return_value = MockResult(success=False, stderr="data corrupted")
 
         is_healthy, msg = check_pacman_database()
         assert not is_healthy
@@ -104,9 +102,7 @@ class TestCheckPackageFiles:
             "linux: 1000 total files, 0 missing files\n"
             "systemd: 500 total files, 0 missing files\n"
         )
-        mock_run_command_sudo.return_value = MockResult(
-            success=True, stdout=mock_stdout
-        )
+        mock_run_command_sudo.return_value = MockResult(success=True, stdout=mock_stdout)
 
         all_present, msg = check_package_files()
         assert all_present
@@ -134,9 +130,7 @@ class TestCheckPackageFiles:
             "glibc: 300 total files, 0 missing files\n"
             "pacman: 100 total files, 1 missing files\n"
         )
-        mock_run_command_sudo.return_value = MockResult(
-            success=True, stdout=mock_stdout
-        )
+        mock_run_command_sudo.return_value = MockResult(success=True, stdout=mock_stdout)
 
         all_present, msg = check_package_files()
         assert not all_present

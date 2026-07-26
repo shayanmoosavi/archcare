@@ -388,9 +388,7 @@ class TestRenderList:
         presenter.render_list(response)
 
         assert mock_console.print.call_count == 3
-        assert (
-            automated_task.description in mock_console.print.call_args_list[1].args[0]
-        )
+        assert automated_task.description in mock_console.print.call_args_list[1].args[0]
 
 
 # ---------------------------------------------------------------------------

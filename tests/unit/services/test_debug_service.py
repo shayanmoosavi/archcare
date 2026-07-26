@@ -30,9 +30,7 @@ def service() -> DebugService:
 
 class TestSeverityValidation:
     @pytest.mark.parametrize("severity", ["critical", "warning", "info"])
-    def test_valid_severities_are_accepted(
-        self, service: DebugService, severity, mocker
-    ):
+    def test_valid_severities_are_accepted(self, service: DebugService, severity, mocker):
         mock_manager = service.notification_manager
         mocker.patch.object(mock_manager, "is_available", return_value=True)
         mocker.patch.object(mock_manager, "send_notification", return_value=True)
@@ -90,9 +88,7 @@ class TestSendNotification:
         assert exc_info.value.severity == "critical"
 
     @pytest.mark.parametrize("severity", ["critical", "warning", "info"])
-    def test_send_called_with_matching_title(
-        self, service: DebugService, mocker, severity
-    ):
+    def test_send_called_with_matching_title(self, service: DebugService, mocker, severity):
         calls = []
         mock_manager = service.notification_manager
         mocker.patch.object(mock_manager, "is_available", return_value=True)

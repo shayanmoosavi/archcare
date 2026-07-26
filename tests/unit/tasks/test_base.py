@@ -112,9 +112,7 @@ class TestRunWorkflow:
         Test that pre_check failure skips execution with SKIPPED status
         and SkipReason.DEPENDENCY_FAILED.
         """
-        context = TaskContext(
-            pre_check_result=False, pre_check_msg="pacman not available"
-        )
+        context = TaskContext(pre_check_result=False, pre_check_msg="pacman not available")
         task = DummyTask(
             automated_task,
             app_settings,

@@ -62,9 +62,7 @@ def mock_presenter(mocker) -> MagicMock:
 class TestRun:
     @pytest.mark.usefixtures("mock_presenter")
     def test_calls_setup_logging(self, mock_service: MagicMock):
-        mock_service.run_task.return_value = MagicMock(
-            outcome=_outcome(is_success=True)
-        )
+        mock_service.run_task.return_value = MagicMock(outcome=_outcome(is_success=True))
         ctx = _make_ctx()
 
         with pytest.raises(typer.Exit):
@@ -74,9 +72,7 @@ class TestRun:
 
     @pytest.mark.usefixtures("mock_presenter")
     def test_service_called_with_task_name_and_force(self, mock_service: MagicMock):
-        mock_service.run_task.return_value = MagicMock(
-            outcome=_outcome(is_success=True)
-        )
+        mock_service.run_task.return_value = MagicMock(outcome=_outcome(is_success=True))
         ctx = _make_ctx()
 
         with pytest.raises(typer.Exit):
@@ -175,9 +171,7 @@ class TestRun:
     def test_render_run_receives_settings_and_verbose(
         self, mock_service: MagicMock, mock_presenter: MagicMock
     ):
-        mock_service.run_task.return_value = MagicMock(
-            outcome=_outcome(is_success=True)
-        )
+        mock_service.run_task.return_value = MagicMock(outcome=_outcome(is_success=True))
         ctx = _make_ctx()
         ctx.obj.settings = "SETTINGS_SENTINEL"
 

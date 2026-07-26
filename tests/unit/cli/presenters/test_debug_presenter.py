@@ -25,9 +25,7 @@ class TestDebugPresenter:
 
         mock_header.assert_called_once_with("Testing Desktop Notifications")
 
-    def test_render_test_notification_includes_severity(
-        self, mocker, mock_info: MagicMock
-    ):
+    def test_render_test_notification_includes_severity(self, mocker, mock_info: MagicMock):
         mocker.patch(f"{_MODULE}.print_success")
 
         response = NotificationTestResponse(
@@ -58,9 +56,7 @@ class TestDebugPresenter:
         joined = " ".join(c.args[0] for c in mock_info.call_args_list)
         assert "libnotify" in joined
 
-    def test_notification_send_failure_points_to_logs(
-        self, mocker, mock_info: MagicMock
-    ):
+    def test_notification_send_failure_points_to_logs(self, mocker, mock_info: MagicMock):
         mocker.patch(_PATCH_ERROR)
 
         DebugPresenter.notification_send_failed()

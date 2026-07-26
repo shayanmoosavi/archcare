@@ -69,9 +69,7 @@ class TestRunTask:
         _service(mock_executor).run_task("test-manual-task", force=True)
         mock_executor.execute_task.assert_called_once_with("test-manual-task", True)
 
-    def test_force_false_by_default(
-        self, mock_executor: MagicMock, mock_task_result: Mock
-    ):
+    def test_force_false_by_default(self, mock_executor: MagicMock, mock_task_result: Mock):
         mock_executor.execute_task.return_value = mock_task_result
         _service(mock_executor).run_task("test-manual-task")
         mock_executor.execute_task.assert_called_once_with("test-manual-task", False)
@@ -94,9 +92,7 @@ class TestListTasks:
         self, mock_executor: MagicMock, tasks_config: TasksConfig
     ):
         response = _service(mock_executor).list_tasks()
-        assert set(response.tasks.keys()) == set(
-            tasks_config.get_enabled_tasks().keys()
-        )
+        assert set(response.tasks.keys()) == set(tasks_config.get_enabled_tasks().keys())
         assert response.filtered_by is None
 
     def test_filters_to_automated_tasks(self, mock_executor: MagicMock):

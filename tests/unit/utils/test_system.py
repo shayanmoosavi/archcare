@@ -60,15 +60,13 @@ class TestSystemctlParsing:
         # Service is loaded properly
         assert (
             _parse_loaded_status(
-                "   Loaded: loaded (/usr/lib/systemd/system/dbus-broker.service; disabled; preset: disabled)"
+                "   Loaded: loaded (/usr/lib/systemd/system/dbus-broker.service;"
+                " disabled; preset: disabled)"
             )
             is True
         )
         # Service is missing
-        assert (
-            _parse_loaded_status("Unit nonexistent.service could not be found.")
-            is False
-        )
+        assert _parse_loaded_status("Unit nonexistent.service could not be found.") is False
 
     def test_parse_active_status_running(self):
         state, is_running = _parse_active_status(
@@ -91,23 +89,17 @@ class TestSystemctlParsing:
         assert is_running is False
 
     def test_parse_active_status_failed(self):
-        state, is_running = _parse_active_status(
-            "   Active: failed (Result: exit-code)"
-        )
+        state, is_running = _parse_active_status("   Active: failed (Result: exit-code)")
         assert state == "failed"
         assert is_running is False
 
     def test_parse_active_status_unknown(self):
-        state, is_running = _parse_active_status(
-            "   Active: something entirely unexpected"
-        )
+        state, is_running = _parse_active_status("   Active: something entirely unexpected")
         assert state == "unknown"
         assert is_running is False
 
     def test_parse_main_pid_valid(self):
-        assert (
-            _parse_main_pid(" Main PID: 1234 (code=exited, status=0/SUCCESS)") == 1234
-        )
+        assert _parse_main_pid(" Main PID: 1234 (code=exited, status=0/SUCCESS)") == 1234
 
     def test_parse_main_pid_invalid_or_missing(self):
         assert _parse_main_pid(" Main PID: unknown") is None
@@ -319,9 +311,7 @@ class TestRunCommand:
     def test_strips_whitespace_from_stdout_and_stderr(self, mocker):
         mocker.patch(
             _PATCH_SUBPROCESS_RUN,
-            return_value=MagicMock(
-                returncode=0, stdout="  hello  \n", stderr=" world \n"
-            ),
+            return_value=MagicMock(returncode=0, stdout="  hello  \n", stderr=" world \n"),
         )
         result = run_command(["some-command"])
 
@@ -513,9 +503,7 @@ class TestChangeOwnershipToUser:
 
     def test_unexpected_error_does_not_raise(self, target_file: Path, mocker):
         mocker.patch("pwd.getpwnam", return_value=MagicMock(pw_uid=1000, pw_gid=1000))
-        mock_chown: MagicMock = mocker.patch(
-            "os.chown", side_effect=OSError("disk full")
-        )
+        mock_chown: MagicMock = mocker.patch("os.chown", side_effect=OSError("disk full"))
         change_ownership_to_user(target_file, "alice")  # Must not raise
 
         mock_chown.assert_called_once_with(target_file, 1000, 1000)

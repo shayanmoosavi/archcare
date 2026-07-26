@@ -120,8 +120,7 @@ def _make_executor(
         state=state,
         task_registry=task_registry,
         interaction=interaction,
-        notification_manager=notification_manager
-        or MagicMock(spec=NotificationManager),
+        notification_manager=notification_manager or MagicMock(spec=NotificationManager),
         user_context=user_context or MagicMock(spec=UserContext),
     )
 

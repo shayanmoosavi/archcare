@@ -10,7 +10,9 @@ from .formatter import DefaultFormatter, TaskDetailFormatter
 
 @dataclass(frozen=True)
 class TaskDescriptor:
-    """Static description of a single task: its name, execution class, and detail formatter."""
+    """
+    Static description of a single task: its name, execution class, and detail formatter.
+    """
 
     name: str
     task_class: type[BaseTask]

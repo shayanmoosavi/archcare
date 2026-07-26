@@ -148,7 +148,8 @@ class TaskPresenter:
         print_error("Tasks file is empty or invalid.")
         print_info("See the logs for more details.")
         print_info(
-            "If archcare isn't initialized, run 'archcare setup config' to create a new configuration or add tasks manually."
+            "If archcare isn't initialized, run 'archcare setup config' to "
+            "create a new configuration or add tasks manually."
         )
 
     @staticmethod

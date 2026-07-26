@@ -95,7 +95,9 @@ def mock_config_loader_class(mocker) -> MagicMock:
 
 @pytest.fixture
 def mock_config_loader(mock_config_loader_class: MagicMock) -> MagicMock:
-    """The instance ConfigLoader() returns — use for stubbing load_settings()/load_state()."""
+    """
+    The instance ConfigLoader() returns — use for stubbing load_settings()/load_state().
+    """
     return mock_config_loader_class.return_value
 
 
@@ -183,9 +185,7 @@ class TestSettingsProperty:
 
 
 class TestExecutorProperty:
-    def test_returns_built_executor(
-        self, context: AppContext, mock_executor: MagicMock
-    ):
+    def test_returns_built_executor(self, context: AppContext, mock_executor: MagicMock):
         assert context.executor is mock_executor.return_value
 
     def test_builds_with_loader_settings_and_state(
@@ -222,9 +222,7 @@ class TestExecutorProperty:
         _, kwargs = mock_executor.call_args
         assert kwargs["task_registry"] is DEFAULT_TASK_REGISTRY
 
-    def test_caches_after_first_access(
-        self, mock_executor: MagicMock, context: AppContext
-    ):
+    def test_caches_after_first_access(self, mock_executor: MagicMock, context: AppContext):
         first = context.executor
         second = context.executor
 
@@ -294,9 +292,7 @@ class TestSetupLogging:
 
         # Should be called once for defaults, and a second time for reconfiguration
         assert mock_setup_logging.call_count == 2
-        mock_setup_logging.assert_called_with(
-            settings, reconfigure=True, devel_mode=False
-        )
+        mock_setup_logging.assert_called_with(settings, reconfigure=True, devel_mode=False)
 
     def test_defaults_to_self_user_when_no_user_param(
         self, mock_config_loader_class: MagicMock
@@ -432,6 +428,7 @@ class TestExecutorForUser:
         # Instantiate the standard context executor
         cached_executor = context.executor
 
-        # They should be distinct instances (TaskExecutor should have been constructed multiple times)
+        # They should be distinct instances (TaskExecutor should have been constructed
+        #  multiple times)
         assert target_executor is not cached_executor
         assert mock_executor.call_count == 2

@@ -280,9 +280,7 @@ class TestRenderAcknowledgmentPrompt:
 
 
 class TestRenderIssuesTable:
-    def test_constructs_table_with_title_and_style(
-        self, mocker, mock_console: MagicMock
-    ):
+    def test_constructs_table_with_title_and_style(self, mocker, mock_console: MagicMock):
         mock_table: MagicMock = mocker.patch(f"{_MODULE}.Table")
 
         MaintenanceCheckPresenter._render_issues_table(

@@ -130,9 +130,7 @@ class TestGetMirrorlistInfo:
 
     def test_unrecognized_protocol_counted_but_not_categorized(self, tmp_path):
         mirrorlist: Path = tmp_path / "mirrorlist"
-        mirrorlist.write_text(
-            "Server = https://mirror1.com\nServer = ftp://mirror2.com\n"
-        )
+        mirrorlist.write_text("Server = https://mirror1.com\nServer = ftp://mirror2.com\n")
 
         info = get_mirrorlist_info(mirrorlist)
 
@@ -150,9 +148,7 @@ class TestBackupFile:
         with pytest.raises(IOError):
             backup_file(tmp_path / "missing")
 
-    def test_creates_backup_with_default_suffix(
-        self, monkeypatch, write_src_file: Path
-    ):
+    def test_creates_backup_with_default_suffix(self, monkeypatch, write_src_file: Path):
         """
         is_root() is mocked so run_command_with_sudo skips prepending
         'sudo' (which would hang/fail without a real privilege escalation

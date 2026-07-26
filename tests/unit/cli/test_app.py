@@ -78,9 +78,7 @@ class TestCallback:
         assert user_ctx.archcare_user is None
 
     @pytest.mark.usefixtures("mock_context")
-    def test_configures_console_when_interactive(
-        self, mock_configure_console: MagicMock
-    ):
+    def test_configures_console_when_interactive(self, mock_configure_console: MagicMock):
         ctx = SimpleNamespace()
 
         callback(ctx)  # ty:ignore[invalid-argument-type]

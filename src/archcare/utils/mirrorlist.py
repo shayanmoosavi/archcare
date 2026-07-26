@@ -30,7 +30,7 @@ def backup_file(source: Path, backup_suffix: str = ".backup") -> Path:
     """
 
     if not source.exists():
-        raise IOError(f"Source file does not exist: {source}")
+        raise OSError(f"Source file does not exist: {source}")
 
     # Create timestamped backup
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
@@ -41,7 +41,7 @@ def backup_file(source: Path, backup_suffix: str = ".backup") -> Path:
         run_command_with_sudo(["cp", "-p", str(source), str(backup_path)], check=True)
     except CalledProcessError as e:
         logger.error(f"Failed to create backup: {e}")
-        raise IOError(f"Could not create backup file: {e}")
+        raise OSError(f"Could not create backup file: {e}")
 
     return backup_path
 
@@ -59,14 +59,14 @@ def restore_backup(backup_path: Path, target: Path) -> None:
     """
 
     if not backup_path.exists():
-        raise IOError(f"Backup file does not exist: {backup_path}")
+        raise OSError(f"Backup file does not exist: {backup_path}")
 
     try:
         logger.debug(f"Restoring backup: {backup_path} -> {target}")
         run_command_with_sudo(["cp", "-p", str(backup_path), str(target)], check=True)
     except CalledProcessError as e:
         logger.error(f"Failed to restore backup: {e}")
-        raise IOError(f"Could not restore backup file: {e}")
+        raise OSError(f"Could not restore backup file: {e}")
 
 
 def update_mirrorlist(
@@ -125,7 +125,8 @@ def update_mirrorlist(
     logger.debug(f"Running reflector: {' '.join(reflector_cmd)}")
 
     # Total timeout for reflector command
-    # Worst case scenario: all mirrors timeout (number_of_mirrors * download_timeout) plus some padding
+    # Worst case scenario: all mirrors timeout (number_of_mirrors * download_timeout)
+    # plus some padding
     # Default reflector timeout: 5 sec
     cmd_timeout = latest * 5 + 30  # Add 30 seconds padding
 

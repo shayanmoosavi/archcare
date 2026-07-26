@@ -439,7 +439,8 @@ def success(message: str, details: TDetails | None = None) -> TaskResult[TDetail
 
     Args:
         message (str): Human-readable success message describing what was accomplished.
-            Examples: "System updated successfully", "Cleanup completed", "All checks passed".
+            Examples: "System updated successfully", "Cleanup completed",
+             "All checks passed".
         details (TDetails | None): A dataclass instance describing task-specific structured
             details (see core.task_details for per-task schemas), or None
             if there's nothing to report.
@@ -457,7 +458,9 @@ def success(message: str, details: TDetails | None = None) -> TaskResult[TDetail
         ... class UpdateDetails:
         ...     packages_updated: int
         ...     duration_ms: int
-        >>> result = success("Update completed", UpdateDetails(packages_updated=45, duration_ms=1250))
+        >>> result = success(
+        ...     "Update completed", UpdateDetails(packages_updated=45, duration_ms=1250)
+        ... )
         >>> result.is_success()
         True
         >>> result.details
@@ -497,7 +500,8 @@ def failed(
             Should be clear and specific about the nature of the failure. Examples:
             "Update check failed", "Installation failed with disk full error",
             "Network connection timeout".
-        error (str | None): The error message of the exact exception that caused the failure.
+        error (str | None): The error message of the exact exception
+         that caused the failure.
         details (TDetails | None): A dataclass instance describing task-specific structured
             details (see core.task_details for per-task schemas), or None
             if there's nothing to report.
@@ -528,7 +532,11 @@ def failed(
         >>> try:
         ...     risky_operation()
         ... except Exception as e:
-        ...     result = failed("Operation failed", error=str(e), details=ExampleTaskDetails(retry_count=3))
+        ...     result = failed(
+        ...         "Operation failed",
+        ...         error=str(e),
+        ...         details=ExampleTaskDetails(retry_count=3)
+        ...     )
         >>> result.is_failed()
         True
         >>> result.error is not None

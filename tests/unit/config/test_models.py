@@ -171,9 +171,7 @@ class TestAppSettingsPaths:
         result = AppSettings._resolve_user_home("unknown")
         assert result == Path("/home/unknown")
 
-    def test_resolve_user_home_raises_when_no_fallback(
-        self, mock_pwd: MagicMock, mocker
-    ):
+    def test_resolve_user_home_raises_when_no_fallback(self, mock_pwd: MagicMock, mocker):
         """_resolve_user_home raises when no fallback is available."""
         mock_pwd.side_effect = KeyError("ghost")
         mocker.patch.object(Path, "exists", return_value=False)
@@ -215,9 +213,7 @@ class TestValidatePaths:
         with pytest.raises(ValidationError, match="Path must be absolute"):
             AppSettings(user=None)
 
-    def test_validate_paths_rejects_unresolvable_paths(
-        self, mock_pwd: MagicMock, mocker
-    ):
+    def test_validate_paths_rejects_unresolvable_paths(self, mock_pwd: MagicMock, mocker):
         """Unresolvable paths should raise ValidationError."""
         mock_pwd.return_value.pw_dir = "/home/alice"
 
@@ -265,9 +261,7 @@ class TestAppSettingsEnsureDirectories:
 
 
 class TestAppState:
-    def test_get_task_state_creates_new_state_for_unknown_task(
-        self, fresh_state: AppState
-    ):
+    def test_get_task_state_creates_new_state_for_unknown_task(self, fresh_state: AppState):
         state = fresh_state.get_task_state("brand-new")
         assert state.last_run is None
         assert state.run_count == 0
@@ -373,8 +367,7 @@ class TestMaintenanceCheckSettings:
     @pytest.mark.parametrize("level", ["critical", "warning", "info"])
     def test_valid_notification_level_accepted(self, level):
         assert (
-            MaintenanceCheckSettings(notification_level=level).notification_level
-            == level
+            MaintenanceCheckSettings(notification_level=level).notification_level == level
         )
 
     def test_invalid_notification_level_raises(self):

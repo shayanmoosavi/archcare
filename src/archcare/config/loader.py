@@ -77,7 +77,8 @@ class ConfigLoader:
 
             config = TasksConfig(tasks=tasks_dict)
             logger.info(
-                f"Loaded {len(config.tasks)} tasks ({len(config.get_enabled_tasks())} enabled)"
+                f"Loaded {len(config.tasks)} tasks "
+                f"({len(config.get_enabled_tasks())} enabled)"
             )
 
             return config

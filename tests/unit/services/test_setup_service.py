@@ -102,9 +102,7 @@ class TestConfigService:
         ConfigService(config_dir=tmp_path).initialize()
         mock_create_config.assert_called_once_with(tmp_path, force=False)
 
-    def test_initialize_reflects_force_flag(
-        self, tmp_path, mock_create_config: MagicMock
-    ):
+    def test_initialize_reflects_force_flag(self, tmp_path, mock_create_config: MagicMock):
         ConfigService(config_dir=tmp_path).initialize(force=True)
         assert mock_create_config.call_args.kwargs["force"] is True
 
@@ -191,9 +189,7 @@ class TestReload:
         response = timer_service.reload(dry_run=dry_run)
         assert response.dry_run is dry_run
 
-    def test_failed_daemon_reload_raises(
-        self, timer_service: TimerService, monkeypatch
-    ):
+    def test_failed_daemon_reload_raises(self, timer_service: TimerService, monkeypatch):
         monkeypatch.setattr(_PATCH_SYSTEMCTL, lambda *_: _systemctl_result(False))
         with pytest.raises(SystemdReloadError):
             timer_service.reload(dry_run=False)

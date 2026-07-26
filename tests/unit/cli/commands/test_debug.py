@@ -69,9 +69,7 @@ class TestTestNotification:
 
         notification(ctx)  # ty:ignore[invalid-argument-type]
 
-        mock_presenter.render_test_notification.assert_called_once_with(
-            "RESPONSE_SENTINEL"
-        )
+        mock_presenter.render_test_notification.assert_called_once_with("RESPONSE_SENTINEL")
 
     def test_invalid_severity_shows_message_and_exits_1(
         self, mock_presenter: MagicMock, mock_service: MagicMock
