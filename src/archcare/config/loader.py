@@ -261,7 +261,7 @@ class ConfigLoader:
         logger.info(f"Loading state from: {state_path}")
 
         try:
-            with open(state_path, "r") as f:
+            with open(state_path) as f:
                 data = json.load(f)
             if not data:
                 logger.warning("State file is empty, starting with fresh state")

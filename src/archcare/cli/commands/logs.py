@@ -44,7 +44,7 @@ def logs(
     print_header(f"Logs: {log_file.name}")
 
     # Read last N lines
-    with open(log_file, "r") as f:
+    with open(log_file) as f:
         all_lines = f.readlines()
         recent_lines = all_lines[-lines:]
 
