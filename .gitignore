@@ -1,5 +1,6 @@
-# PyChram project settings
+# IDE settings
 .idea/
+.vscode/
 
 # Python bytecodes
 *__pycache__/
