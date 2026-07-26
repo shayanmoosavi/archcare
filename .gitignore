@@ -1,9 +1,6 @@
 # PyChram project settings
 .idea/
 
-# Poetry project lock file
-poetry.lock
-
 # Python bytecodes
 *__pycache__/
 
@@ -16,6 +13,6 @@ poetry.lock
 .coverage
 
 # Nuitka build directories
-*.build/
-*.onefile-build/
-*.dist/
+*build/
+*onefile-build/
+*dist/
