@@ -27,11 +27,9 @@ See Also:
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, TypeVar
+from typing import Any
 
 from archcare.config import SkipReason, TaskStatus
-
-TDetails = TypeVar("TDetails")
 
 
 @dataclass
@@ -430,7 +428,9 @@ class MaintenanceIssue:
         return self.days_overdue is not None and self.days_overdue > 0
 
 
-def success(message: str, details: TDetails | None = None) -> TaskResult[TDetails]:
+def success[TDetails](
+    message: str, details: TDetails | None = None
+) -> TaskResult[TDetails]:
     """
     Create a success result.
 
@@ -485,7 +485,7 @@ def success(message: str, details: TDetails | None = None) -> TaskResult[TDetail
     )
 
 
-def failed(
+def failed[TDetails](
     message: str, error: str | None = None, details: TDetails | None = None
 ) -> TaskResult[TDetails]:
     """
@@ -576,7 +576,7 @@ def failed(
     )
 
 
-def skipped(
+def skipped[TDetails](
     message: str, skip_reason: SkipReason | None, details: TDetails | None = None
 ) -> TaskResult[TDetails]:
     """
@@ -640,7 +640,9 @@ def skipped(
     )
 
 
-def partial(message: str, details: TDetails | None = None) -> TaskResult[TDetails]:
+def partial[TDetails](
+    message: str, details: TDetails | None = None
+) -> TaskResult[TDetails]:
     """
     Create a partial result.
 
