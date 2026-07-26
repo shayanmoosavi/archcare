@@ -124,9 +124,7 @@ def run_command(
         if cmd_result.success:
             logger.debug(f"Command succeeded: {command_str}")
         else:
-            logger.warning(
-                f"Command failed: {command_str} (exit {cmd_result.returncode})"
-            )
+            logger.warning(f"Command failed: {command_str} (exit {cmd_result.returncode})")
             logger.warning(f"ERROR: {cmd_result.stderr}")
 
         return cmd_result
@@ -569,8 +567,6 @@ def is_valid_systemd_unit_name(name: str) -> bool:
         if not template_name or not instance:
             return False
         # It must contain only allowed characters
-        return bool(
-            _ALLOWED_CHARS.match(template_name) and _ALLOWED_CHARS.match(instance)
-        )
+        return bool(_ALLOWED_CHARS.match(template_name) and _ALLOWED_CHARS.match(instance))
 
     return bool(_ALLOWED_CHARS.match(base))

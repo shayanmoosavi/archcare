@@ -177,8 +177,7 @@ class MirrorlistUpdateTask(BaseTask):
             except Exception as e:
                 logger.error(f"Rollback failed: {e}")
                 logger.critical(
-                    f"Mirrorlist may be broken! "
-                    f"Manually restore from: {self.backup_path}"
+                    f"Mirrorlist may be broken! Manually restore from: {self.backup_path}"
                 )
         else:
             logger.warning("No backup available for rollback")

@@ -36,9 +36,7 @@ class NotRootError(ArchcareServiceError):
     """Raised when a command requiring root privileges is run without it."""
 
     def __init__(self) -> None:
-        super().__init__(
-            "This command needs root privilege and should be run with sudo."
-        )
+        super().__init__("This command needs root privilege and should be run with sudo.")
 
 
 class UserDetectionError(ArchcareServiceError):

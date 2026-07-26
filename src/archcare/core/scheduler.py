@@ -83,9 +83,7 @@ class TaskScheduler:
 
         # Generate reason message
         if is_due:
-            reason = (
-                "Due now" if days_overdue == 0 else f"Overdue by {days_overdue} day(s)"
-            )
+            reason = "Due now" if days_overdue == 0 else f"Overdue by {days_overdue} day(s)"
         else:
             days_until = time_until_due.days + 1
             reason = "Due tomorrow" if days_until == 1 else f"Due in {days_until} days"

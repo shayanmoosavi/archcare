@@ -73,12 +73,8 @@ def run(
 @task_app.command()
 def status(
     ctx: typer.Context,
-    task_name: Annotated[
-        str | None, typer.Argument(help="Specific task to check")
-    ] = None,
-    due_only: Annotated[
-        bool, typer.Option("--due", help="Show only due tasks")
-    ] = False,
+    task_name: Annotated[str | None, typer.Argument(help="Specific task to check")] = None,
+    due_only: Annotated[bool, typer.Option("--due", help="Show only due tasks")] = False,
 ):
     """
     Show status and schedule for tasks.

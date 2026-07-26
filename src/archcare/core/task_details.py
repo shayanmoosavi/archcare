@@ -50,9 +50,7 @@ class MaintenanceCheckSummary:
 
     @property
     def has_issues(self) -> bool:
-        return (
-            self.critical_count != 0 or self.warning_count != 0 or self.info_count != 0
-        )
+        return self.critical_count != 0 or self.warning_count != 0 or self.info_count != 0
 
     @property
     def summary_message(self) -> str:

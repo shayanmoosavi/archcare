@@ -232,9 +232,7 @@ class MaintenanceCheckTask(BaseTask):
                 MaintenanceIssue(
                     task_name=task_name,
                     severity=severity,
-                    description=self._format_overdue_description(
-                        task_config, days_overdue
-                    ),
+                    description=self._format_overdue_description(task_config, days_overdue),
                     days_overdue=days_overdue,
                     last_run=task_state.last_run,
                     last_status=task_state.last_status,
@@ -476,9 +474,7 @@ class MaintenanceCheckTask(BaseTask):
         """
         # Generate report filename with timestamp
         timestamp_str = timestamp.strftime("%Y%m%d_%H%M%S")
-        report_file = (
-            self.settings.report_dir / f"maintenance-check_{timestamp_str}.txt"
-        )
+        report_file = self.settings.report_dir / f"maintenance-check_{timestamp_str}.txt"
 
         # Build report content
         lines = [
@@ -510,9 +506,7 @@ class MaintenanceCheckTask(BaseTask):
                 )
 
             if details.warning_issues:
-                self._add_issues_section(
-                    lines, "🟨 WARNING ISSUES", details.warning_issues
-                )
+                self._add_issues_section(lines, "🟨 WARNING ISSUES", details.warning_issues)
 
             if details.info_issues:
                 self._add_issues_section(lines, "🟦 INFORMATION", details.info_issues)

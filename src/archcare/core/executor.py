@@ -134,9 +134,7 @@ class TaskExecutor:
                 self._update_state(task_config, handle_disabled_result)
                 return handle_disabled_result
 
-            handle_due_result = self._handle_due_task(
-                task_name, tasks_config, is_systemd
-            )
+            handle_due_result = self._handle_due_task(task_name, tasks_config, is_systemd)
             if handle_due_result:
                 self._update_state(task_config, handle_due_result)
                 return handle_due_result

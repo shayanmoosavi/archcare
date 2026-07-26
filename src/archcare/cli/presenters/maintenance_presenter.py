@@ -70,9 +70,7 @@ class MaintenanceCheckPresenter:
 
         if details.critical_issues and require_acknowledgment and is_interactive:
             console.print()
-            console.print(
-                "[bold red]Critical issues require your attention![/bold red]"
-            )
+            console.print("[bold red]Critical issues require your attention![/bold red]")
             console.input("Press Enter to acknowledge... ")
 
     @staticmethod

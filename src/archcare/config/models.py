@@ -62,9 +62,7 @@ class TaskStatus(Enum):
 class SkipReason(Enum):
     """Reasons why a task was skipped."""
 
-    NO_WORK_NEEDED = (
-        "no_work_needed"  # Task found nothing to do (e.g., no failed services)
-    )
+    NO_WORK_NEEDED = "no_work_needed"  # Task found nothing to do (e.g., no failed services)
     DISABLED = "disabled"  # Task is disabled in configuration
     DEPENDENCY_FAILED = "dependency_failed"  # Required dependency not available
     USER_CANCELLED = "user_cancelled"  # User chose not to run the task
@@ -84,9 +82,7 @@ class TaskConfig(BaseModel):
         alias="type",
         description="Whether task runs automatically or requires manual trigger",
     )
-    frequency: int = Field(
-        ..., gt=0, description="Number of days between task executions"
-    )
+    frequency: int = Field(..., gt=0, description="Number of days between task executions")
     description: str = Field(..., description="Human-readable task description")
     enabled: bool = Field(default=True, description="Whether task is enabled")
 
@@ -202,12 +198,8 @@ class MirrorlistSettings(BaseModel):
     country: str | list[str] = Field(
         default="Germany", description="Country for mirror selection"
     )
-    protocol: str = Field(
-        default="https", description="Protocol to use (http/https/rsync)"
-    )
-    sort: str = Field(
-        default="rate", description="The criteria to sort the mirrors with"
-    )
+    protocol: str = Field(default="https", description="Protocol to use (http/https/rsync)")
+    sort: str = Field(default="rate", description="The criteria to sort the mirrors with")
     latest: int = Field(
         default=20,
         ge=1,
@@ -253,9 +245,7 @@ class MaintenanceCheckSettings(BaseModel):
     output_mode: str = Field(
         default="terminal", description="Output mode: 'terminal', 'file', or 'both'"
     )
-    show_notifications: bool = Field(
-        default=True, description="Show desktop notifications"
-    )
+    show_notifications: bool = Field(default=True, description="Show desktop notifications")
     notification_level: str = Field(
         default="warning",
         description="Minimum severity for notifications: 'critical', 'warning', 'info'",
@@ -449,12 +439,8 @@ class TaskState(BaseModel):
     run_count: int = Field(
         default=0, ge=0, description="Total number of times task has been executed"
     )
-    last_error: str | None = Field(
-        None, description="Error message from last failed run"
-    )
-    skip_reason: SkipReason | None = Field(
-        None, description="Reason why task was skipped"
-    )
+    last_error: str | None = Field(None, description="Error message from last failed run")
+    skip_reason: SkipReason | None = Field(None, description="Reason why task was skipped")
 
 
 class AppState(BaseModel):

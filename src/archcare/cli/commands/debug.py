@@ -39,9 +39,9 @@ def test_notification(
     DebugPresenter.header()
 
     try:
-        response = DebugService(
-            ctx.obj.executor.notification_manager
-        ).test_notification(severity)
+        response = DebugService(ctx.obj.executor.notification_manager).test_notification(
+            severity
+        )
     except InvalidSeverityError as e:
         DebugPresenter.invalid_severity(e)
         raise typer.Exit(1)

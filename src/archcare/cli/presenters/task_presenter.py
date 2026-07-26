@@ -109,9 +109,7 @@ class TaskPresenter:
                 )
 
             last_run = (
-                info.last_run.strftime("%Y-%m-%d")
-                if info.last_run
-                else "[dim]Never[/dim]"
+                info.last_run.strftime("%Y-%m-%d") if info.last_run else "[dim]Never[/dim]"
             )
             rows.append([status, info.task_name, last_run, due_text])
 

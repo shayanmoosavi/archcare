@@ -13,9 +13,7 @@ logs_app = typer.Typer()
 @logs_app.callback(invoke_without_command=True)
 def logs(
     ctx: typer.Context,
-    task_name: Annotated[
-        str | None, typer.Argument(help="Task to show logs for")
-    ] = None,
+    task_name: Annotated[str | None, typer.Argument(help="Task to show logs for")] = None,
     lines: Annotated[
         int, typer.Option("--lines", "-n", help="Number of lines to show")
     ] = 50,

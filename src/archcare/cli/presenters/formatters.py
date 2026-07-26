@@ -38,9 +38,7 @@ class FailedServicesFormatter:
         return lines
 
     @staticmethod
-    def _add_failure_details(
-        failed_services: list[FailedServiceInfo], lines: list[str]
-    ):
+    def _add_failure_details(failed_services: list[FailedServiceInfo], lines: list[str]):
         """Add detailed failed services information to lines."""
         for failure in failed_services:
             lines.append(f"  • [red]{failure.service}[/red]")
@@ -107,9 +105,7 @@ class HealthCheckFormatter:
             ("Pacman Database", summary.pacman_healthy),
             ("Installed Package Files", summary.packages_healthy),
         ]:
-            status = (
-                "[green]Healthy[/green]" if healthy else "[red]Issues Detected[/red]"
-            )
+            status = "[green]Healthy[/green]" if healthy else "[red]Issues Detected[/red]"
             lines.append(f"  {label}: {status}")
 
         # Uptime

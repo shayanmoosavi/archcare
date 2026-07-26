@@ -169,9 +169,7 @@ class HealthCheckTask(BaseTask):
             # Load average should ideally be below number of CPU cores
             load_1min = load_avg[0]
             if load_1min > cpu_count * 2:
-                warnings.append(
-                    f"High load average {load_1min:.2f} (CPUs: {cpu_count})"
-                )
+                warnings.append(f"High load average {load_1min:.2f} (CPUs: {cpu_count})")
 
         return cpu_percent
 
@@ -204,16 +202,12 @@ class HealthCheckTask(BaseTask):
 
         disk_percent = disk.percent
         if disk_percent > 90:
-            issues.append(
-                f"Disk usage at {disk_percent}% ({format_bytes(disk.free)} free)"
-            )
+            issues.append(f"Disk usage at {disk_percent}% ({format_bytes(disk.free)} free)")
         elif disk_percent > 80:
             warnings.append(
                 f"Disk usage at {disk_percent}% ({format_bytes(disk.free)} free)"
             )
         else:
-            logger.debug(
-                f"Disk usage: {disk_percent}% ({format_bytes(disk.free)} free)"
-            )
+            logger.debug(f"Disk usage: {disk_percent}% ({format_bytes(disk.free)} free)")
 
         return disk_percent

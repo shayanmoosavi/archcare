@@ -85,9 +85,7 @@ class NotificationManager:
             True if notification was sent successfully, False otherwise
         """
         if not self._notify_send_available:
-            logger.warning(
-                f"Skipping notification (notify-send not available): {title}"
-            )
+            logger.warning(f"Skipping notification (notify-send not available): {title}")
             return False
 
         try:
