@@ -9,9 +9,9 @@ _cleanup_old_reports() are a separate, natural follow-up pass.
 """
 
 import os
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Callable
 from unittest.mock import MagicMock
 
 import pytest
