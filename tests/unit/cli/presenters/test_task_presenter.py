@@ -1,6 +1,5 @@
 """Unit tests for TaskPresenter."""
 
-from typing import TypeVar
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -25,14 +24,15 @@ _MODULE = "archcare.cli.presenters.task_presenter"
 _PATCH_INFO = f"{_MODULE}.print_info"
 _PATCH_WARNING = f"{_MODULE}.print_warning"
 
-TDetails = TypeVar("TDetails")
 
 # ---------------------------------------------------------------------------
 # Fixtures and Helpers
 # ---------------------------------------------------------------------------
 
 
-def _make_outcome(is_skipped: bool = False, details: TDetails | None = None) -> Mock:
+def _make_outcome[TDetails](
+    is_skipped: bool = False, details: TDetails | None = None
+) -> Mock:
     """A minimal TaskResult stand-in exposing only what TaskPresenter reads."""
     outcome = MagicMock(spec=TaskResult)
     outcome.is_skipped.return_value = is_skipped
