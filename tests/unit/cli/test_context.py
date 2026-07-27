@@ -123,7 +123,7 @@ class TestTaskRegistryProperty:
         construction - TaskPresenter needs it before the try/except block
         that builds the executor, in cli/commands/task.py.
         """
-        context.task_registry
+        _ = context.task_registry
 
         mock_executor.assert_not_called()
 
@@ -197,7 +197,7 @@ class TestExecutorProperty:
         mock_config_loader.load_settings.return_value = "SETTINGS"
         mock_config_loader.load_state.return_value = "STATE"
 
-        context.executor
+        _ = context.executor
 
         _, kwargs = mock_executor.call_args
         assert kwargs["config_loader"] is mock_config_loader
@@ -208,7 +208,7 @@ class TestExecutorProperty:
     def test_builds_with_interactive_cli_interaction(
         self, mock_executor: MagicMock, context: AppContext
     ):
-        context.executor
+        _ = context.executor
 
         _, kwargs = mock_executor.call_args
         interaction = kwargs["interaction"]
@@ -217,7 +217,7 @@ class TestExecutorProperty:
     def test_builds_with_default_task_registry(
         self, mock_executor: MagicMock, context: AppContext
     ):
-        context.executor
+        _ = context.executor
 
         _, kwargs = mock_executor.call_args
         assert kwargs["task_registry"] is DEFAULT_TASK_REGISTRY
