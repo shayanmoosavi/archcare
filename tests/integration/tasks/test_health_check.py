@@ -78,6 +78,7 @@ def mock_subprocess_checks(mocker):
     """
     mocker.patch(f"{_PACMAN_MODULE}.check_command_exists", return_value=True)
     mocker.patch(f"{_SYSTEM_MODULE}.run_command", return_value=_cmd_result(""))
+    mocker.patch(f"{_PACMAN_MODULE}.run_command", return_value=_cmd_result(""))
     mocker.patch(
         f"{_PACMAN_MODULE}.run_command_with_sudo",
         return_value=_cmd_result("linux: 1000 total files, 0 missing files\n"),
@@ -89,24 +90,6 @@ class TestHealthCheckTask:
         runner.invoke(app, ["setup", "config"])
 
         result = runner.invoke(app, ["task", "run", "health-check"])
-
-        # Debug output
-        print(f"EXIT CODE: {result.exit_code}")
-        print(f"OUTPUT:\n{result.output}")
-        if result.exception:
-            import traceback
-
-            print(
-                f"EXCEPTION:\n{
-                    ''.join(
-                        traceback.format_exception(
-                            type(result.exception),
-                            result.exception,
-                            result.exception.__traceback__,
-                        )
-                    )
-                }"
-            )
 
         assert result.exit_code == 0
         assert "All health checks passed" in result.output
