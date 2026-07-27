@@ -4,13 +4,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from archcare.core.notifications import NotificationManager
 from archcare.services import DebugService
 from archcare.services.exceptions import (
     InvalidSeverityError,
     NotificationSendError,
     NotificationUnavailableError,
 )
-from archcare.utils.notifications import NotificationManager
 
 # ---------------------------------------------------------------------------
 # Helpers

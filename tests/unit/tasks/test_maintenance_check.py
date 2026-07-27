@@ -27,8 +27,8 @@ from archcare.core import (
     TaskScheduleInfo,
     TaskScheduler,
 )
+from archcare.core.notifications import NotificationManager
 from archcare.tasks.maintenance_check import MaintenanceCheckTask
-from archcare.utils.notifications import NotificationManager
 
 _MODULE = "archcare.tasks.maintenance_check"
 _PATCH_CONFIG_LOADER = f"{_MODULE}.ConfigLoader"

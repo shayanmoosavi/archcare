@@ -15,9 +15,9 @@ from archcare.config import (
 )
 from archcare.core import TaskDescriptor, TaskRegistry, TaskResult, success
 from archcare.core.executor import TaskExecutor
+from archcare.core.notifications import NotificationManager
 from archcare.tasks import BaseTask
 from archcare.utils import UserContext
-from archcare.utils.notifications import NotificationManager
 
 _MODULE = "archcare.core.executor"
 
