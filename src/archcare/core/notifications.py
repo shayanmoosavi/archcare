@@ -1,5 +1,5 @@
 """
-Desktop notification utilities for archcare.
+Notification manager class for Archcare.
 
 Provides desktop notifications using notify-send with fallback handling.
 """
