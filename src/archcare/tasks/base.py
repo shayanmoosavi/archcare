@@ -12,8 +12,8 @@ from loguru import logger
 
 from archcare.config import AppSettings, SkipReason, TaskConfig
 from archcare.core import TaskResult, TaskStep, failed, skipped
+from archcare.core.notifications import NotificationManager
 from archcare.utils.logging import setup_task_logging
-from archcare.utils.notifications import NotificationManager
 
 
 class BaseTask(ABC):

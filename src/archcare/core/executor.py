@@ -17,9 +17,9 @@ from archcare.config import (
     TasksConfig,
     TaskStatus,
 )
+from archcare.core.notifications import NotificationManager
 from archcare.tasks import BaseTask
 from archcare.utils import UserContext
-from archcare.utils.notifications import NotificationManager
 
 from .interaction import NonInteractive, TaskInteraction
 from .models import TaskResult, skipped

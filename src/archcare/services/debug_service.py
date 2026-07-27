@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from archcare.utils.notifications import (
+from archcare.core.notifications import (
     NotificationIcon,
     NotificationManager,
     NotificationUrgency,

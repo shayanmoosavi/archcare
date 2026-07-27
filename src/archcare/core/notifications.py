@@ -11,8 +11,7 @@ from typing import Any
 from loguru import logger
 
 from archcare.core import IssueSeverity
-
-from .system import check_command_exists, run_command
+from archcare.utils.system import check_command_exists, run_command
 
 
 class NotificationUrgency(Enum):
