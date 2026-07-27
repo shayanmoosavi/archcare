@@ -43,7 +43,7 @@ def resolve_systemd_target_user() -> tuple[str, str]:
     try:
         home_dir = pwd.getpwnam(user).pw_dir
     except KeyError:
-        raise UserDetectionError(f"User '{user}' does not exist")
+        raise UserDetectionError(f"User '{user}' does not exist") from KeyError(user)
 
     return user, home_dir
 
