@@ -358,7 +358,7 @@ class AppSettings(BaseModel):
             fallback = Path(f"/home/{username}")
             if fallback.exists():
                 return fallback
-            raise HomeDirectoryResolutionError(username)
+            raise HomeDirectoryResolutionError(username) from KeyError(username)
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -410,7 +410,7 @@ class AppSettings(BaseModel):
             try:
                 path.resolve(strict=False)
             except (OSError, RuntimeError) as e:
-                raise ValueError(f"Malformed path {path}: {e}")
+                raise ValueError(f"Malformed path {path}: {e}") from e
 
         return self
 

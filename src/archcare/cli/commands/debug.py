@@ -44,15 +44,15 @@ def test_notification(
         )
     except InvalidSeverityError as e:
         DebugPresenter.invalid_severity(e)
-        raise typer.Exit(1)
-    except NotificationUnavailableError:
+        raise typer.Exit(1) from e
+    except NotificationUnavailableError as e:
         DebugPresenter.notification_unavailable()
-        raise typer.Exit(1)
-    except NotificationSendError:
+        raise typer.Exit(1) from e
+    except NotificationSendError as e:
         DebugPresenter.notification_send_failed()
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
     except Exception as e:
         print_error(str(e))
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
     DebugPresenter.render_test_notification(response)

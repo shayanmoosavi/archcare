@@ -41,7 +41,7 @@ def backup_file(source: Path, backup_suffix: str = ".backup") -> Path:
         run_command_with_sudo(["cp", "-p", str(source), str(backup_path)], check=True)
     except CalledProcessError as e:
         logger.error(f"Failed to create backup: {e}")
-        raise OSError(f"Could not create backup file: {e}")
+        raise OSError(f"Could not create backup file: {e}") from e
 
     return backup_path
 
@@ -66,7 +66,7 @@ def restore_backup(backup_path: Path, target: Path) -> None:
         run_command_with_sudo(["cp", "-p", str(backup_path), str(target)], check=True)
     except CalledProcessError as e:
         logger.error(f"Failed to restore backup: {e}")
-        raise OSError(f"Could not restore backup file: {e}")
+        raise OSError(f"Could not restore backup file: {e}") from e
 
 
 def update_mirrorlist(

@@ -66,12 +66,12 @@ def setup_timers(
     """
     try:
         user, home_dir = resolve_systemd_target_user()
-    except NotRootError:
+    except NotRootError as e:
         SetupPresenter.not_root()
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
     except UserDetectionError as e:
         SetupPresenter.error(str(e))
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
     try:
         # Built for the SUDO_USER target, not ctx.obj's own user (which is
@@ -102,8 +102,8 @@ def setup_timers(
 
     except SystemdReloadError as e:
         SetupPresenter.error(str(e))
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
     except Exception as e:
         SetupPresenter.error(f"Setup failed: {e}")
         logger.exception("Setup error")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e

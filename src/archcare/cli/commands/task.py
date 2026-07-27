@@ -46,20 +46,20 @@ def run(
 
     try:
         response = _service(ctx).run_task(task_name, force)
-    except InvalidTasksFileError:
+    except InvalidTasksFileError as e:
         presenter.empty()
-        raise typer.Exit(1)
-    except TaskNotFoundError:
+        raise typer.Exit(1) from e
+    except TaskNotFoundError as e:
         presenter.not_found(task_name)
-        raise typer.Exit(1)
-    except typer.Abort:
+        raise typer.Exit(1) from e
+    except typer.Abort as e:
         presenter.aborted(task_name)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
     except Exception as e:
         # is_interactive isn't known here since the error happened before
         # the service could compute it - default to interactive formatting.
         presenter.error(f"Failed to run task {repr(task_name)}: {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
     presenter.render_run(response, settings=ctx.obj.settings, verbose=verbose)
 
@@ -89,15 +89,15 @@ def status(
 
     try:
         response = _service(ctx).get_task_status(task_name, due_only)
-    except InvalidTasksFileError:
+    except InvalidTasksFileError as e:
         presenter.empty()
-        raise typer.Exit(1)
-    except TaskNotFoundError:
+        raise typer.Exit(1) from e
+    except TaskNotFoundError as e:
         presenter.not_found(task_name)  # ty:ignore[invalid-argument-type]
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
     except Exception as e:
         presenter.error(str(e))
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
     presenter.render_status(response)
 
@@ -122,11 +122,11 @@ def list_tasks(
 
     try:
         response = _service(ctx).list_tasks(task_type)
-    except InvalidTasksFileError:
+    except InvalidTasksFileError as e:
         presenter.empty()
-        raise typer.Exit(1)
-    except InvalidTaskTypeError:
+        raise typer.Exit(1) from e
+    except InvalidTaskTypeError as e:
         presenter.invalid_task_type()
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
     presenter.render_list(response)

@@ -1,5 +1,6 @@
 """Unit tests for UserContext."""
 
+from dataclasses import FrozenInstanceError
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -107,5 +108,5 @@ class TestImmutability:
         """
         context = UserContext(archcare_user="alice")
 
-        with pytest.raises(Exception):
+        with pytest.raises(FrozenInstanceError):
             context.archcare_user = "bob"  # ty:ignore[invalid-assignment]

@@ -41,8 +41,8 @@ class TaskService:
             raise InvalidTasksFileError()
         try:
             tasks_config.get_task(task_name)
-        except UnknownTaskError:
-            raise TaskNotFoundError(task_name)
+        except UnknownTaskError as e:
+            raise TaskNotFoundError(task_name) from e
 
         # Whether the task is being run interactively by user or via systemd timer
         is_interactive = self._executor.user_context.is_interactive
@@ -107,8 +107,8 @@ class TaskService:
         if task_name:
             try:
                 info = scheduler.get_schedule_info(task_name)
-            except UnknownTaskError:
-                raise TaskNotFoundError(task_name)
+            except UnknownTaskError as e:
+                raise TaskNotFoundError(task_name) from e
 
             return TaskStatusResponse(schedule_info=[info])
 
