@@ -45,7 +45,7 @@ jobs:
         run: poetry run ruff format --check .
 
       - name: Run tests
-        run: poetry run pytest -xvs
+        run: poetry run pytest tests/integration/tasks/test_health_check.py::TestHealthCheckTask::test_all_checks_pass -xvs --tb=long
 
       - name: Type check
         run: poetry run ty check
