@@ -33,10 +33,18 @@ jobs:
         uses: actions/cache@v6
         with:
           path: .venv
-          key: venv-${{ runner.os }}-${{ hashFiles('poetry.lock') }}
+          key: venv-${{ runner.os }}-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
+          restore-keys: |
+            venv-${{ runner.os }}-${{ hashFiles('poetry.lock') }}
+            venv-${{ runner.os }}-
 
+      # Only install if cache missed or pyproject changed
       - name: Install dependencies
-        run: poetry install --with dev
+        run: poetry install --with dev --no-interaction
+
+      # Verify lock file is up to date (fails if pyproject.toml changed without lock)
+      - name: Verify lock file
+        run: poetry check --lock
 
       - name: Lint
         run: poetry run ruff check .
