@@ -124,7 +124,7 @@ class BaseTask(ABC):
                 if result.is_failed():
                     self.send_notification(f"Task {self.name} failed")
         """
-        pass
+        return
 
     def rollback(self) -> None:
         """
@@ -138,7 +138,7 @@ class BaseTask(ABC):
                 if self.backup_file.exists():
                     shutil.copy(self.backup_file, self.original_file)
         """
-        pass
+        return
 
     def report_progress(self, step: TaskStep) -> None:
         """

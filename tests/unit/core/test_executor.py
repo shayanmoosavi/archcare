@@ -119,7 +119,7 @@ def _make_executor(
         settings=AppSettings(user=user),
         state=state,
         task_registry=task_registry,
-        interaction=interaction,
+        interaction=interaction,  # ty:ignore[invalid-argument-type]
         notification_manager=notification_manager or MagicMock(spec=NotificationManager),
         user_context=user_context or MagicMock(spec=UserContext),
     )

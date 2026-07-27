@@ -58,19 +58,23 @@ def info_issue() -> MaintenanceIssue:
 
 
 def _details(
-    critical_issues: list[MaintenanceIssue] = [],
-    warning_issues: list[MaintenanceIssue] = [],
-    info_issues: list[MaintenanceIssue] = [],
+    critical_issues: list[MaintenanceIssue] | None = None,
+    warning_issues: list[MaintenanceIssue] | None = None,
+    info_issues: list[MaintenanceIssue] | None = None,
 ) -> MaintenanceCheckDetails:
+    _critical_issues = critical_issues or []
+    _warning_issues = warning_issues or []
+    _info_issues = info_issues or []
+
     return MaintenanceCheckDetails(
-        critical_issues=critical_issues,
-        warning_issues=warning_issues,
-        info_issues=info_issues,
+        critical_issues=_critical_issues,
+        warning_issues=_warning_issues,
+        info_issues=_info_issues,
         summary=MaintenanceCheckSummary(
             total_tasks_monitored=3,
-            critical_count=len(critical_issues),
-            warning_count=len(warning_issues),
-            info_count=len(info_issues),
+            critical_count=len(_critical_issues),
+            warning_count=len(_warning_issues),
+            info_count=len(_info_issues),
         ),
     )
 
