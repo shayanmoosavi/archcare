@@ -32,7 +32,7 @@ below is for you.
 
 ## Installation
 
-Requires Python 3.12+, [Poetry](https://python-poetry.org/), and (for the
+Requires Python 3.13+, [Poetry](https://python-poetry.org/), and (for the
 tasks that need them) `systemd`, `reflector`, and `pacman` — all standard on
 an Arch install.
 
