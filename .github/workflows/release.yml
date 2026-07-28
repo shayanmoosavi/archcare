@@ -1,0 +1,81 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang upx
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Cache dependencies
+        uses: actions/cache@v6
+        with:
+          path: .venv
+          key: release-venv-${{ runner.os }}-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
+          restore-keys: |
+            release-venv-${{ runner.os }}-${{ hashFiles('poetry.lock') }}
+            release-venv-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: poetry install --with dev --no-interaction
+
+      - name: Verify tests pass
+        run: poetry run pytest -x
+
+      - name: Build binary
+        run: ./scripts/build.sh
+
+      - name: Verify binary
+        run: |
+          ls -lh dist/archcare
+          file dist/archcare
+          ./dist/archcare --help
+
+      # === GPG SIGNING ===
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@v7
+        with:
+          gpg_private_key: ${{ secrets.PRIVATE_SIGNING_KEY }}
+          passphrase: ${{ secrets.SIGNING_KEY_PASS }}
+          git_user_signingkey: true
+          git_commit_gpgsign: true
+
+      - name: Sign checksum
+        run: |
+          gpg --armor --detach-sign dist/archcare.sha256
+          ls -lh dist/
+
+      - name: Create GitHub Release (Draft)
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            dist/archcare
+            dist/archcare.sha256
+            dist/archcare.sha256.asc
+          generate_release_notes: true
+          draft: true
+          fail_on_unmatched_files: true
