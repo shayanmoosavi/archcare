@@ -34,6 +34,18 @@ jobs:
           virtualenvs-create: true
           virtualenvs-in-project: true
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y upx
+
+      - name: Install clang-22 from LLVM's official repo
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 22
+          sudo apt-get install -y patchelf
+
       - name: Cache dependencies
         uses: actions/cache@v6
         with:
@@ -44,7 +56,7 @@ jobs:
             release-venv-${{ runner.os }}-
 
       - name: Install dependencies
-        run: poetry install --with dev --no-interaction
+        run: poetry install --with dev,build --no-interaction
 
       - name: Verify tests pass
         run: poetry run pytest
