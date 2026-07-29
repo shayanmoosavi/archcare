@@ -95,6 +95,15 @@ jobs:
           chmod +x scripts/build.sh
           ./scripts/build.sh
 
+      - name: Check binary size
+        run: |
+          SIZE_MB=$(du -m dist/archcare | cut -f1)
+          echo "Binary size: ${SIZE_MB}MB"
+          if [ "$SIZE_MB" -gt 45 ]; then
+            echo "ERROR: Binary size ${SIZE_MB}MB exceeds 45MB threshold"
+            exit 1
+          fi
+
       - name: Verify binary
         run: |
           ls -lh dist/archcare
