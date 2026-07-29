@@ -75,6 +75,9 @@ jobs:
         run: poetry run ty check
 
       - name: Record build environment
+        env:
+          CC: clang-22
+          CXX: clang++-22
         run: |
           echo "=== Build toolchain ===" | tee build-info.txt
           "$CC" --version | head -1 | tee -a build-info.txt
