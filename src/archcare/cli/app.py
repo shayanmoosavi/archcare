@@ -5,10 +5,9 @@
 # nuitka-project: --onefile-cache-mode=cached
 # nuitka-project: --include-data-dir={MAIN_DIRECTORY}/../config=archcare/config
 # nuitka-project: --product-name=archcare
+# nuitka-project: --reproducible
 # nuitka-project: --assume-yes-for-downloads
 # nuitka-project: --python-flag=no_site,-O
-# nuitka-project: --clang
-# nuitka-project: --lto=yes
 # nuitka-project: --enable-plugins=upx
 from typing import Annotated
 
