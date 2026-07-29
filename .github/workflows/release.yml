@@ -93,12 +93,6 @@ jobs:
           chmod +x scripts/build.sh
           ./scripts/build.sh
 
-      - name: Strip binary
-        run: |
-          echo "Before strip: $(du -h dist/archcare | cut -f1)"
-          strip --strip-all dist/archcare
-          echo "After strip:  $(du -h dist/archcare | cut -f1)"
-
       - name: Verify binary
         run: |
           ls -lh dist/archcare
