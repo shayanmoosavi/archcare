@@ -83,6 +83,9 @@ jobs:
           echo "Nuitka: $NUITKA_VERSION" | tee -a build-info.txt
 
       - name: Build binary
+        env:
+          CC: clang-22
+          CXX: clang++-22
         run: |
           chmod +x scripts/build.sh
           ./scripts/build.sh
