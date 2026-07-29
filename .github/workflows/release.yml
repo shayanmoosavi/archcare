@@ -58,11 +58,39 @@ jobs:
       - name: Install dependencies
         run: poetry install --with dev,build --no-interaction
 
-      - name: Verify tests pass
+      - name: Verify tag matches project version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PROJECT_VERSION="$(poetry version --short)"
+          if [ "$TAG_VERSION" != "$PROJECT_VERSION" ]; then
+            echo "Tag v$TAG_VERSION does not match pyproject.toml version $PROJECT_VERSION"
+            exit 1
+          fi
+
+      - name: Run full test suite
         run: poetry run pytest
 
+      - name: Type check
+        run: poetry run ty check
+
+      - name: Record build environment
+        env:
+          CC: clang-22
+          CXX: clang++-22
+        run: |
+          echo "=== Build toolchain ===" | tee build-info.txt
+          "$CC" --version | head -1 | tee -a build-info.txt
+          poetry run python --version | tee -a build-info.txt
+          read -r NUITKA_VERSION < <(poetry run python -m nuitka --version | cat | head -1)
+          echo "Nuitka: $NUITKA_VERSION" | tee -a build-info.txt
+
       - name: Build binary
-        run: ./scripts/build.sh
+        env:
+          CC: clang-22
+          CXX: clang++-22
+        run: |
+          chmod +x scripts/build.sh
+          ./scripts/build.sh
 
       - name: Verify binary
         run: |
@@ -91,6 +119,7 @@ jobs:
             dist/archcare
             dist/archcare.sha256
             dist/archcare.sha256.asc
+            build-info.txt
           generate_release_notes: true
           draft: true
           fail_on_unmatched_files: true
