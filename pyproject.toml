@@ -1,6 +1,6 @@
 [project]
 name = "archcare"
-version = "0.1.0"
+version = "0.1.1"
 description = "A simple maintenance system for Arch Linux"
 authors = [{ name = "Shayan Moosavi", email = "moosavi.shayan@gmail.com" }]
 license = "GPL-3.0-or-later"
