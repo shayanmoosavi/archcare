@@ -82,6 +82,7 @@ jobs:
           echo "=== Build toolchain ===" | tee build-info.txt
           "$CC" --version | head -1 | tee -a build-info.txt
           poetry run python --version | tee -a build-info.txt
+          upx --version | head -3 | tee -a build-info.txt
           NUITKA_OUTPUT="$(poetry run python -m nuitka --version)"
           NUITKA_VERSION="$(head -1 <<< "$NUITKA_OUTPUT")"
           echo "Nuitka: $NUITKA_VERSION" | tee -a build-info.txt
