@@ -38,8 +38,8 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y upx
+          apt-get update
+          apt-get install -y upx
 
       - name: Cache dependencies
         uses: actions/cache@v6
