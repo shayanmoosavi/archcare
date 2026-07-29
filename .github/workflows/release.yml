@@ -3,7 +3,8 @@ name: Release
 on:
   push:
     tags:
-      - "v*.*.*"
+      - "v*.*.*"       # Stable releases: v0.1.0, v1.2.3
+      - "v*.*.*-rc*"   # Pre-releases: v0.1.0-rc1, v0.2.0-rc2
 
 jobs:
   build-and-release:
