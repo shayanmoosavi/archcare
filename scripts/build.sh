@@ -9,6 +9,10 @@ BINARY_NAME="archcare"
 
 echo "Building archcare v${VERSION}..."
 
+# Convert to Nuitka-compatible 4-part version
+FOUR_VERSION="$(python3 "$REPO_ROOT/scripts/version_converter.py" "$VERSION")"
+echo "Nuitka product version: ${FOUR_VERSION}"
+
 # Detect compiler: prefer Clang, fallback to GCC
 if command -v clang &> /dev/null; then
     COMPILER="--clang"
@@ -28,7 +32,7 @@ cd "$REPO_ROOT/src/archcare"
 poetry run python -m nuitka cli/app.py \
   --output-filename="$BINARY_NAME" \
   --output-dir="$OUTPUT_DIR" \
-  --product-version="$VERSION" \
+  --product-version="$FOUR_VERSION" \
   --jobs="$(nproc)" \
   --remove-output \
   $COMPILER
