@@ -41,7 +41,10 @@ if [[ ! -f "$BINARY_PATH" ]]; then
     exit 1
 fi
 
-sha256sum "$BINARY_PATH" > "$BINARY_PATH.sha256"
+# Generate checksum with relative filename (so it works anywhere)
+cd "$OUTPUT_DIR"
+sha256sum "$BINARY_NAME" > "$BINARY_NAME.sha256"
+cd - > /dev/null
 
 echo "Built: $BINARY_PATH ($(du -h "$BINARY_PATH" | cut -f1))"
 echo "Checksum: $(awk '{print $1}' "$BINARY_PATH.sha256")"
