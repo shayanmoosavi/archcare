@@ -9,7 +9,6 @@ on:
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
-    container: silkeh/clang
     permissions:
       contents: write
 
@@ -36,10 +35,17 @@ jobs:
           virtualenvs-create: true
           virtualenvs-in-project: true
 
+      - name: Install clang-22
+        run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/llvm-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] http://apt.llvm.org/noble/ llvm-toolchain-noble-22 main" | sudo tee /etc/apt/sources.list.d/llvm.list
+          sudo apt-get update
+          sudo apt-get install -y clang-22 lld-22
+
       - name: Install system dependencies
         run: |
-          apt-get update
-          apt-get install -y upx
+          sudo apt-get update
+          sudo apt-get install -y upx
 
       - name: Cache dependencies
         uses: actions/cache@v6
