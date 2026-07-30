@@ -16,24 +16,11 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
-      - name: Set up Python
-        uses: actions/setup-python@v7
+      - name: Setup environment
+        uses: ./.github/actions/setup
         with:
-          python-version: '3.13'
-
-      - name: Load cached Poetry installation
-        id: cached-poetry
-        uses: actions/cache@v6
-        with:
-          path: ~/.local  # the path depends on the OS
-          key: poetry-0  # increment to reset cache
-
-      - name: Install Poetry
-        if: steps.cached-poetry.outputs.cache-hit != 'true'
-        uses: snok/install-poetry@v1
-        with:
-          virtualenvs-create: true
-          virtualenvs-in-project: true
+          install-groups: dev,build
+          cache-key-prefix: release
 
       - name: Install clang-22
         run: |
@@ -46,18 +33,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y upx ccache
-
-      - name: Cache dependencies
-        uses: actions/cache@v6
-        with:
-          path: .venv
-          key: release-venv-${{ runner.os }}-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
-          restore-keys: |
-            release-venv-${{ runner.os }}-${{ hashFiles('poetry.lock') }}
-            release-venv-${{ runner.os }}-
-
-      - name: Install dependencies
-        run: poetry install --with dev,build --no-interaction
 
       - name: Verify tag matches project version
         run: |

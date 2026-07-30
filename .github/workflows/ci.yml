@@ -12,40 +12,14 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
-      - name: Set up python
-        uses: actions/setup-python@v7
-        with:
-          python-version: '3.13'
-      - name: Load cached Poetry installation
-        id: cached-poetry
-        uses: actions/cache@v6
-        with:
-          path: ~/.local  # the path depends on the OS
-          key: poetry-0  # increment to reset cache
-      - name: Install Poetry
-        if: steps.cached-poetry.outputs.cache-hit != 'true'
-        uses: snok/install-poetry@v1
-        with:
-          virtualenvs-create: true
-          virtualenvs-in-project: true
 
-      - name: Cache virtualenv
-        uses: actions/cache@v6
+      - name: Set up environment
+        uses: ./.github/actions/setup
         with:
-          path: .venv
-          key: venv-${{ runner.os }}-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
-          restore-keys: |
-            venv-${{ runner.os }}-${{ hashFiles('poetry.lock') }}
-            venv-${{ runner.os }}-
-
-      # Only install if cache missed or pyproject changed
-      - name: Install dependencies
-        run: poetry install --with dev --no-interaction
-
-      # Verify lock file is up to date (fails if pyproject.toml changed without lock)
-      - name: Verify lock file
-        run: poetry check --lock
-
+          python-version: 3.13
+          install-groups: dev
+          cache-key-prefix: ci
+      
       - name: Lint
         run: poetry run ruff check .
 
