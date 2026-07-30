@@ -29,10 +29,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang-22 lld-22
 
+      - name: Install UPX 5.2.0
+        run: |
+          curl -L https://github.com/upx/upx/releases/download/v5.2.0/upx-5.2.0-amd64_linux.tar.xz -o upx.tar.xz
+          tar -xf upx.tar.xz
+          sudo install upx-5.2.0-amd64_linux/upx /usr/local/bin/upx
+          rm -rf upx.tar.xz
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y upx ccache
+          sudo apt-get install -y ccache
 
       - name: Verify tag matches project version
         run: |
