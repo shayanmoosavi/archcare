@@ -227,6 +227,29 @@ class TestMaintenanceCheckDetails:
             task_name=name, severity=severity, description="d", recommendation="r"
         )
 
+    def test_defaults(self):
+        details = MaintenanceCheckDetails()
+        assert details.critical_issues == []
+        assert details.warning_issues == []
+        assert details.info_issues == []
+        assert details.summary == MaintenanceCheckSummary()
+
+    def test_custom_values(self):
+        details = MaintenanceCheckDetails(
+            critical_issues=[self._issue("a", IssueSeverity.CRITICAL)],
+            warning_issues=[self._issue("b", IssueSeverity.WARNING)],
+            info_issues=[self._issue("c", IssueSeverity.INFO)],
+            summary=MaintenanceCheckSummary(
+                critical_count=1, warning_count=1, info_count=1
+            ),
+        )
+        assert details.critical_issues == [self._issue("a", IssueSeverity.CRITICAL)]
+        assert details.warning_issues == [self._issue("b", IssueSeverity.WARNING)]
+        assert details.info_issues == [self._issue("c", IssueSeverity.INFO)]
+        assert details.summary == MaintenanceCheckSummary(
+            critical_count=1, warning_count=1, info_count=1
+        )
+
     def test_default_lists_are_not_shared_across_instances(self):
         first = MaintenanceCheckDetails()
         second = MaintenanceCheckDetails()
@@ -234,6 +257,11 @@ class TestMaintenanceCheckDetails:
         assert first.critical_issues is not second.critical_issues
         assert first.warning_issues is not second.warning_issues
         assert first.info_issues is not second.info_issues
+
+    def test_summary_is_not_shared_across_instances(self):
+        first = MaintenanceCheckDetails()
+        second = MaintenanceCheckDetails()
+        assert first.summary is not second.summary
 
     def test_excludes_info_issues(self):
         critical, warning, info = (
@@ -374,7 +402,7 @@ class TestMirrorlistUpdateDetails:
         with pytest.raises(dataclasses.FrozenInstanceError):
             details.backup_path = "/somewhere"  # ty:ignore[invalid-assignment]
 
-    def test_default_dicts_not_shared_across_instances(self):
+    def test_mirrorlist_info_is_not_shared_across_instances(self):
         first = MirrorlistUpdateDetails()
         second = MirrorlistUpdateDetails()
 
