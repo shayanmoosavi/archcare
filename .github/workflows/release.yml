@@ -39,6 +39,7 @@ jobs:
       - name: Verify tag matches project version
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#v}"
+          TAG_VERSION="${TAG_VERSION//-/}" # v0.1.0-rc1 -> 0.1.0rc1, matches Poetry's PEP 440 canonical output
           PROJECT_VERSION="$(poetry version --short)"
           if [ "$TAG_VERSION" != "$PROJECT_VERSION" ]; then
             echo "Tag v$TAG_VERSION does not match pyproject.toml version $PROJECT_VERSION"
