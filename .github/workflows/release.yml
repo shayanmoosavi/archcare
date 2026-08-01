@@ -36,11 +36,6 @@ jobs:
           sudo install upx-5.2.0-amd64_linux/upx /usr/local/bin/upx
           rm -rf upx.tar.xz
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ccache
-
       - name: Verify tag matches project version
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#v}"
