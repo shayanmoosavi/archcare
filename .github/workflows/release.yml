@@ -44,6 +44,7 @@ jobs:
             echo "Tag v$TAG_VERSION does not match pyproject.toml version $PROJECT_VERSION"
             exit 1
           fi
+          echo "VERSION=$PROJECT_VERSION" >> "$GITHUB_ENV" # exposed for archive naming later
 
       - name: Run full test suite
         run: poetry run pytest
@@ -99,14 +100,21 @@ jobs:
           gpg --armor --detach-sign dist/archcare.sha256
           ls -lh dist/
 
+      - name: Create release archive
+        run: |
+          ARCHIVE_NAME="archcare-${VERSION}-linux-x86_64.tar.gz"
+          # Two -C flags: first grabs the dist/ trio, second grabs build-info.txt from repo root —
+          # tar applies each -C to the operands that follow it, so this needs no manual copying.
+          tar -czf "$ARCHIVE_NAME" \
+            -C dist archcare archcare.sha256 archcare.sha256.asc \
+            -C "$GITHUB_WORKSPACE" build-info.txt
+          echo "ARCHIVE_NAME=$ARCHIVE_NAME" >> "$GITHUB_ENV"
+
       - name: Create GitHub Release (Draft)
         uses: softprops/action-gh-release@v3
         with:
           files: |
-            dist/archcare
-            dist/archcare.sha256
-            dist/archcare.sha256.asc
-            build-info.txt
+            ${{ env.ARCHIVE_NAME }}
           generate_release_notes: true
           draft: true
           fail_on_unmatched_files: true
