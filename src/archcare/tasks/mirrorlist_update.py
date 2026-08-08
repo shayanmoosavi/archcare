@@ -107,7 +107,8 @@ class MirrorlistUpdateTask(BaseTask):
             logger.info("Running reflector to update mirrorlist")
             logger.debug(f"Parameters: {reflector_args}")
 
-            result = update_mirrorlist(**reflector_args)
+            with self.progress.spinner("Running reflector to find fastest mirrors..."):
+                result = update_mirrorlist(**reflector_args)
 
             if not result.success:
                 logger.error(f"Reflector failed: {result.stderr}")

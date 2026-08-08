@@ -23,6 +23,7 @@ from archcare.utils import UserContext
 
 from .interaction import NonInteractive, TaskInteraction
 from .models import TaskResult, skipped
+from .progress import NoOpProgress, TaskProgress
 from .scheduler import TaskScheduler
 from .task_registry import TaskRegistry
 
@@ -47,6 +48,7 @@ class TaskExecutor:
         interaction: TaskInteraction | None = None,
         notification_manager: NotificationManager | None = None,
         user_context: UserContext | None = None,
+        progress: TaskProgress | None = None,
     ):
         """
         Initialize task executor.
@@ -69,14 +71,19 @@ class TaskExecutor:
             user_context: Resolves ARCHCARE_USER once per invocation. Unlike
             notification_manager, this is cheap (just an env read), so it's
             constructed eagerly from the environment if not provided.
+            progress: Port for progress tracking. Defaults to NoOpProgress,
+             which does nothing.
         """
         self.config_loader = config_loader
         self.settings = settings
         self.state = state
         self.task_registry = task_registry
+        # TODO: Turn interaction into internal attribute as it's not used outside the class
         self.interaction = interaction or NonInteractive()
+        # TODO: Turn this attribute private
         self._notification_manager = notification_manager
         self.user_context = user_context or UserContext.from_env()
+        self._progress = progress or NoOpProgress()
 
     @property
     def notification_manager(self) -> NotificationManager:
@@ -104,6 +111,7 @@ class TaskExecutor:
             config=task_config,
             settings=self.settings,
             notification_manager=self.notification_manager,
+            progress=self._progress,
         )
 
     def execute_task(self, task_name: str, force: bool = False) -> TaskResult:

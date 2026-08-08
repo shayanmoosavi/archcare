@@ -27,7 +27,6 @@ See Also:
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any
 
 from archcare.config import SkipReason, TaskStatus
 
@@ -242,7 +241,6 @@ class TaskStep:
     name: str
     status: TaskStatus
     message: str = ""
-    details: dict[str, Any] = field(default_factory=dict)
 
     def __str__(self) -> str:
         """Human-readable representation."""
