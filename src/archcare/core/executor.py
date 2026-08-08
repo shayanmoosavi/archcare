@@ -78,18 +78,16 @@ class TaskExecutor:
         self.settings = settings
         self.state = state
         self.task_registry = task_registry
-        # TODO: Turn interaction into internal attribute as it's not used outside the class
-        self.interaction = interaction or NonInteractive()
-        # TODO: Turn this attribute private
-        self._notification_manager = notification_manager
         self.user_context = user_context or UserContext.from_env()
+        self._interaction = interaction or NonInteractive()
         self._progress = progress or NoOpProgress()
+        self.__notification_manager = notification_manager
 
     @property
     def notification_manager(self) -> NotificationManager:
-        if self._notification_manager is None:
-            self._notification_manager = NotificationManager()
-        return self._notification_manager
+        if self.__notification_manager is None:
+            self.__notification_manager = NotificationManager()
+        return self.__notification_manager
 
     def _create_task(self, task_config: TaskConfig) -> BaseTask:
         """
@@ -161,7 +159,7 @@ class TaskExecutor:
     ) -> TaskResult | None:
 
         if not task_config.enabled:
-            self.interaction.notify(
+            self._interaction.notify(
                 f"Task '{task_name}' is disabled in configuration", level="warning"
             )
             task = self._create_task(task_config)
@@ -178,7 +176,7 @@ class TaskExecutor:
                     task.create_result(
                         skipped("Cancelled by user", SkipReason.USER_CANCELLED)
                     )
-                    if not self.interaction.confirm("Run anyway?")
+                    if not self._interaction.confirm("Run anyway?")
                     else None
                 )
         else:
@@ -194,7 +192,7 @@ class TaskExecutor:
         task_config = tasks_config.get_task(task_name)
 
         if not is_due:
-            self.interaction.notify(f"Task is not due: {reason}")
+            self._interaction.notify(f"Task is not due: {reason}")
             task = self._create_task(task_config)
             task.set_start_time()
             if is_systemd:
@@ -214,7 +212,7 @@ class TaskExecutor:
                             SkipReason.USER_CANCELLED,
                         )
                     )
-                    if not self.interaction.confirm("Run anyway?")
+                    if not self._interaction.confirm("Run anyway?")
                     else None
                 )
         else:
