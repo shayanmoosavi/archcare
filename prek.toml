@@ -58,3 +58,12 @@ hooks = [
         types = ["python"]
     }
 ]
+
+
+[[repos]]
+repo = "https://github.com/commitizen-tools/commitizen"
+rev = "v4.17.0"
+hooks = [
+    { id = "commitizen" },
+    { id = "commitizen-branch", stages = ["pre-push"] },
+]

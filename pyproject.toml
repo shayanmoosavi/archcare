@@ -34,6 +34,7 @@ dev = [
     "ty (>=0.0.55,<0.1.0)",
     "pytest-mock (>=3.15.1,<4.0.0)",
     "prek (>=0.4.12,<0.5.0)",
+    "commitizen (>=4.17.0,<5.0.0)",
 ]
 build = ["nuitka (>=4.0.0,<5.0.0)"]
 
@@ -46,3 +47,10 @@ target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "v$version"
+version_scheme = "pep440"
+version_provider = "pep621"
+update_changelog_on_bump = true
