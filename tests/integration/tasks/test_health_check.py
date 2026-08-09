@@ -210,3 +210,64 @@ class TestHealthCheckTask:
         assert result.exit_code == 1
         assert "critical issue" in result.output.lower()
         assert '"last_status": "failure"' in _state_json(archcare_home)
+
+
+class TestHealthCheckProgressReporting:
+    """
+    Exercises the real AppContext -> TaskExecutor -> HealthCheckTask wiring
+    end-to-end - the one place that actually proves progress=RichProgress()
+    reaches BaseTask.report_progress(), not just that the unit-level pieces
+    are individually correct in isolation.
+    """
+
+    def test_progress_started_with_check_count_total(self, mock_progress):
+        runner.invoke(app, ["setup", "config"])
+
+        runner.invoke(app, ["task", "run", "health-check"])
+
+        mock_progress.return_value.start.assert_called_once_with(total=7)
+
+    def test_progress_advanced_once_per_check(self, mock_progress):
+        runner.invoke(app, ["setup", "config"])
+
+        runner.invoke(app, ["task", "run", "health-check"])
+
+        assert mock_progress.return_value.advance.call_count == 7
+
+    def test_progress_stopped_after_run(self, mock_progress):
+        runner.invoke(app, ["setup", "config"])
+
+        runner.invoke(app, ["task", "run", "health-check"])
+
+        mock_progress.return_value.stop.assert_called_once()
+
+    def test_packages_check_paused_for_sudo_prompt(self, mock_progress):
+        """
+        The package-file-integrity check is the one that shells out via
+        sudo - progress.pause() must wrap exactly that call so a real sudo
+        prompt wouldn't be rendered underneath the live progress display.
+        """
+        runner.invoke(app, ["setup", "config"])
+
+        runner.invoke(app, ["task", "run", "health-check"])
+
+        mock_progress.return_value.pause.assert_called_once()
+
+    def test_progress_lifecycle_holds_even_on_critical_failure(self, mocker, mock_progress):
+        """
+        A critical issue (e.g. high disk usage) still runs every check to
+        completion - it doesn't raise, it accumulates into `issues` - so
+        the full start/advance x7/stop/pause sequence should still fire
+        exactly as in the all-healthy case.
+        """
+        mocker.patch(
+            f"{_MODULE}.get_disk_usage",
+            return_value=DiskUsageInfo(percent=95.0, free=10_000_000_000),
+        )
+
+        runner.invoke(app, ["setup", "config"])
+        runner.invoke(app, ["task", "run", "health-check"])
+
+        mock_progress.return_value.start.assert_called_once_with(total=7)
+        assert mock_progress.return_value.advance.call_count == 7
+        mock_progress.return_value.stop.assert_called_once()
