@@ -1,0 +1,60 @@
+# Configuration file for `prek`, a git hook framework written in Rust.
+# See https://prek.j178.dev for more information.
+#:schema https://www.schemastore.org/prek.json
+
+[[repos]]
+repo = "https://github.com/pre-commit/pre-commit-hooks"
+rev = "v6.0.0"
+hooks = [
+    # General formatting
+    {
+        id = "trailing-whitespace",
+        args = ["--markdown-linebreak-ext=md"]
+    },
+    {
+        id = "mixed-line-ending",
+        args = ["--fix=auto"]
+    },
+    { id = "end-of-file-fixer" },
+
+    # Pytest filename convention
+    {
+        id = "name-tests-test",
+        args = ["--pytest-test-first"]
+    },
+
+    # Branch Protection
+    { id = "check-merge-conflict"},
+    {
+        id = "no-commit-to-branch",
+        args = ["--branch=main"]
+    },
+
+    # Validate config files
+    { id = "check-yaml" },
+    { id = "check-toml" },
+    { id = "check-json" },
+
+    # Validate executables
+    { id = "check-executables-have-shebangs" },
+    { id = "check-shebang-scripts-are-executable" }
+]
+
+[[repos]]
+repo = "local"
+hooks = [
+    {
+        id = "ruff-fmt",
+        name = "ruff format",
+        entry = "ruff format .",
+        language = "system",
+        types = ["python"]
+    },
+    {
+        id = "ruff-sort",
+        name = "sort imports",
+        entry = "ruff check --select=I --fix",
+        language = "system",
+        types = ["python"]
+    }
+]
