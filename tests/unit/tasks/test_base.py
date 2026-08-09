@@ -1,11 +1,13 @@
 """Unit tests for BaseTask.run() method."""
 
 from dataclasses import dataclass
+from unittest.mock import MagicMock
 
 import pytest
 
 from archcare.config import AppSettings, SkipReason, TaskConfig, TaskStatus
-from archcare.core import TaskResult
+from archcare.core import TaskResult, TaskStep
+from archcare.core.progress import NoOpProgress, TaskProgress
 from archcare.tasks import BaseTask
 
 pytestmark = pytest.mark.usefixtures("no_task_logging")
@@ -47,8 +49,14 @@ class DummyTask(BaseTask):
     Records the exact order of method calls during execution.
     """
 
-    def __init__(self, config: TaskConfig, settings: AppSettings, context: TaskContext):
-        super().__init__(config, settings)
+    def __init__(
+        self,
+        config: TaskConfig,
+        settings: AppSettings,
+        context: TaskContext,
+        progress: TaskProgress | None = None,
+    ):
+        super().__init__(config, settings, progress=progress)
         self.calls: list[str] = []
         self._context: TaskContext = context
 
@@ -82,6 +90,86 @@ class DummyTask(BaseTask):
         self.calls.append("rollback")
         if self._context.rollback_exception:
             raise self._context.rollback_exception
+
+
+# ---------------------------------------------------------------------------
+# report_progress
+# ---------------------------------------------------------------------------
+
+
+class TestReportProgress:
+    """
+    Isolated tests of report_progress()'s forwarding behavior, decoupled
+    from the full run() workflow - mirrors TestCreateResult's approach of
+    calling the method directly rather than driving it through run().
+    """
+
+    def test_forwards_step_to_progress_advance(
+        self, automated_task: TaskConfig, app_settings: AppSettings
+    ):
+        mock_progress = MagicMock(spec=TaskProgress)
+        task = DummyTask(
+            automated_task, app_settings, TaskContext(), progress=mock_progress
+        )
+        step = TaskStep(name="Disk space", status=TaskStatus.SUCCESS)
+
+        task.report_progress(step)
+
+        mock_progress.advance.assert_called_once_with(step)
+
+
+# ---------------------------------------------------------------------------
+# progress lifecycle (start/stop threading through run())
+# ---------------------------------------------------------------------------
+
+
+class TestProgressLifecycle:
+    """
+    Verifies progress.stop() is always called via run()'s finally block -
+    mirrors the existing task-specific log handler teardown, and must fire
+    whether execute() succeeds, fails, or a prior step short-circuits it.
+    """
+
+    def test_stop_called_after_successful_execution(
+        self, automated_task: TaskConfig, app_settings: AppSettings
+    ):
+        mock_progress = MagicMock(spec=TaskProgress)
+        task = DummyTask(
+            automated_task, app_settings, TaskContext(), progress=mock_progress
+        )
+
+        task.run()
+
+        mock_progress.stop.assert_called_once()
+
+    def test_stop_called_when_execute_raises(
+        self, automated_task: TaskConfig, app_settings: AppSettings
+    ):
+        mock_progress = MagicMock(spec=TaskProgress)
+        context = TaskContext(execute_exception=RuntimeError("boom"))
+        task = DummyTask(automated_task, app_settings, context, progress=mock_progress)
+
+        task.run()
+
+        mock_progress.stop.assert_called_once()
+
+    def test_stop_called_when_pre_check_fails(
+        self, automated_task: TaskConfig, app_settings: AppSettings
+    ):
+        mock_progress = MagicMock(spec=TaskProgress)
+        context = TaskContext(pre_check_result=False, pre_check_msg="nope")
+        task = DummyTask(automated_task, app_settings, context, progress=mock_progress)
+
+        task.run()
+
+        mock_progress.stop.assert_called_once()
+
+    def test_defaults_to_noop_progress_when_not_provided(
+        self, automated_task: TaskConfig, app_settings: AppSettings
+    ):
+        task = DummyTask(automated_task, app_settings, TaskContext())
+
+        assert isinstance(task.progress, NoOpProgress)
 
 
 # ---------------------------------------------------------------------------

@@ -16,6 +16,7 @@ from archcare.config import (
 from archcare.core import TaskDescriptor, TaskRegistry, TaskResult, success
 from archcare.core.executor import TaskExecutor
 from archcare.core.notifications import NotificationManager
+from archcare.core.progress import NoOpProgress, TaskProgress
 from archcare.tasks import BaseTask
 from archcare.utils import UserContext
 
@@ -88,6 +89,7 @@ def _make_executor(
     user: str | None = None,
     notification_manager: MagicMock | None = None,
     user_context: MagicMock | None = None,
+    progress: MagicMock | None = None,
 ) -> TaskExecutor:
     """
     Build a real TaskExecutor backed by a mock ConfigLoader.
@@ -102,6 +104,11 @@ def _make_executor(
     the lazy property would construct a real NotificationManager() (and
     its real notify-send subprocess check) on every execute_task() call
     in this file.
+
+    progress defaults to None (→ NoOpProgress internally) rather than a
+    MagicMock like notification_manager - NoOpProgress() has no expensive
+    construction to guard against, unlike NotificationManager's real
+    notify-send subprocess check.
     """
     loader = MagicMock(spec=ConfigLoader)
     loader.load_tasks.return_value = tasks_config
@@ -122,6 +129,7 @@ def _make_executor(
         interaction=interaction,  # ty:ignore[invalid-argument-type]
         notification_manager=notification_manager or MagicMock(spec=NotificationManager),
         user_context=user_context or MagicMock(spec=UserContext),
+        progress=progress,
     )
 
 
@@ -221,7 +229,38 @@ class TestUserContextConstruction:
 
 
 # ---------------------------------------------------------------------------
-# _create_task threads notification_manager down to every task
+# progress construction
+# ---------------------------------------------------------------------------
+
+
+class TestProgressConstruction:
+    """Mirrors TestUserContextConstruction - same injected-vs-default shape."""
+
+    def test_uses_injected_progress(self):
+        mock_progress = MagicMock(spec=TaskProgress)
+        executor = TaskExecutor(
+            config_loader=MagicMock(spec=ConfigLoader),
+            settings=AppSettings(),
+            state=AppState(),
+            task_registry=_EMPTY_REGISTRY,
+            progress=mock_progress,
+        )
+
+        assert executor._progress is mock_progress
+
+    def test_defaults_to_noop_progress(self):
+        executor = TaskExecutor(
+            config_loader=MagicMock(spec=ConfigLoader),
+            settings=AppSettings(),
+            state=AppState(),
+            task_registry=_EMPTY_REGISTRY,
+        )
+
+        assert isinstance(executor._progress, NoOpProgress)
+
+
+# ---------------------------------------------------------------------------
+# _create_task
 # ---------------------------------------------------------------------------
 
 
@@ -243,6 +282,23 @@ class TestCreateTask:
         task = executor._create_task(task_config)
 
         assert task.notification_manager is mock_manager
+
+    def test_task_receives_progress(
+        self,
+        tasks_config: TasksConfig,
+        fresh_state: AppState,
+        automated_task: TaskConfig,
+    ):
+        interaction = RecordingInteraction()
+        mock_progress = MagicMock(spec=TaskProgress)
+        executor = _make_executor(
+            tasks_config, fresh_state, interaction, progress=mock_progress
+        )
+
+        task_config = tasks_config.get_task(automated_task.name)
+        task = executor._create_task(task_config)
+
+        assert task.progress is mock_progress
 
 
 # ---------------------------------------------------------------------------
