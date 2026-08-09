@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
 
 jobs:
   test:
@@ -19,7 +19,7 @@ jobs:
           python-version: 3.13
           install-groups: dev
           cache-key-prefix: ci
-      
+
       - name: Lint
         run: poetry run ruff check .
 
