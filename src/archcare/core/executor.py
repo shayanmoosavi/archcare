@@ -17,12 +17,12 @@ from archcare.config import (
     TasksConfig,
     TaskStatus,
 )
-from archcare.core.notifications import NotificationManager
-from archcare.tasks import BaseTask
+from archcare.tasks.base import BaseTask
 from archcare.utils import UserContext
 
 from .interaction import NonInteractive, TaskInteraction
 from .models import TaskResult, skipped
+from .notifications import NotificationManager
 from .progress import NoOpProgress, TaskProgress
 from .scheduler import TaskScheduler
 from .task_registry import TaskRegistry

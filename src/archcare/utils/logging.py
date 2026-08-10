@@ -8,7 +8,7 @@ import sys
 
 from loguru import logger
 
-from archcare.config import AppSettings, LogLevel
+from archcare.config.models import AppSettings, LogLevel
 
 from .user import UserContext
 
