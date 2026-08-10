@@ -5,6 +5,7 @@ Provides configuration loading, validation, and management.
 """
 
 from .loader import ConfigLoader, create_default_config_files
+from .logging import setup_logging, setup_task_logging
 from .models import (
     AppSettings,
     AppState,
@@ -37,4 +38,7 @@ __all__ = [
     # Loader
     "ConfigLoader",
     "create_default_config_files",
+    # Logging
+    "setup_logging",
+    "setup_task_logging",
 ]

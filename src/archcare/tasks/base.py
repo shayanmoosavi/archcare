@@ -11,10 +11,10 @@ from typing import Any
 from loguru import logger
 
 from archcare.config import AppSettings, SkipReason, TaskConfig
+from archcare.config.logging import setup_task_logging
 from archcare.core import TaskResult, TaskStep, failed, skipped
 from archcare.core.notifications import NotificationManager
 from archcare.core.progress import NoOpProgress, TaskProgress
-from archcare.utils.logging import setup_task_logging
 
 
 class BaseTask(ABC):
