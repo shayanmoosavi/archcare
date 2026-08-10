@@ -18,16 +18,16 @@ jobs:
         with:
           python-version: 3.13
           install-groups: dev
-          cache-key-prefix: ci
+          cache-key-suffix: ci
 
       - name: Lint
-        run: poetry run ruff check .
+        run: uv run ruff check .
 
       - name: Check formatting
-        run: poetry run ruff format --check .
+        run: uv run ruff format --check .
 
       - name: Run tests
-        run: poetry run pytest
+        run: uv run pytest
 
       - name: Type check
-        run: poetry run ty check
+        run: uv run ty check
