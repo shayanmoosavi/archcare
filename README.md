@@ -32,14 +32,14 @@ below is for you.
 
 ## Installation
 
-Requires Python 3.13+, [Poetry](https://python-poetry.org/), and (for the
+Requires Python 3.13+, [uv](https://docs.astral.sh/uv/), and (for the
 tasks that need them) `systemd`, `reflector`, and `pacman` — all standard on
 an Arch install.
 
 ```bash
 git clone https://github.com/shayanmoosavi/archcare.git
 cd archcare
-poetry install
+uv sync
 ```
 
 Reflector isn't installed by default on most systems:
@@ -219,10 +219,10 @@ A few things worth knowing if you're extending it:
 ## Testing
 
 ```bash
-poetry run pytest                        # full suite
-poetry run pytest tests/unit             # unit tests only
-poetry run pytest tests/integration      # integration tests only
-poetry run ty check                      # static type checking
+uv run pytest                        # full suite
+uv run pytest tests/unit             # unit tests only
+uv run pytest tests/integration      # integration tests only
+uv run ty check                      # static type checking
 ```
 
 The suite is split by intent, not just by directory:
@@ -243,9 +243,9 @@ The suite is split by intent, not just by directory:
 ## Development
 
 ```bash
-poetry install --with dev
-poetry run pytest
-poetry run ty check
+uv sync --group dev
+uv run pytest
+uv run ty check
 ```
 
 Contributions should keep to the layering above — in particular, `core/`
