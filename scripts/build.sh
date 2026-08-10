@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Resolve to the repo root regardless of where this script is invoked from
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VERSION="$(cd "$REPO_ROOT" && poetry version --short)"
+VERSION="$(cd "$REPO_ROOT" && uv version --short)"
 OUTPUT_DIR="$REPO_ROOT/dist"
 BINARY_NAME="archcare"
 
@@ -29,7 +29,7 @@ mkdir -p "$OUTPUT_DIR"
 cd "$REPO_ROOT/src/archcare"
 
 # Build with Nuitka (project options in app.py handle most flags)
-poetry run python -m nuitka cli/app.py \
+uv run python -m nuitka cli/app.py \
   --output-filename="$BINARY_NAME" \
   --output-dir="$OUTPUT_DIR" \
   --product-version="$FOUR_VERSION" \
