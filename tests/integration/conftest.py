@@ -30,3 +30,14 @@ def mock_notification_manager(mocker):
     neither is something an integration test should ever do for real.
     """
     return mocker.patch("archcare.core.executor.NotificationManager")
+
+
+@pytest.fixture(autouse=True)
+def mock_progress(mocker):
+    """
+    RichProgress would otherwise try to render a live display during every
+    task run - harmless functionally, but pollutes captured CliRunner
+    output that every test in this suite does substring assertions
+    against. Same reasoning as mock_notification_manager above.
+    """
+    return mocker.patch("archcare.cli.context.RichProgress")

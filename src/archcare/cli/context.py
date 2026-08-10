@@ -9,6 +9,7 @@ from archcare.cli.presenters import (
     MaintenanceCheckFormatter,
     MirrorlistUpdateFormatter,
 )
+from archcare.cli.progress import RichProgress
 from archcare.config import AppSettings, ConfigLoader
 from archcare.core import TaskDescriptor, TaskRegistry
 from archcare.core.executor import TaskExecutor
@@ -87,6 +88,7 @@ class AppContext:
                 task_registry=self.task_registry,
                 interaction=CliInteraction() if self.is_interactive else None,
                 user_context=self.user_ctx,
+                progress=RichProgress() if self.is_interactive else None,
             )
             self._executor = executor
         return self._executor

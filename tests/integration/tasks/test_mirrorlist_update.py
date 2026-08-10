@@ -236,3 +236,65 @@ class TestMirrorlistUpdateTask:
         remaining_names = [b.name for b in remaining_backups]
         assert not any("2026-01-01" in name for name in remaining_names)
         assert not any("2026-01-02" in name for name in remaining_names)
+
+
+class TestMirrorlistUpdateProgressReporting:
+    """
+    mirrorlist-update is the spinner-only task - no start()/advance() calls
+    at all, since reflector's duration isn't decomposable into known steps.
+    """
+
+    def test_spinner_used_around_reflector_call(self, sandbox: Path, mock_progress):
+        result = runner.invoke(app, ["task", "run", "mirrorlist-update", "--verbose"])
+
+        assert result.exit_code == 0
+        mock_progress.return_value.spinner.assert_called_once()
+
+    def test_spinner_still_used_when_reflector_fails(
+        self, sandbox: Path, mocker, mock_progress
+    ):
+        """Spinner must wrap the call itself, not just the success path -
+        it needs to close cleanly even when reflector reports failure."""
+
+        def _fail_reflector(command, **kwargs):
+            if command[0] == "reflector":
+                return CommandResult(
+                    command="reflector",
+                    returncode=1,
+                    stdout="",
+                    stderr="Timeout",
+                    success=False,
+                )
+            return _fake_run_with_sudo(command, **kwargs)
+
+        mocker.patch(f"{_SYSTEM_MODULE}.run_command_with_sudo", side_effect=_fail_reflector)
+
+        result = runner.invoke(app, ["task", "run", "mirrorlist-update"])
+
+        assert result.exit_code == 1
+        mock_progress.return_value.spinner.assert_called_once()
+
+    def test_spinner_not_used_when_precheck_fails(
+        self, sandbox: Path, mocker, mock_progress
+    ):
+        """pre_check() rejects before execute() ever runs - the reflector
+        call, and therefore the surrounding spinner, should never happen."""
+        mocker.patch(f"{_MODULE}.check_command_exists", return_value=False)
+
+        runner.invoke(app, ["task", "run", "mirrorlist-update"])
+
+        mock_progress.return_value.spinner.assert_not_called()
+
+    def test_no_determinate_bar_used(self, sandbox: Path, mock_progress):
+        """Regression guard: this task should stay spinner-only. If a
+        future edit adds report_progress() calls here, that's a design
+        change worth a deliberate decision, not an accidental drift."""
+        runner.invoke(app, ["task", "run", "mirrorlist-update"])
+
+        mock_progress.return_value.start.assert_not_called()
+        mock_progress.return_value.advance.assert_not_called()
+
+    def test_progress_stopped_after_run(self, sandbox: Path, mock_progress):
+        runner.invoke(app, ["task", "run", "mirrorlist-update"])
+
+        mock_progress.return_value.stop.assert_called_once()

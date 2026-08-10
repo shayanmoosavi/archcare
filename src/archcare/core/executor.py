@@ -23,6 +23,7 @@ from archcare.utils import UserContext
 
 from .interaction import NonInteractive, TaskInteraction
 from .models import TaskResult, skipped
+from .progress import NoOpProgress, TaskProgress
 from .scheduler import TaskScheduler
 from .task_registry import TaskRegistry
 
@@ -47,6 +48,7 @@ class TaskExecutor:
         interaction: TaskInteraction | None = None,
         notification_manager: NotificationManager | None = None,
         user_context: UserContext | None = None,
+        progress: TaskProgress | None = None,
     ):
         """
         Initialize task executor.
@@ -69,20 +71,23 @@ class TaskExecutor:
             user_context: Resolves ARCHCARE_USER once per invocation. Unlike
             notification_manager, this is cheap (just an env read), so it's
             constructed eagerly from the environment if not provided.
+            progress: Port for progress tracking. Defaults to NoOpProgress,
+             which does nothing.
         """
         self.config_loader = config_loader
         self.settings = settings
         self.state = state
         self.task_registry = task_registry
-        self.interaction = interaction or NonInteractive()
-        self._notification_manager = notification_manager
         self.user_context = user_context or UserContext.from_env()
+        self._interaction = interaction or NonInteractive()
+        self._progress = progress or NoOpProgress()
+        self.__notification_manager = notification_manager
 
     @property
     def notification_manager(self) -> NotificationManager:
-        if self._notification_manager is None:
-            self._notification_manager = NotificationManager()
-        return self._notification_manager
+        if self.__notification_manager is None:
+            self.__notification_manager = NotificationManager()
+        return self.__notification_manager
 
     def _create_task(self, task_config: TaskConfig) -> BaseTask:
         """
@@ -104,6 +109,7 @@ class TaskExecutor:
             config=task_config,
             settings=self.settings,
             notification_manager=self.notification_manager,
+            progress=self._progress,
         )
 
     def execute_task(self, task_name: str, force: bool = False) -> TaskResult:
@@ -153,7 +159,7 @@ class TaskExecutor:
     ) -> TaskResult | None:
 
         if not task_config.enabled:
-            self.interaction.notify(
+            self._interaction.notify(
                 f"Task '{task_name}' is disabled in configuration", level="warning"
             )
             task = self._create_task(task_config)
@@ -170,7 +176,7 @@ class TaskExecutor:
                     task.create_result(
                         skipped("Cancelled by user", SkipReason.USER_CANCELLED)
                     )
-                    if not self.interaction.confirm("Run anyway?")
+                    if not self._interaction.confirm("Run anyway?")
                     else None
                 )
         else:
@@ -186,7 +192,7 @@ class TaskExecutor:
         task_config = tasks_config.get_task(task_name)
 
         if not is_due:
-            self.interaction.notify(f"Task is not due: {reason}")
+            self._interaction.notify(f"Task is not due: {reason}")
             task = self._create_task(task_config)
             task.set_start_time()
             if is_systemd:
@@ -206,7 +212,7 @@ class TaskExecutor:
                             SkipReason.USER_CANCELLED,
                         )
                     )
-                    if not self.interaction.confirm("Run anyway?")
+                    if not self._interaction.confirm("Run anyway?")
                     else None
                 )
         else:

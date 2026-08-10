@@ -6,10 +6,12 @@ import dataclasses
 
 from loguru import logger
 
+from archcare.config import TaskStatus
 from archcare.core import (
     HealthCheckDetails,
     HealthCheckSummary,
     TaskResult,
+    TaskStep,
     failed,
     partial,
     success,
@@ -42,6 +44,8 @@ class HealthCheckTask(BaseTask):
     - System uptime
     """
 
+    _CHECK_COUNT = len(dataclasses.fields(HealthCheckSummary))
+
     def execute(self) -> TaskResult[HealthCheckDetails]:
         """
         Run all health checks and collect results.
@@ -54,13 +58,32 @@ class HealthCheckTask(BaseTask):
         issues: list[str] = []
         warnings: list[str] = []
 
+        self.progress.start(total=self._CHECK_COUNT)
+
         disk_percent = self._check_disk_space(issues, warnings)
+        self.report_progress(TaskStep(name="Disk space", status=TaskStatus.SUCCESS))
+
         mem_percent = self._check_memory_usage(issues, warnings)
+        self.report_progress(TaskStep(name="Memory usage", status=TaskStatus.SUCCESS))
+
         cpu_percent = self._check_cpu_load(warnings)
+        self.report_progress(TaskStep(name="CPU load", status=TaskStatus.SUCCESS))
+
         fs_errors = self._check_filesystem_errors(issues)
+        self.report_progress(TaskStep(name="Filesystem errors", status=TaskStatus.SUCCESS))
+
         pacman_ok = self._check_pacman_database_health(issues)
-        packages_ok = self._check_installed_package_files(issues)
+        self.report_progress(TaskStep(name="Pacman database", status=TaskStatus.SUCCESS))
+
+        # Pausing the progress rendering so sudo prompt can be displayed correctly
+        with self.progress.pause():
+            packages_ok = self._check_installed_package_files(issues)
+        self.report_progress(
+            TaskStep(name="Package file integrity", status=TaskStatus.SUCCESS)
+        )
+
         uptime = self._check_system_uptime()
+        self.report_progress(TaskStep(name="System uptime", status=TaskStatus.SUCCESS))
 
         summary = HealthCheckSummary(
             disk_usage_percent=disk_percent,
@@ -72,8 +95,6 @@ class HealthCheckTask(BaseTask):
             uptime=uptime,
         )
 
-        total_checks = len(dataclasses.fields(summary))
-
         if issues:
             message = f"Health check found {len(issues)} critical issue(s)"
             logger.info(f"Health check complete: {message}")
@@ -83,7 +104,7 @@ class HealthCheckTask(BaseTask):
                 details=HealthCheckDetails(
                     issues=issues,
                     warnings=warnings,
-                    total_checks=total_checks,
+                    total_checks=self._CHECK_COUNT,
                     summary=summary,
                 ),
             )
@@ -94,7 +115,7 @@ class HealthCheckTask(BaseTask):
                 message=message,
                 details=HealthCheckDetails(
                     warnings=warnings,
-                    total_checks=total_checks,
+                    total_checks=self._CHECK_COUNT,
                     summary=summary,
                 ),
             )
@@ -104,7 +125,7 @@ class HealthCheckTask(BaseTask):
             return success(
                 message=message,
                 details=HealthCheckDetails(
-                    total_checks=total_checks,
+                    total_checks=self._CHECK_COUNT,
                     summary=summary,
                 ),
             )

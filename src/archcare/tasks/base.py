@@ -13,6 +13,7 @@ from loguru import logger
 from archcare.config import AppSettings, SkipReason, TaskConfig
 from archcare.core import TaskResult, TaskStep, failed, skipped
 from archcare.core.notifications import NotificationManager
+from archcare.core.progress import NoOpProgress, TaskProgress
 from archcare.utils.logging import setup_task_logging
 
 
@@ -35,6 +36,7 @@ class BaseTask(ABC):
         config: TaskConfig,
         settings: AppSettings,
         notification_manager: NotificationManager | None = None,
+        progress: TaskProgress | None = None,
     ):
         """
         Initialize base task.
@@ -45,10 +47,13 @@ class BaseTask(ABC):
             notification_manager: Injected by TaskExecutor. Optional so
                 tasks can still be constructed directly in tests without
                 needing a real notify-send availability check.
+            progress: Optional progress reporter. If not provided,
+             a NoOpProgress will be used.
         """
         self.config = config
         self.settings = settings
         self.notification_manager = notification_manager
+        self.progress = progress or NoOpProgress()
         self.name = config.name
         self._start_time: int | float = 0.0
 
@@ -157,6 +162,7 @@ class BaseTask(ABC):
             ))
         """
         logger.info(f"[{self.name}] {step}")
+        self.progress.advance(step)
 
     def run(self) -> TaskResult[Any]:
         """
@@ -232,6 +238,8 @@ class BaseTask(ABC):
             # Remove task-specific log handler
             if handler_id is not None:
                 logger.remove(handler_id)
+            # Finalize progress reporting
+            self.progress.stop()
 
     def create_result(self, result: TaskResult[Any]) -> TaskResult[Any]:
         """
