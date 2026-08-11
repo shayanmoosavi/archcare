@@ -188,6 +188,7 @@ below it:
 ```
 cli/        Typer commands, presenters, terminal rendering
 services/   Business logic, orchestrates core + config for each command
+tasks/      Task implementations inheriting from `BaseTask`
 core/       Task execution, scheduling, task/formatter registry
 config/     Pydantic models, TOML/JSON loading and persistence
 utils/      subprocess wrappers, system/hardware queries, notifications
