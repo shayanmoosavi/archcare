@@ -28,7 +28,15 @@ runs:
 
     - name: Install dependencies
       shell: bash
-      run: uv sync --group ${{ inputs.install-groups }}
+      run: |
+        # --group doesn't accept comma-separated lists (astral-sh/uv#15332, open issue)
+        # Manually separate groups until the issue is resolved
+        IFS=',' read -ra UV_GROUPS <<< "$(echo "${{ inputs.install-groups }}" | tr -d ' ')"
+        UV_GROUP_ARGS=()
+        for group in "${UV_GROUPS[@]}"; do
+          UV_GROUP_ARGS+=(--group "$group")
+        done
+        uv sync "${UV_GROUP_ARGS[@]}"
 
     # Verify lock file is up to date (fails if pyproject.toml changed without lock)
     - name: Verify lock file
