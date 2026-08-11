@@ -92,7 +92,9 @@ class TestTaskList:
 
         # Asserting it fails with the expected exception
         assert isinstance(result.exception, SystemExit)
-        assert "'automated' or 'manual'" in result.stdout
+        assert "Type must be" in result.stdout
+        assert "automated" in result.stdout
+        assert "manual" in result.stdout
 
 
 class TestTaskStatus:
