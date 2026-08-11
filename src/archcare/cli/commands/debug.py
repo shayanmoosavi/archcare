@@ -11,7 +11,7 @@ from archcare.services.exceptions import (
     NotificationSendError,
     NotificationUnavailableError,
 )
-from archcare.utils.output import print_error
+from archcare.utils import print_error
 
 debug_app = typer.Typer(help="Debug commands for Archcare.")
 

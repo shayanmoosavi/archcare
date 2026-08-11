@@ -7,7 +7,7 @@ and Typer's confirmation prompt.
 
 import typer
 
-from archcare.utils.output import print_info, print_warning
+from archcare.utils import print_info, print_warning
 
 
 class CliInteraction:

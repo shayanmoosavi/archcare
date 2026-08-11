@@ -10,8 +10,9 @@ from typing import Any
 
 from loguru import logger
 
-from archcare.core import IssueSeverity
-from archcare.utils.system import check_command_exists, run_command
+from archcare.utils import check_command_exists, run_command
+
+from .models import IssueSeverity
 
 
 class NotificationUrgency(Enum):
