@@ -1,4 +1,4 @@
-# archcare
+# Archcare
 
 A system maintenance CLI for Arch Linux — checks for failed services, runs
 health checks, keeps your mirrorlist fresh, and tracks which maintenance
@@ -6,7 +6,7 @@ tasks are due, all from one command.
 
 ## Why this exists
 
-archcare automates the handful of maintenance chores every Arch install
+Archcare automates the handful of maintenance chores every Arch install
 eventually needs (failed-unit checks, mirrorlist refreshes, disk/memory/CPU
 health checks) and tracks their schedule so nothing quietly falls behind.
 It aims to be a user-friendly tool that makes maintenance easy, painless,
@@ -182,8 +182,7 @@ just `.service` — the failed-unit check itself isn't type-restricted).
 
 ## Architecture
 
-archcare is organized in strict layers, each only depending on the ones
-below it:
+Archcare is organized in a layered architecture as illustrated below:
 
 ```
 cli/        Typer commands, presenters, terminal rendering
@@ -244,7 +243,7 @@ The suite is split by intent, not just by directory:
 ## Development
 
 ```bash
-uv sync --group dev
+uv sync --all-groups
 uv run pytest
 uv run ty check
 ```
@@ -256,10 +255,20 @@ and `core/task_details.py` for the pattern every existing task follows.
 
 ## Roadmap
 
-- PySide6/QML GUI frontend, reusing `core/`/`config/` as-is via the port
-  boundaries described above
-- Implementing progress bars, spinners, etc., for long-running tasks.
-- Implementing the rest of the tasks in the default `tasks.toml`
+- [x] Implementing progress bars, spinners, etc., for long-running tasks.
+- Implementing the rest of the tasks in the default `tasks.toml`:
+    - [x] failed-services
+    - [x] maintenance-check
+    - [x] health-check
+    - [x] mirrorlist-update
+    - [ ] system-update
+    - [ ] journal-cleanup
+    - [ ] orphan-removal
+    - [ ] btrfs-scrub
+    - [ ] disk-space-review
+    - [ ] cache-cleanup
+- [ ] PySide6/QML GUI frontend, reusing `core/`/`config/` as-is via the port
+      boundaries described above
 
 ## License
 
