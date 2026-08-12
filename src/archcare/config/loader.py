@@ -233,7 +233,7 @@ class ConfigLoader:
 
         # Exclude computed fields from AppSettings during serialization as they're
         # dynamically computed at runtime and should not be saved.
-        exclude = {"home_dir", "log_dir", "state_file", "report_dir", "config_dir"}
+        exclude = {"user", "home_dir", "log_dir", "state_file", "report_dir", "config_dir"}
 
         # Convert to dict and handle Path objects
         data = settings.model_dump(exclude=exclude)
