@@ -8,9 +8,9 @@ import sys
 
 from loguru import logger
 
-from archcare.config import AppSettings, LogLevel
+from archcare.utils import UserContext
 
-from .user import UserContext
+from .models import AppSettings, LogLevel
 
 
 def setup_logging(

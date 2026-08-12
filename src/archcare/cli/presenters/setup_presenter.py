@@ -8,7 +8,7 @@ from archcare.services.responses import (
     ReloadSystemdResponse,
     TimerSetupResponse,
 )
-from archcare.utils.output import (
+from archcare.utils import (
     console,
     print_error,
     print_header,

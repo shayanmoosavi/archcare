@@ -5,7 +5,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from archcare.core import MaintenanceCheckDetails, MaintenanceIssue
-from archcare.utils.output import console
+from archcare.utils import console
 
 
 class MaintenanceCheckPresenter:

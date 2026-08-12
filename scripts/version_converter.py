@@ -5,7 +5,7 @@ Convert PEP 440 version strings to Nuitka-compatible 4-part numeric versions.
 Nuitka's --product-version requires major.minor.patch.build format.
 PEP 440 versions like 0.1.2rc0 or 1.0.3a1 need sanitization.
 
-Phase ordering (same as Poetry/PEP 440):
+Phase ordering (same as PEP 440):
     a (alpha) < b (beta) < rc < stable
 
 The 4th component encodes both phase and pre-release number:

@@ -19,7 +19,7 @@ jobs:
         uses: ./.github/actions/setup
         with:
           install-groups: dev,build
-          cache-key-prefix: release
+          cache-key-suffix: release
 
       - name: Install clang-22
         run: |
@@ -38,8 +38,8 @@ jobs:
       - name: Verify tag matches project version
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#v}"
-          TAG_VERSION="${TAG_VERSION//-/}" # v0.1.0-rc1 -> 0.1.0rc1, matches Poetry's PEP 440 canonical output
-          PROJECT_VERSION="$(poetry version --short)"
+          TAG_VERSION="${TAG_VERSION//-/}" # v0.1.0-rc1 -> 0.1.0rc1, matches PEP 440 canonical output
+          PROJECT_VERSION="$(uv version --short)"
           if [ "$TAG_VERSION" != "$PROJECT_VERSION" ]; then
             echo "Tag v$TAG_VERSION does not match pyproject.toml version $PROJECT_VERSION"
             exit 1
@@ -47,10 +47,10 @@ jobs:
           echo "VERSION=$PROJECT_VERSION" >> "$GITHUB_ENV" # exposed for archive naming later
 
       - name: Run full test suite
-        run: poetry run pytest
+        run: uv run pytest
 
       - name: Type check
-        run: poetry run ty check
+        run: uv run ty check
 
       - name: Record build environment
         env:
@@ -59,9 +59,9 @@ jobs:
         run: |
           echo "=== Build toolchain ===" | tee build-info.txt
           "$CC" --version | head -1 | tee -a build-info.txt
-          poetry run python --version | tee -a build-info.txt
+          uv run python --version | tee -a build-info.txt
           upx --version | head -3 | tee -a build-info.txt
-          NUITKA_OUTPUT="$(poetry run python -m nuitka --version)"
+          NUITKA_OUTPUT="$(uv run python -m nuitka --version)"
           NUITKA_VERSION="$(head -1 <<< "$NUITKA_OUTPUT")"
           echo "Nuitka: $NUITKA_VERSION" | tee -a build-info.txt
 

@@ -2,7 +2,7 @@
 
 from archcare.services.exceptions import InvalidSeverityError
 from archcare.services.responses import NotificationTestResponse
-from archcare.utils.output import print_error, print_header, print_info, print_success
+from archcare.utils import print_error, print_header, print_info, print_success
 
 
 class DebugPresenter:

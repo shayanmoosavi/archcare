@@ -9,7 +9,6 @@ from typing import Literal
 from rich import box
 from rich.console import Console, RenderableType
 from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 # Global console instance
@@ -134,28 +133,3 @@ def print_table(
         table.add_row(*row)
 
     console.print(table)
-
-
-# -----------------------------------------------------------------------------
-# Progress indicators
-# -----------------------------------------------------------------------------
-
-
-def create_progress() -> Progress:
-    """
-    Create a progress indicator for long-running operations.
-
-    Returns:
-        Rich Progress object
-
-    Example:
-        with create_progress() as progress:
-            task = progress.add_task("Running tasks...", total=None)
-            # do work
-            progress.update(task, completed=True)
-    """
-    return Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console,
-    )

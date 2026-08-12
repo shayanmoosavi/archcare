@@ -1,4 +1,4 @@
-# archcare
+# Archcare
 
 A system maintenance CLI for Arch Linux — checks for failed services, runs
 health checks, keeps your mirrorlist fresh, and tracks which maintenance
@@ -6,7 +6,7 @@ tasks are due, all from one command.
 
 ## Why this exists
 
-archcare automates the handful of maintenance chores every Arch install
+Archcare automates the handful of maintenance chores every Arch install
 eventually needs (failed-unit checks, mirrorlist refreshes, disk/memory/CPU
 health checks) and tracks their schedule so nothing quietly falls behind.
 It aims to be a user-friendly tool that makes maintenance easy, painless,
@@ -32,14 +32,14 @@ below is for you.
 
 ## Installation
 
-Requires Python 3.13+, [Poetry](https://python-poetry.org/), and (for the
+Requires Python 3.13+, [uv](https://docs.astral.sh/uv/), and (for the
 tasks that need them) `systemd`, `reflector`, and `pacman` — all standard on
 an Arch install.
 
 ```bash
 git clone https://github.com/shayanmoosavi/archcare.git
 cd archcare
-poetry install
+uv sync
 ```
 
 Reflector isn't installed by default on most systems:
@@ -182,12 +182,12 @@ just `.service` — the failed-unit check itself isn't type-restricted).
 
 ## Architecture
 
-archcare is organized in strict layers, each only depending on the ones
-below it:
+Archcare is organized in a layered architecture as illustrated below:
 
 ```
 cli/        Typer commands, presenters, terminal rendering
 services/   Business logic, orchestrates core + config for each command
+tasks/      Task implementations inheriting from `BaseTask`
 core/       Task execution, scheduling, task/formatter registry
 config/     Pydantic models, TOML/JSON loading and persistence
 utils/      subprocess wrappers, system/hardware queries, notifications
@@ -219,10 +219,10 @@ A few things worth knowing if you're extending it:
 ## Testing
 
 ```bash
-poetry run pytest                        # full suite
-poetry run pytest tests/unit             # unit tests only
-poetry run pytest tests/integration      # integration tests only
-poetry run ty check                      # static type checking
+uv run pytest                        # full suite
+uv run pytest tests/unit             # unit tests only
+uv run pytest tests/integration      # integration tests only
+uv run ty check                      # static type checking
 ```
 
 The suite is split by intent, not just by directory:
@@ -243,9 +243,9 @@ The suite is split by intent, not just by directory:
 ## Development
 
 ```bash
-poetry install --with dev
-poetry run pytest
-poetry run ty check
+uv sync --all-groups
+uv run pytest
+uv run ty check
 ```
 
 Contributions should keep to the layering above — in particular, `core/`
@@ -255,10 +255,20 @@ and `core/task_details.py` for the pattern every existing task follows.
 
 ## Roadmap
 
-- PySide6/QML GUI frontend, reusing `core/`/`config/` as-is via the port
-  boundaries described above
-- Implementing progress bars, spinners, etc., for long-running tasks.
-- Implementing the rest of the tasks in the default `tasks.toml`
+- [x] Implementing progress bars, spinners, etc., for long-running tasks.
+- Implementing the rest of the tasks in the default `tasks.toml`:
+    - [x] failed-services
+    - [x] maintenance-check
+    - [x] health-check
+    - [x] mirrorlist-update
+    - [ ] system-update
+    - [ ] journal-cleanup
+    - [ ] orphan-removal
+    - [ ] btrfs-scrub
+    - [ ] disk-space-review
+    - [ ] cache-cleanup
+- [ ] PySide6/QML GUI frontend, reusing `core/`/`config/` as-is via the port
+      boundaries described above
 
 ## License
 
