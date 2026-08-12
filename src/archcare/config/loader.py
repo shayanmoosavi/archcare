@@ -5,6 +5,7 @@ Handles loading and parsing TOML configuration files into Pydantic models.
 """
 
 import json
+import shutil
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -328,10 +329,8 @@ def create_default_config_files(
             skipped.append(target_path)
             continue
 
-        with open(default_config_dir / filename, "rb") as f:
-            data = tomllib.load(f)
-
-        target_path.write_text(tomli_w.dumps(data))
+        source_path = default_config_dir / filename
+        shutil.copy2(source_path, target_path)
         created.append(target_path)
 
     return created, skipped
