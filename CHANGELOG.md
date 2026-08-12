@@ -1,3 +1,12 @@
+## v0.2.1 (2026-08-12)
+
+### Refactor
+
+- **utils**: remove dead code
+- organize imports
+- **utils**: move logging to config layer for architectural consistency
+- fix imports to conform with the layered architecture
+
 ## v0.2.0 (2026-08-10)
 
 ### Feat
