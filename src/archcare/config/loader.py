@@ -5,15 +5,16 @@ Handles loading and parsing TOML configuration files into Pydantic models.
 """
 
 import json
-import shutil
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 from loguru import logger
 from pydantic import ValidationError
-from tomlkit import TOMLDocument, document, dumps, parse, table
+from tomlkit import TOMLDocument, dumps, parse, table
 from tomlkit.exceptions import ParseError
 
+from . import defaults
 from .models import (
     AppSettings,
     AppState,
@@ -24,31 +25,23 @@ from .models import (
     TasksConfig,
 )
 
-# Directory holding the bundled default *.toml config files
-_DEFAULT_CONFIG_DIR = Path(__file__).parent
 
-
-def _load_document(path: Path, default_filename: str) -> TOMLDocument:
+def _load_document(path: Path, default_builder: Callable[[], TOMLDocument]) -> TOMLDocument:
     """
-    Load `path` as a TOMLDocument if it exists, otherwise fall back to the
-    default bundled config file for `default_filename`.
+    Load `path` as a TOMLDocument if it exists, otherwise build the default document
+    using `default_builder`.
 
     Args:
         path (pathlib.Path): The path to load the document from
-        default_filename (str): The name of the default bundled config file
+        default_builder (Callable[[], TOMLDocument]): The function to call to build
+         the default document
 
     Returns:
         TOMLDocument: The loaded document
     """
     if path.exists():
         return parse(path.read_text())
-
-    default_path = _DEFAULT_CONFIG_DIR / default_filename
-    if default_path.exists():
-        return parse(default_path.read_text())
-
-    # Empty document in case default doesn't exist, which shouldn't happen
-    return document()
+    return default_builder()
 
 
 def _patch_document(doc: dict[str, Any], data: dict[str, Any]) -> None:
@@ -149,7 +142,7 @@ class ConfigLoader:
             tasks_file: Path to tasks.toml
         """
         tasks_path = tasks_file or self.config_dir / "tasks.toml"
-        doc = _load_document(tasks_path, "tasks.toml")
+        doc = _load_document(tasks_path, defaults.build_tasks_toml)
 
         for task_name, task in tasks_config.tasks.items():
             task_data: dict[str, Any] = task.model_dump(by_alias=True, exclude={"name"})
@@ -214,7 +207,7 @@ class ConfigLoader:
             services_file: Path to ignored-services.toml
         """
         services_path = services_file or self.config_dir / "ignored-services.toml"
-        doc = _load_document(services_path, "ignored-services.toml")
+        doc = _load_document(services_path, defaults.build_ignored_services_toml)
 
         _patch_document(doc, config.model_dump())
 
@@ -314,14 +307,12 @@ class ConfigLoader:
         """
         settings_path = settings_file or self.config_dir / "settings.toml"
 
-        # Exclude computed fields from AppSettings during serialization as they're
-        # dynamically computed at runtime and should not be saved.
-        exclude = {"user", "home_dir", "log_dir", "state_file", "report_dir", "config_dir"}
-
         # Convert to dict and handle Path objects
-        data: dict[str, Any] = settings.model_dump(exclude=exclude)
+        data: dict[str, Any] = settings.model_dump(
+            exclude={"user"}, exclude_computed_fields=True
+        )
 
-        doc = _load_document(settings_path, "settings.toml")
+        doc = _load_document(settings_path, defaults.build_settings_toml)
         _patch_document(doc, data)
         logger.info(f"Saving settings to: {settings_path}")
 
@@ -401,20 +392,24 @@ def create_default_config_files(
     """
 
     config_dir.mkdir(parents=True, exist_ok=True)
-    default_config_dir = Path(__file__).parent
+
+    builders: dict[str, Callable[[], TOMLDocument]] = {
+        "settings.toml": defaults.build_settings_toml,
+        "tasks.toml": defaults.build_tasks_toml,
+        "ignored-services.toml": defaults.build_ignored_services_toml,
+    }
 
     created: list[Path] = []
     skipped: list[Path] = []
 
-    for filename in ("tasks.toml", "ignored-services.toml", "settings.toml"):
+    for filename, build in builders.items():
         target_path = config_dir / filename
 
         if target_path.exists() and not force:
             skipped.append(target_path)
             continue
 
-        source_path = default_config_dir / filename
-        shutil.copy2(source_path, target_path)
+        target_path.write_text(dumps(build()))
         created.append(target_path)
 
     return created, skipped
