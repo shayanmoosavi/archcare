@@ -96,6 +96,10 @@ class TaskConfig(BaseModel):
             )
         return v
 
+    @field_serializer("task_type")
+    def serialize_task_type(self, task_type: TaskType) -> str:
+        return str(task_type)
+
 
 class TasksConfig(BaseModel):
     """Collection of all task configurations."""

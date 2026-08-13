@@ -137,6 +137,29 @@ class ConfigLoader:
             logger.error(str(e))
             return TasksConfig(tasks={})
 
+    def save_tasks(self, tasks_config: TasksConfig, tasks_file: Path | None = None) -> None:
+        """
+        Save task configurations to TOML file.
+
+        Patches each task's section in place against the existing document
+        (or the bundled config file, if this is the first save).
+
+        Args:
+            tasks_config: TasksConfig object to save
+            tasks_file: Path to tasks.toml
+        """
+        tasks_path = tasks_file or self.config_dir / "tasks.toml"
+        doc = _load_document(tasks_path, "tasks.toml")
+
+        for task_name, task in tasks_config.tasks.items():
+            task_data: dict[str, Any] = task.model_dump(by_alias=True, exclude={"name"})
+            if task_name not in doc or not isinstance(doc[task_name], dict):
+                doc[task_name] = table()
+            _patch_document(doc[task_name], task_data)
+
+        logger.info(f"Saving tasks to: {tasks_path}")
+        tasks_path.write_text(dumps(doc))
+
     def load_ignored_services(
         self, services_file: Path | None = None
     ) -> IgnoredServicesConfig:
@@ -179,6 +202,24 @@ class ConfigLoader:
             )
             logger.error(str(e))
             return IgnoredServicesConfig(services=[])
+
+    def save_ignored_services(
+        self, config: IgnoredServicesConfig, services_file: Path | None = None
+    ) -> None:
+        """
+        Save ignored services configuration to TOML file.
+
+        Args:
+            config: IgnoredServicesConfig object to save
+            services_file: Path to ignored-services.toml
+        """
+        services_path = services_file or self.config_dir / "ignored-services.toml"
+        doc = _load_document(services_path, "ignored-services.toml")
+
+        _patch_document(doc, config.model_dump())
+
+        logger.info(f"Saving ignored services to: {services_path}")
+        services_path.write_text(dumps(doc))
 
     def load_settings(self, settings_file: Path | None = None) -> AppSettings:
         """
