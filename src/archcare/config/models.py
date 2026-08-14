@@ -96,6 +96,10 @@ class TaskConfig(BaseModel):
             )
         return v
 
+    @field_serializer("task_type")
+    def serialize_task_type(self, task_type: TaskType) -> str:
+        return str(task_type)
+
 
 class TasksConfig(BaseModel):
     """Collection of all task configurations."""
@@ -316,7 +320,7 @@ class AppSettings(BaseModel):
     )
 
     # Paths
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def home_dir(self) -> Path:
         """Home directory of the user.
@@ -360,25 +364,25 @@ class AppSettings(BaseModel):
                 return fallback
             raise HomeDirectoryResolutionError(username) from KeyError(username)
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def log_dir(self) -> Path:
         """Directory for log files."""
         return self.home_dir / ".local/state/archcare/logs"
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def state_file(self) -> Path:
         """File to track task execution state."""
         return self.home_dir / ".local/state/archcare/state.json"
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def config_dir(self) -> Path:
         """Configuration directory."""
         return self.home_dir / ".config/archcare"
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def report_dir(self) -> Path:
         """Directory for maintenance check reports."""
@@ -456,7 +460,7 @@ class AppState(BaseModel):
     def get_task_state(self, task_name: str) -> TaskState:
         """Get state for a task, creating if it doesn't exist."""
         if task_name not in self.tasks:
-            self.tasks[task_name] = TaskState()  # type: ignore[call-arg]
+            self.tasks[task_name] = TaskState()
         return self.tasks[task_name]
 
     def update_task_state(

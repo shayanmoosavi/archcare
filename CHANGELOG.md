@@ -1,3 +1,22 @@
+## v0.3.0 (2026-08-14)
+
+### Feat
+
+- **loader**: add missing save methods for consistency
+
+### Fix
+
+- **loader**: add user to excluded fields so it doesn't get written in settings.toml
+
+### Refactor
+
+- **loader**: use factory functions and tomlkit to build default config files
+- **loader**: update the methods to use tomlkit instead
+
+### Perf
+
+- **loader**: remove unnecessary roundtrip
+
 ## v0.2.1 (2026-08-12)
 
 ### Refactor

@@ -10,6 +10,7 @@ from archcare.config import (
     AppSettings,
     AppState,
     ConfigLoader,
+    IgnoredServicesConfig,
     LogLevel,
     TasksConfig,
     TaskStatus,
@@ -92,11 +93,11 @@ class TestConfigLoaderInit:
 
 
 # ---------------------------------------------------------------------------
-# ConfigLoader.load_tasks
+# Loading / Saving Tasks
 # ---------------------------------------------------------------------------
 
 
-class TestLoadTasks:
+class TestConfigLoaderTasks:
     def test_missing_file_returns_empty_config(self, loader: ConfigLoader):
         config: TasksConfig = loader.load_tasks()
         assert config.tasks == {}
@@ -167,13 +168,78 @@ enabled = true
 
         assert len(loader.load_tasks().tasks) == 2
 
+    def test_save_and_load_roundtrip(self, config_dir: Path, loader: ConfigLoader):
+        _w(config_dir / "tasks.toml", _TASK_TOML)
+        changed = loader.load_tasks()
+        changed.tasks["test-task"].frequency = 10
+        loader.save_tasks(changed)
+
+        fresh_loader = ConfigLoader(user="testuser", config_dir=config_dir)
+        loaded = fresh_loader.load_tasks()
+        assert loaded.tasks["test-task"].frequency == 10
+
+    def test_updates_an_existing_field_in_place(
+        self, loader: ConfigLoader, config_dir: Path
+    ):
+        _w(config_dir / "tasks.toml", _TASK_TOML)
+
+        tasks_config = loader.load_tasks()
+        tasks_config.tasks["test-task"].enabled = False
+        loader.save_tasks(tasks_config)
+
+        reloaded = loader.load_tasks()
+        assert reloaded.tasks["test-task"].enabled is False
+
+    def test_writes_type_alias_not_field_name(self, loader: ConfigLoader, config_dir: Path):
+        """
+        TaskConfig.task_type is aliased to "type" in TOML - a naive model_dump()
+        without by_alias=True would write "task_type" instead and silently break
+        the next load_tasks() call.
+        """
+        tasks_file = config_dir / "tasks.toml"
+        _w(tasks_file, _TASK_TOML)
+
+        tasks_config = loader.load_tasks()
+        loader.save_tasks(tasks_config)
+
+        content = tasks_file.read_text()
+        assert "type = " in content
+        assert "task_type" not in content
+
+    def test_preserves_comments_on_an_existing_file(
+        self, loader: ConfigLoader, config_dir: Path
+    ):
+        tasks_file = config_dir / "tasks.toml"
+        _w(tasks_file, "# A note about this task\n" + _TASK_TOML)
+
+        tasks_config = loader.load_tasks()
+        tasks_config.tasks["test-task"].frequency = 14
+        loader.save_tasks(tasks_config)
+
+        content = tasks_file.read_text()
+        assert "# A note about this task" in content
+        assert "frequency = 14" in content
+
+    def test_first_write_bases_on_bundled_template_comments(
+        self, loader: ConfigLoader, config_dir: Path
+    ):
+        assert not (config_dir / "tasks.toml").exists()
+
+        # An empty TasksConfig still exercises the "no file yet" fallback -
+        # the template's own tasks/comments should still come through since
+        # nothing in `tasks_config.tasks` overwrites sections it doesn't name.
+        loader.save_tasks(TasksConfig(tasks={}))
+
+        content = (config_dir / "tasks.toml").read_text()
+        assert "# Archcare Maintenance Tasks Configuration" in content
+
 
 # ---------------------------------------------------------------------------
-# ConfigLoader.load_ignored_services
+# Loading / Saving Ignored Services
 # ---------------------------------------------------------------------------
 
 
-class TestLoadIgnoredServices:
+class TestConfigLoaderIgnoredServices:
     def test_missing_file_returns_empty_list(self, loader: ConfigLoader):
         config = loader.load_ignored_services()
         assert config.services == []
@@ -207,6 +273,38 @@ class TestLoadIgnoredServices:
 
         config = loader.load_ignored_services()
         assert config.services == []
+
+    def test_save_and_load_roundtrip(self, loader: ConfigLoader):
+        ignored_services = IgnoredServicesConfig(services=["nginx.service"])
+        loader.save_ignored_services(ignored_services)
+        loaded = loader.load_ignored_services()
+
+        assert loaded == ignored_services
+
+    def test_preserves_comments_on_an_existing_file(
+        self, loader: ConfigLoader, config_dir: Path
+    ):
+        services_file = config_dir / "ignored-services.toml"
+        _w(services_file, "# Noisy but harmless\nservices = []\n")
+
+        config = loader.load_ignored_services()
+        loader.save_ignored_services(
+            IgnoredServicesConfig(services=[*config.services, "nginx.service"])
+        )
+
+        content = services_file.read_text()
+        assert "# Noisy but harmless" in content
+        assert "nginx.service" in content
+
+    def test_first_write_bases_on_bundled_template_comments(
+        self, loader: ConfigLoader, config_dir: Path
+    ):
+        assert not (config_dir / "ignored-services.toml").exists()
+
+        loader.save_ignored_services(IgnoredServicesConfig(services=["nginx.service"]))
+
+        content = (config_dir / "ignored-services.toml").read_text()
+        assert "# Services to ignore in failed-services check" in content
 
 
 # ---------------------------------------------------------------------------
@@ -309,6 +407,49 @@ require_acknowledgment = false
 
         assert loaded.log_level == LogLevel.WARNING
         assert loaded.dry_run is True
+
+    def test_save_does_not_write_user_field(self, loader: ConfigLoader, config_dir: Path):
+        """
+        Regression test for the stray-user-field bug: load_settings() never
+        reads "user" back from the file, so it should never be written.
+        """
+        loader.save_settings(AppSettings(user="testuser"))
+
+        content = (config_dir / "settings.toml").read_text()
+        assert "user" not in content
+
+    def test_save_preserves_comments_on_an_existing_file(
+        self, loader: ConfigLoader, config_dir: Path
+    ):
+        settings_file = config_dir / "settings.toml"
+        _w(
+            settings_file,
+            '# A comment a user wrote themselves\nlog_level = "INFO"\ndry_run = false\n',
+        )
+
+        settings = loader.load_settings()
+        settings.dry_run = True
+        loader.save_settings(settings)
+
+        content = settings_file.read_text()
+        assert "# A comment a user wrote themselves" in content
+        assert "dry_run = true" in content
+
+    def test_save_on_first_write_bases_on_bundled_template_comments(
+        self, loader: ConfigLoader, config_dir: Path
+    ):
+        """
+        No settings.toml exists yet - the save should start from the
+        bundled config file (with its guiding comments) rather than
+        a blank document, per _load_document's fallback.
+        """
+        assert not (config_dir / "settings.toml").exists()
+
+        loader.save_settings(AppSettings(user="testuser"))
+
+        content = (config_dir / "settings.toml").read_text()
+        assert "# Global Settings" in content  # from the bundled template
+        assert "# Mirrorlist Update Settings" in content
 
 
 # ---------------------------------------------------------------------------
