@@ -93,7 +93,7 @@ def status(
         presenter.empty()
         raise typer.Exit(1) from e
     except TaskNotFoundError as e:
-        presenter.not_found(task_name)  # ty:ignore[invalid-argument-type]
+        presenter.not_found(task_name or "")
         raise typer.Exit(1) from e
     except Exception as e:
         presenter.error(str(e))

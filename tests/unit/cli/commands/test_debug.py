@@ -7,6 +7,7 @@ import pytest
 import typer
 
 from archcare.cli.commands.debug import test_notification as notification
+from archcare.cli.context import AppContext
 from archcare.services.exceptions import (
     InvalidSeverityError,
     NotificationSendError,
@@ -21,8 +22,8 @@ _MODULE = "archcare.cli.commands.debug"
 # ---------------------------------------------------------------------------
 
 
-def _make_ctx(app_context=None) -> SimpleNamespace:
-    return SimpleNamespace(obj=app_context or MagicMock())
+def _make_ctx(app_context: AppContext | None = None) -> SimpleNamespace:
+    return SimpleNamespace(obj=app_context or MagicMock(spec=AppContext))
 
 
 @pytest.fixture
