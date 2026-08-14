@@ -1,0 +1,4 @@
+# Services to ignore in failed-services check
+services = [
+    "systemd-networkd-wait-online.service",
+]

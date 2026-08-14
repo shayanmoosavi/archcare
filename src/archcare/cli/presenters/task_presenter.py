@@ -4,8 +4,6 @@ Presenter for the `task` command group.
 Owns all terminal rendering for TaskService results.
 """
 
-from rich.console import RenderableType
-
 from archcare.config import AppSettings, TaskStatus
 from archcare.core import MaintenanceCheckDetails, TaskRegistry, TaskResult
 from archcare.services.responses import (
@@ -94,7 +92,7 @@ class TaskPresenter:
     def _print_schedule_table(response: TaskStatusResponse):
         # Build the data in the Presenter
         headers = ["Status", "Task", "Last Run", "Due"]
-        rows: list[list[str | RenderableType]] = []
+        rows = []
 
         for info in response.schedule_info:
             if info.days_overdue > 0:
@@ -119,7 +117,7 @@ class TaskPresenter:
         print_table(
             title="Task Schedule",
             headers=headers,
-            rows=rows,
+            rows=rows,  # ty:ignore[invalid-argument-type]
             justify=["center", "left", "right", "right"],
         )
 

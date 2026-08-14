@@ -519,7 +519,7 @@ class TestUpdateState:
 
         executor.execute_task(automated_task.name)
 
-        executor.config_loader.save_state.assert_called_once()  # ty:ignore[unresolved-attribute]
+        executor.config_loader.save_state.assert_called_once()  # pyright: ignore[reportAttributeAccessIssue]  # ty:ignore[unresolved-attribute]
 
     def test_save_state_called_even_when_skipped(
         self,
@@ -534,7 +534,7 @@ class TestUpdateState:
 
         executor.execute_task(automated_task.name)
 
-        executor.config_loader.save_state.assert_called_once()  # ty:ignore[unresolved-attribute]
+        executor.config_loader.save_state.assert_called_once()  # pyright: ignore[reportAttributeAccessIssue]  # ty:ignore[unresolved-attribute]
 
     # -- next_due calculation ------------------------------------------------
 
@@ -569,8 +569,7 @@ class TestUpdateState:
         task_state = fresh_state.get_task_state(automated_task.name)
         expected_min = before + timedelta(days=automated_task.frequency)
         expected_max = after + timedelta(days=automated_task.frequency)
-        assert task_state.next_due is not None
-        assert expected_min <= task_state.next_due <= expected_max
+        assert expected_min <= task_state.next_due <= expected_max  # ty:ignore[unsupported-operator]
 
     def test_skipped_not_due_preserves_existing_next_due(
         self,

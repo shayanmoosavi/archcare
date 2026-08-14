@@ -3,6 +3,7 @@
 # nuitka-project: --onefile
 # nuitka-project: --onefile-tempdir-spec={CACHE_DIR}/archcare/{VERSION}
 # nuitka-project: --onefile-cache-mode=cached
+# nuitka-project: --include-data-dir={MAIN_DIRECTORY}/../config=archcare/config
 # nuitka-project: --product-name=archcare
 # nuitka-project: --reproducible=yes
 # nuitka-project: --assume-yes-for-downloads

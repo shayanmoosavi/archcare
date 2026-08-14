@@ -5,16 +5,14 @@ Handles loading and parsing TOML configuration files into Pydantic models.
 """
 
 import json
-from collections.abc import Callable
+import tomllib
 from pathlib import Path
 from typing import Any
 
+import tomli_w
 from loguru import logger
 from pydantic import ValidationError
-from tomlkit import TOMLDocument, dumps, parse, table
-from tomlkit.exceptions import ParseError
 
-from . import defaults
 from .models import (
     AppSettings,
     AppState,
@@ -24,43 +22,6 @@ from .models import (
     TaskConfig,
     TasksConfig,
 )
-
-
-def _load_document(path: Path, default_builder: Callable[[], TOMLDocument]) -> TOMLDocument:
-    """
-    Load `path` as a TOMLDocument if it exists, otherwise build the default document
-    using `default_builder`.
-
-    Args:
-        path (pathlib.Path): The path to load the document from
-        default_builder (Callable[[], TOMLDocument]): The function to call to build
-         the default document
-
-    Returns:
-        TOMLDocument: The loaded document
-    """
-    if path.exists():
-        return parse(path.read_text())
-    return default_builder()
-
-
-def _patch_document(doc: dict[str, Any], data: dict[str, Any]) -> None:
-    """
-    Apply values from `data` onto an existing TOMLDocument/Table in place,
-    recursing into nested dicts so only actually-changed leaf values are
-    touched.
-
-    Args:
-        doc (dict[str, Any]): The document/table to patch
-        data (dict[str, Any]): The data to apply
-    """
-    for key, value in data.items():
-        if isinstance(value, dict):
-            if key not in doc or not isinstance(doc[key], dict):
-                doc[key] = table()
-            _patch_document(doc[key], value)
-        else:
-            doc[key] = value
 
 
 class ConfigLoader:
@@ -99,15 +60,16 @@ class ConfigLoader:
         logger.info(f"Loading tasks from: {tasks_path}")
 
         try:
-            doc = parse(tasks_path.read_text())
+            with open(tasks_path, "rb") as f:
+                data = tomllib.load(f)
 
-            if not doc:
+            if not data:
                 logger.error(f"Tasks file is empty: {tasks_path}")
                 return TasksConfig(tasks={})
 
             tasks_dict = {}
 
-            for section_name, section_data in doc.items():
+            for section_name, section_data in data.items():
                 if isinstance(section_data, dict):
                     # Add the section name as the task name
                     task_data: dict[str, Any] = {**section_data, "name": section_name}
@@ -121,7 +83,7 @@ class ConfigLoader:
 
             return config
 
-        except ParseError as e:
+        except tomllib.TOMLDecodeError as e:
             logger.error("Invalid tasks.toml, cannot load tasks")
             logger.error(str(e))
             return TasksConfig(tasks={})
@@ -129,29 +91,6 @@ class ConfigLoader:
             logger.error("Invalid task configuration in tasks.toml")
             logger.error(str(e))
             return TasksConfig(tasks={})
-
-    def save_tasks(self, tasks_config: TasksConfig, tasks_file: Path | None = None) -> None:
-        """
-        Save task configurations to TOML file.
-
-        Patches each task's section in place against the existing document
-        (or the bundled config file, if this is the first save).
-
-        Args:
-            tasks_config: TasksConfig object to save
-            tasks_file: Path to tasks.toml
-        """
-        tasks_path = tasks_file or self.config_dir / "tasks.toml"
-        doc = _load_document(tasks_path, defaults.build_tasks_toml)
-
-        for task_name, task in tasks_config.tasks.items():
-            task_data: dict[str, Any] = task.model_dump(by_alias=True, exclude={"name"})
-            if task_name not in doc or not isinstance(doc[task_name], dict):
-                doc[task_name] = table()
-            _patch_document(doc[task_name], task_data)
-
-        logger.info(f"Saving tasks to: {tasks_path}")
-        tasks_path.write_text(dumps(doc))
 
     def load_ignored_services(
         self, services_file: Path | None = None
@@ -174,18 +113,19 @@ class ConfigLoader:
         logger.info(f"Loading ignored services from: {services_path}")
 
         try:
-            doc = parse(services_path.read_text())
-            if not doc:
+            with open(services_path, "rb") as f:
+                data = tomllib.load(f)
+            if not data:
                 logger.warning("Ignored services file is empty, ignoring no services")
                 return IgnoredServicesConfig(services=[])
 
             # Expected format: services = ["service1", "service2"]
-            config = IgnoredServicesConfig(**doc)
+            config = IgnoredServicesConfig(**data)
             logger.info(f"Loaded {len(config.services)} ignored services")
 
             return config
 
-        except ParseError as e:
+        except tomllib.TOMLDecodeError as e:
             logger.error("Invalid ignored-services.toml, ignoring no services")
             logger.error(str(e))
             return IgnoredServicesConfig(services=[])
@@ -195,24 +135,6 @@ class ConfigLoader:
             )
             logger.error(str(e))
             return IgnoredServicesConfig(services=[])
-
-    def save_ignored_services(
-        self, config: IgnoredServicesConfig, services_file: Path | None = None
-    ) -> None:
-        """
-        Save ignored services configuration to TOML file.
-
-        Args:
-            config: IgnoredServicesConfig object to save
-            services_file: Path to ignored-services.toml
-        """
-        services_path = services_file or self.config_dir / "ignored-services.toml"
-        doc = _load_document(services_path, defaults.build_ignored_services_toml)
-
-        _patch_document(doc, config.model_dump())
-
-        logger.info(f"Saving ignored services to: {services_path}")
-        services_path.write_text(dumps(doc))
 
     def load_settings(self, settings_file: Path | None = None) -> AppSettings:
         """
@@ -236,10 +158,11 @@ class ConfigLoader:
         logger.info(f"Loading settings from: {settings_path}")
 
         try:
-            doc = parse(settings_path.read_text())
+            with open(settings_path, "rb") as f:
+                data = tomllib.load(f)
 
             # Load default settings if the file is empty
-            if not doc:
+            if not data:
                 logger.warning("Settings file is empty, using defaults")
                 self._settings = self.load_default_settings()
                 return self._settings
@@ -253,17 +176,17 @@ class ConfigLoader:
                 "require_confirmation",
                 "dry_run",
             ]:
-                if key in doc:
-                    settings_data[key] = doc[key]
+                if key in data:
+                    settings_data[key] = data[key]
 
             # Load mirrorlist settings if present
-            if "mirrorlist" in doc:
-                settings_data["mirrorlist"] = MirrorlistSettings(**doc["mirrorlist"])
+            if "mirrorlist" in data:
+                settings_data["mirrorlist"] = MirrorlistSettings(**data["mirrorlist"])
 
             # Load maintenance check settings if present
-            if "maintenance_check" in doc:
+            if "maintenance_check" in data:
                 settings_data["maintenance_check"] = MaintenanceCheckSettings(
-                    **doc["maintenance_check"]
+                    **data["maintenance_check"]
                 )
 
             settings = AppSettings(**settings_data)
@@ -271,7 +194,7 @@ class ConfigLoader:
             settings.ensure_directories()
 
         # Load default settings if the file is invalid
-        except ParseError as e:
+        except tomllib.TOMLDecodeError as e:
             logger.error("Invalid settings.toml")
             logger.error(str(e))
             logger.warning("Using default settings")
@@ -307,16 +230,17 @@ class ConfigLoader:
         """
         settings_path = settings_file or self.config_dir / "settings.toml"
 
-        # Convert to dict and handle Path objects
-        data: dict[str, Any] = settings.model_dump(
-            exclude={"user"}, exclude_computed_fields=True
-        )
+        # Exclude computed fields from AppSettings during serialization as they're
+        # dynamically computed at runtime and should not be saved.
+        exclude = {"home_dir", "log_dir", "state_file", "report_dir", "config_dir"}
 
-        doc = _load_document(settings_path, defaults.build_settings_toml)
-        _patch_document(doc, data)
+        # Convert to dict and handle Path objects
+        data = settings.model_dump(exclude=exclude)
+
         logger.info(f"Saving settings to: {settings_path}")
 
-        settings_path.write_text(dumps(doc))
+        with open(settings_path, "wb") as f:
+            tomli_w.dump(data, f)
 
     def load_state(self, state_file: Path | None = None) -> AppState:
         """
@@ -392,24 +316,22 @@ def create_default_config_files(
     """
 
     config_dir.mkdir(parents=True, exist_ok=True)
-
-    builders: dict[str, Callable[[], TOMLDocument]] = {
-        "settings.toml": defaults.build_settings_toml,
-        "tasks.toml": defaults.build_tasks_toml,
-        "ignored-services.toml": defaults.build_ignored_services_toml,
-    }
+    default_config_dir = Path(__file__).parent
 
     created: list[Path] = []
     skipped: list[Path] = []
 
-    for filename, build in builders.items():
+    for filename in ("tasks.toml", "ignored-services.toml", "settings.toml"):
         target_path = config_dir / filename
 
         if target_path.exists() and not force:
             skipped.append(target_path)
             continue
 
-        target_path.write_text(dumps(build()))
+        with open(default_config_dir / filename, "rb") as f:
+            data = tomllib.load(f)
+
+        target_path.write_text(tomli_w.dumps(data))
         created.append(target_path)
 
     return created, skipped
