@@ -160,38 +160,6 @@ class IgnoredServicesConfig(BaseModel):
         return service_name in self.services
 
 
-class CacheCleanupMapping(BaseModel):
-    """Configuration for cache cleanup mappings."""
-
-    path: str = Field(..., description="Cache directory path (supports ~)")
-    max_age_days: int | None = Field(
-        None,
-        ge=0,
-        description="Delete files older than this many days (None = don't delete by age)",
-    )
-    max_size_mb: int | None = Field(
-        None, ge=0, description="Keep only this much data in MB (None = no size limit)"
-    )
-    pattern: str | None = Field(
-        None, description="Glob pattern for files to clean (None = all files)"
-    )
-
-    @field_validator("path")
-    @classmethod
-    def expand_path(cls, v: str) -> str:
-        """Expand ~ and environment variables in path."""
-        return str(Path(v).expanduser())
-
-
-class CacheCleanupConfig(BaseModel):
-    """Configuration for cache cleanup operations."""
-
-    mappings: list[CacheCleanupMapping] = Field(
-        default_factory=list,
-        description="List of cache directories and their cleanup rules",
-    )
-
-
 class MirrorlistSettings(BaseModel):
     """Settings for mirrorlist update task."""
 

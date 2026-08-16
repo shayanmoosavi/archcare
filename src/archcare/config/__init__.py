@@ -9,8 +9,6 @@ from .logging import setup_logging, setup_task_logging
 from .models import (
     AppSettings,
     AppState,
-    CacheCleanupConfig,
-    CacheCleanupMapping,
     IgnoredServicesConfig,
     LogLevel,
     SkipReason,
@@ -33,8 +31,6 @@ __all__ = [
     "TaskType",
     "LogLevel",
     "IgnoredServicesConfig",
-    "CacheCleanupConfig",
-    "CacheCleanupMapping",
     # Loader
     "ConfigLoader",
     "create_default_config_files",
