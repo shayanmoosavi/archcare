@@ -160,16 +160,12 @@ class TestIsInteractive:
 
 
 class TestSettingsProperty:
-    def test_loads_settings_via_loader(
-        self, mock_config_loader: MagicMock, context: AppContext
-    ):
+    def test_loads_settings_via_loader(self, mock_config_loader: MagicMock, context: AppContext):
         mock_config_loader.load_settings.return_value = "SETTINGS"
 
         assert context.settings == "SETTINGS"
 
-    def test_caches_after_first_access(
-        self, mock_config_loader: MagicMock, context: AppContext
-    ):
+    def test_caches_after_first_access(self, mock_config_loader: MagicMock, context: AppContext):
         # Access settings twice
         first = context.settings
         second = context.settings
@@ -214,9 +210,7 @@ class TestExecutorProperty:
         interaction = kwargs["interaction"]
         assert isinstance(interaction, CliInteraction)
 
-    def test_builds_with_default_task_registry(
-        self, mock_executor: MagicMock, context: AppContext
-    ):
+    def test_builds_with_default_task_registry(self, mock_executor: MagicMock, context: AppContext):
         _ = context.executor
 
         _, kwargs = mock_executor.call_args
@@ -283,9 +277,7 @@ class TestSetupLogging:
         self, mocker, mock_setup_logging: MagicMock, context: AppContext
     ):
         # Instantiate an AppSetting with different settings
-        settings = AppSettings(
-            user=context.user_ctx.archcare_user, log_level=LogLevel.DEBUG
-        )
+        settings = AppSettings(user=context.user_ctx.archcare_user, log_level=LogLevel.DEBUG)
         mocker.patch.object(AppContext, "settings", new=settings)
 
         context.setup_logging()
@@ -294,9 +286,7 @@ class TestSetupLogging:
         assert mock_setup_logging.call_count == 2
         mock_setup_logging.assert_called_with(settings, reconfigure=True, devel_mode=False)
 
-    def test_defaults_to_self_user_when_no_user_param(
-        self, mock_config_loader_class: MagicMock
-    ):
+    def test_defaults_to_self_user_when_no_user_param(self, mock_config_loader_class: MagicMock):
         ctx = _context(devel=True, user_ctx=UserContext(archcare_user="bob"))
         ctx.setup_logging()
 
@@ -348,9 +338,7 @@ class TestExecutorForUser:
         assert result is mock_executor.return_value
 
     @pytest.mark.usefixtures("per_user_home_dir")
-    def test_raises_when_target_users_config_missing(
-        self, monkeypatch, context: AppContext
-    ):
+    def test_raises_when_target_users_config_missing(self, monkeypatch, context: AppContext):
         monkeypatch.setenv("SUDO_USER", "alice")
         # alice's config dir is deliberately never created.
 

@@ -89,16 +89,12 @@ class HealthCheckFormatter:
             ),
             ("CPU Usage", summary.cpu_usage_percent, [(90, "yellow")]),
         ]:
-            color = next(
-                (color for threshold, color in thresholds if pct > threshold), "green"
-            )
+            color = next((color for threshold, color in thresholds if pct > threshold), "green")
             lines.append(f"  {usage}: [{color}]{pct:.1f}%[/{color}]")
 
         # Filesystem errors
         if summary.filesystem_errors_count > 0:
-            lines.append(
-                f"  Filesystem Errors: [red]{summary.filesystem_errors_count}[/red]"
-            )
+            lines.append(f"  Filesystem Errors: [red]{summary.filesystem_errors_count}[/red]")
 
         # Pacman and package status
         for label, healthy in [

@@ -30,9 +30,7 @@ _PATCH_WARNING = f"{_MODULE}.print_warning"
 # ---------------------------------------------------------------------------
 
 
-def _make_outcome[TDetails](
-    is_skipped: bool = False, details: TDetails | None = None
-) -> Mock:
+def _make_outcome[TDetails](is_skipped: bool = False, details: TDetails | None = None) -> Mock:
     """A minimal TaskResult stand-in exposing only what TaskPresenter reads."""
     outcome = MagicMock(spec=TaskResult)
     outcome.is_skipped.return_value = is_skipped
@@ -173,9 +171,7 @@ class TestRenderRun:
         presenter: TaskPresenter,
         mock_info: MagicMock,
     ):
-        settings_both = AppSettings(
-            maintenance_check=MaintenanceCheckSettings(output_mode="both")
-        )
+        settings_both = AppSettings(maintenance_check=MaintenanceCheckSettings(output_mode="both"))
         presenter.render_run(
             TaskRunResponse(
                 task_name="maintenance-check",
@@ -240,9 +236,7 @@ class TestRenderRun:
     ):
 
         outcome = _make_outcome(details=None)
-        response = TaskRunResponse(
-            task_name="mock-task", outcome=outcome, is_interactive=True
-        )
+        response = TaskRunResponse(task_name="mock-task", outcome=outcome, is_interactive=True)
         presenter.render_run(response, settings_terminal_mode, verbose=verbose)
 
         mock_format_details.assert_called_once_with("mock-task", outcome, verbose)
@@ -382,9 +376,7 @@ class TestRenderList:
         description without any test noticing.
         """
 
-        response = TaskListResponse(
-            tasks={automated_task.name: automated_task}, filtered_by=None
-        )
+        response = TaskListResponse(tasks={automated_task.name: automated_task}, filtered_by=None)
         presenter.render_list(response)
 
         assert mock_console.print.call_count == 3
@@ -418,17 +410,13 @@ class TestConvenienceMethods:
 
         assert mock_info.call_count == 2
 
-    def test_invalid_task_type_message(
-        self, mock_error: MagicMock, presenter: TaskPresenter
-    ):
+    def test_invalid_task_type_message(self, mock_error: MagicMock, presenter: TaskPresenter):
         presenter.invalid_task_type()
 
         assert "automated" in mock_error.call_args.args[0]
         assert "manual" in mock_error.call_args.args[0]
 
-    def test_error_passes_through_message(
-        self, mock_error: MagicMock, presenter: TaskPresenter
-    ):
+    def test_error_passes_through_message(self, mock_error: MagicMock, presenter: TaskPresenter):
         presenter.error("boom")
 
         mock_error.assert_called_once_with("boom")
@@ -471,9 +459,7 @@ class TestGetStatusText:
 
 class TestFormatTaskDetails:
     def test_includes_status_message_and_duration(self, presenter: TaskPresenter):
-        result = _make_result(
-            status=TaskStatus.SUCCESS, message="all good", duration_seconds=2.5
-        )
+        result = _make_result(status=TaskStatus.SUCCESS, message="all good", duration_seconds=2.5)
 
         output = presenter._format_task_details("mock-task", result, verbose=False)
 
@@ -519,9 +505,7 @@ class TestFormatTaskDetails:
     def test_delegates_to_task_registry_when_verbose_with_details(
         self, presenter: TaskPresenter, fake_task_registry: MagicMock
     ):
-        mock_formatter_class: MagicMock = (
-            fake_task_registry.get_formatter_class.return_value
-        )
+        mock_formatter_class: MagicMock = fake_task_registry.get_formatter_class.return_value
         mock_formatter = mock_formatter_class.return_value
         mock_formatter.format.return_value = ["  cpu: 12%", "  mem: 34%"]
         details = MagicMock()

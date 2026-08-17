@@ -141,9 +141,7 @@ def _add_tasks(doc: TOMLDocument, tasks: tuple[TaskConfig, ...]) -> None:
 
 
 def build_settings_toml() -> TOMLDocument:
-    data: dict[str, Any] = AppSettings().model_dump(
-        exclude={"user"}, exclude_computed_fields=True
-    )
+    data: dict[str, Any] = AppSettings().model_dump(exclude={"user"}, exclude_computed_fields=True)
     doc = document()
 
     doc.add(comment("Global Settings"))

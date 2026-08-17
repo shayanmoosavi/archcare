@@ -108,9 +108,7 @@ class TestReportProgress:
         self, automated_task: TaskConfig, app_settings: AppSettings
     ):
         mock_progress = MagicMock(spec=TaskProgress)
-        task = DummyTask(
-            automated_task, app_settings, TaskContext(), progress=mock_progress
-        )
+        task = DummyTask(automated_task, app_settings, TaskContext(), progress=mock_progress)
         step = TaskStep(name="Disk space", status=TaskStatus.SUCCESS)
 
         task.report_progress(step)
@@ -134,9 +132,7 @@ class TestProgressLifecycle:
         self, automated_task: TaskConfig, app_settings: AppSettings
     ):
         mock_progress = MagicMock(spec=TaskProgress)
-        task = DummyTask(
-            automated_task, app_settings, TaskContext(), progress=mock_progress
-        )
+        task = DummyTask(automated_task, app_settings, TaskContext(), progress=mock_progress)
 
         task.run()
 
@@ -178,9 +174,7 @@ class TestProgressLifecycle:
 
 
 class TestRunWorkflow:
-    def test_successful_execution_path(
-        self, automated_task: TaskConfig, app_settings: AppSettings
-    ):
+    def test_successful_execution_path(self, automated_task: TaskConfig, app_settings: AppSettings):
         """
         Test the happy path: pre_check passes, execute succeeds, no rollback.
         """
@@ -257,9 +251,7 @@ class TestRunWorkflow:
         assert result.skip_reason is None
         assert "Not due yet" in result.message
 
-    @pytest.mark.parametrize(
-        "execute_result_status", [TaskStatus.FAILURE, TaskStatus.PARTIAL]
-    )
+    @pytest.mark.parametrize("execute_result_status", [TaskStatus.FAILURE, TaskStatus.PARTIAL])
     def test_not_success_execute_status_flows_through(
         self,
         automated_task: TaskConfig,
@@ -353,9 +345,7 @@ class TestCreateResult:
     sequence.
     """
 
-    def test_duration_seconds_reflects_elapsed_time(
-        self, automated_task, app_settings, mocker
-    ):
+    def test_duration_seconds_reflects_elapsed_time(self, automated_task, app_settings, mocker):
         mocker.patch("archcare.tasks.base.time.time", side_effect=[1000.0, 1000.5])
         context = TaskContext()
         task = DummyTask(automated_task, app_settings, context)

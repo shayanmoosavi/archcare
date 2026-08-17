@@ -45,9 +45,7 @@ def check_package_files() -> tuple[bool, str]:
         return False, f"Package file check failed: {result.stderr}"
 
     # Healthy installed package should have all the required files
-    missing_files = [
-        line for line in result.stdout.splitlines() if "0 missing files" not in line
-    ]
+    missing_files = [line for line in result.stdout.splitlines() if "0 missing files" not in line]
 
     if missing_files:
         return False, "Missing files found:\n" + "\n".join(missing_files)

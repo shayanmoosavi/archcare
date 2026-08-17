@@ -124,9 +124,7 @@ class SetupPresenter:
     @staticmethod
     def dry_run_notice() -> None:
         console.print()
-        print_success(
-            "Dry run complete - no changes were made. Remove --dry-run to apply changes."
-        )
+        print_success("Dry run complete - no changes were made. Remove --dry-run to apply changes.")
 
     # -- shared errors ------------------------------------------------------
 

@@ -250,9 +250,7 @@ class TestMirrorlistUpdateProgressReporting:
         assert result.exit_code == 0
         mock_progress.return_value.spinner.assert_called_once()
 
-    def test_spinner_still_used_when_reflector_fails(
-        self, sandbox: Path, mocker, mock_progress
-    ):
+    def test_spinner_still_used_when_reflector_fails(self, sandbox: Path, mocker, mock_progress):
         """Spinner must wrap the call itself, not just the success path -
         it needs to close cleanly even when reflector reports failure."""
 
@@ -274,9 +272,7 @@ class TestMirrorlistUpdateProgressReporting:
         assert result.exit_code == 1
         mock_progress.return_value.spinner.assert_called_once()
 
-    def test_spinner_not_used_when_precheck_fails(
-        self, sandbox: Path, mocker, mock_progress
-    ):
+    def test_spinner_not_used_when_precheck_fails(self, sandbox: Path, mocker, mock_progress):
         """pre_check() rejects before execute() ever runs - the reflector
         call, and therefore the surrounding spinner, should never happen."""
         mocker.patch(f"{_MODULE}.check_command_exists", return_value=False)

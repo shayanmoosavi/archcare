@@ -291,9 +291,7 @@ class TestCreateTask:
     ):
         interaction = RecordingInteraction()
         mock_progress = MagicMock(spec=TaskProgress)
-        executor = _make_executor(
-            tasks_config, fresh_state, interaction, progress=mock_progress
-        )
+        executor = _make_executor(tasks_config, fresh_state, interaction, progress=mock_progress)
 
         task_config = tasks_config.get_task(automated_task.name)
         task = executor._create_task(task_config)
@@ -579,9 +577,7 @@ class TestUpdateState:
         automated_task: TaskConfig,
     ):
         """NOT_DUE skip must not overwrite the previously calculated next_due."""
-        original_next_due = state_with_recent_run.get_task_state(
-            automated_task.name
-        ).next_due
+        original_next_due = state_with_recent_run.get_task_state(automated_task.name).next_due
 
         interaction = RecordingInteraction(confirm_response=False)
         executor = _make_executor(tasks_config, state_with_recent_run, interaction)
@@ -621,6 +617,4 @@ class TestUpdateState:
         executor.execute_task(automated_task.name)
 
         state_file = executor.settings.state_file
-        mock_user_context.chown_if_root.assert_called_once_with(
-            state_file, state_file.parent
-        )
+        mock_user_context.chown_if_root.assert_called_once_with(state_file, state_file.parent)

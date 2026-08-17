@@ -82,9 +82,7 @@ def print_header(title: str) -> None:
 # -----------------------------------------------------------------------------
 
 
-def print_panel(
-    title: str, content: str | RenderableType, border_style: str = "cyan"
-) -> None:
+def print_panel(title: str, content: str | RenderableType, border_style: str = "cyan") -> None:
     """
     Print a bordered panel.
 

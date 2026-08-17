@@ -132,17 +132,13 @@ class TestHealthCheckFormatter:
         assert "Critical Issues:" not in output
 
     def test_lists_critical_issues(self):
-        output = _joined(
-            HealthCheckFormatter().format(HealthCheckDetails(issues=["disk failing"]))
-        )
+        output = _joined(HealthCheckFormatter().format(HealthCheckDetails(issues=["disk failing"])))
 
         assert "Critical Issues:" in output
         assert "disk failing" in output
 
     def test_lists_warnings(self):
-        output = _joined(
-            HealthCheckFormatter().format(HealthCheckDetails(warnings=["low memory"]))
-        )
+        output = _joined(HealthCheckFormatter().format(HealthCheckDetails(warnings=["low memory"])))
 
         assert "Warnings:" in output
         assert "low memory" in output
@@ -169,9 +165,7 @@ class TestHealthCheckFormatter:
         summary = {key: pct}
 
         output = _joined(
-            HealthCheckFormatter().format(
-                HealthCheckDetails(summary=HealthCheckSummary(**summary))
-            )
+            HealthCheckFormatter().format(HealthCheckDetails(summary=HealthCheckSummary(**summary)))
         )
 
         assert f"[{expected_color}]{pct:.1f}%[/{expected_color}]" in output
@@ -335,9 +329,7 @@ class TestMirrorlistUpdateFormatter:
         assert "Backup:" not in output
 
     def test_shows_previous_update_when_last_modified_present(self):
-        details = MirrorlistUpdateDetails(
-            old_info=MirrorlistInfo(last_modified="2026-01-01")
-        )
+        details = MirrorlistUpdateDetails(old_info=MirrorlistInfo(last_modified="2026-01-01"))
 
         output = _joined(MirrorlistUpdateFormatter().format(details))
 

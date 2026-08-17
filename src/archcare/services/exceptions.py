@@ -27,9 +27,7 @@ class InvalidTaskTypeError(ArchcareServiceError):
 
     def __init__(self, task_type: str) -> None:
         self.task_type = task_type
-        super().__init__(
-            f"Invalid task type: {repr(task_type)} (expected 'automated' or 'manual')"
-        )
+        super().__init__(f"Invalid task type: {repr(task_type)} (expected 'automated' or 'manual')")
 
 
 class NotRootError(ArchcareServiceError):

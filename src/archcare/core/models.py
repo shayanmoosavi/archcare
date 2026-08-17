@@ -426,9 +426,7 @@ class MaintenanceIssue:
         return self.days_overdue is not None and self.days_overdue > 0
 
 
-def success[TDetails](
-    message: str, details: TDetails | None = None
-) -> TaskResult[TDetails]:
+def success[TDetails](message: str, details: TDetails | None = None) -> TaskResult[TDetails]:
     """
     Create a success result.
 
@@ -638,9 +636,7 @@ def skipped[TDetails](
     )
 
 
-def partial[TDetails](
-    message: str, details: TDetails | None = None
-) -> TaskResult[TDetails]:
+def partial[TDetails](message: str, details: TDetails | None = None) -> TaskResult[TDetails]:
     """
     Create a partial result.
 

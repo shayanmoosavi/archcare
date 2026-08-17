@@ -36,9 +36,7 @@ def resolve_systemd_target_user() -> tuple[str, str]:
     # sudo sets SUDO_USER to the invoking user's name
     user = getenv("SUDO_USER")
     if not user:
-        raise UserDetectionError(
-            "Could not determine the user. Make sure to run with sudo."
-        )
+        raise UserDetectionError("Could not determine the user. Make sure to run with sudo.")
 
     try:
         home_dir = pwd.getpwnam(user).pw_dir
@@ -86,9 +84,7 @@ class TimerService:
         self.home_dir = home_dir
         self.service_file = self.SYSTEMD_DIR / "archcare@.service"
         self.timer_file = self.SYSTEMD_DIR / "archcare@.timer"
-        self._service_content, self._timer_content = _generate_systemd_templates(
-            home_dir, user
-        )
+        self._service_content, self._timer_content = _generate_systemd_templates(home_dir, user)
 
     def get_automated_tasks(self) -> dict[str, TaskConfig]:
         tasks_config = self._executor.config_loader.load_tasks()

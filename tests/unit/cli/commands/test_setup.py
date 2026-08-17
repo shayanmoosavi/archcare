@@ -101,9 +101,7 @@ class TestSetupConfig:
 
 
 class TestSetupTimersUserResolution:
-    def test_not_root_error_shows_not_root_and_exits_1(
-        self, mocker, mock_presenter: MagicMock
-    ):
+    def test_not_root_error_shows_not_root_and_exits_1(self, mocker, mock_presenter: MagicMock):
         mocker.patch(_PATCH_RESOLVE_USER, side_effect=NotRootError())
         ctx = _make_ctx()
 
@@ -144,9 +142,7 @@ class TestSetupTimersMainFlow:
         )
 
     @pytest.mark.usefixtures("mock_presenter")
-    def test_executor_built_for_resolved_user_not_ctx_own_user(
-        self, mock_timer_service: MagicMock
-    ):
+    def test_executor_built_for_resolved_user_not_ctx_own_user(self, mock_timer_service: MagicMock):
         """
         Confirms the comment in setup.py: executor_for_user(user) uses the
         resolved SUDO_USER target, not ctx.obj's own user.
@@ -174,9 +170,7 @@ class TestSetupTimersMainFlow:
     def test_automated_tasks_present_calls_setup_timers_and_renders(
         self, mock_presenter: MagicMock, mock_timer_service: MagicMock
     ):
-        mock_timer_service.get_automated_tasks.return_value = {
-            "update-mirrorlist": object()
-        }
+        mock_timer_service.get_automated_tasks.return_value = {"update-mirrorlist": object()}
         mock_timer_service.setup_timers.return_value = "SETUP_RESPONSE_SENTINEL"
         ctx = _make_ctx()
 

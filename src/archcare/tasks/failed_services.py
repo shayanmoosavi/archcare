@@ -60,9 +60,7 @@ class FailedServicesTask(BaseTask):
         ignored_config = config_loader.load_ignored_services()
 
         # Filter out ignored services
-        actual_failures = [
-            svc for svc in failed_services if not ignored_config.is_ignored(svc)
-        ]
+        actual_failures = [svc for svc in failed_services if not ignored_config.is_ignored(svc)]
 
         if not actual_failures:
             return False, "No failed services found", SkipReason.NO_WORK_NEEDED
@@ -90,18 +88,13 @@ class FailedServicesTask(BaseTask):
         ignored_config = config_loader.load_ignored_services()
 
         # Filter out ignored services
-        actual_failures = [
-            svc for svc in failed_services if not ignored_config.is_ignored(svc)
-        ]
+        actual_failures = [svc for svc in failed_services if not ignored_config.is_ignored(svc)]
 
-        ignored_failures = [
-            svc for svc in failed_services if ignored_config.is_ignored(svc)
-        ]
+        ignored_failures = [svc for svc in failed_services if ignored_config.is_ignored(svc)]
 
         if ignored_failures:
             logger.info(
-                f"Ignored {len(ignored_failures)} known failures: "
-                f"{', '.join(ignored_failures)}"
+                f"Ignored {len(ignored_failures)} known failures: {', '.join(ignored_failures)}"
             )
 
         # If no actual failures after filtering, this is a success

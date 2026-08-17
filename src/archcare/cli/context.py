@@ -27,12 +27,8 @@ DEFAULT_TASK_REGISTRY = TaskRegistry(
     (
         TaskDescriptor("failed-services", FailedServicesTask, FailedServicesFormatter),
         TaskDescriptor("health-check", HealthCheckTask, HealthCheckFormatter),
-        TaskDescriptor(
-            "mirrorlist-update", MirrorlistUpdateTask, MirrorlistUpdateFormatter
-        ),
-        TaskDescriptor(
-            "maintenance-check", MaintenanceCheckTask, MaintenanceCheckFormatter
-        ),
+        TaskDescriptor("mirrorlist-update", MirrorlistUpdateTask, MirrorlistUpdateFormatter),
+        TaskDescriptor("maintenance-check", MaintenanceCheckTask, MaintenanceCheckFormatter),
     )
 )
 

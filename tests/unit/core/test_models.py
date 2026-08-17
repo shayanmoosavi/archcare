@@ -21,9 +21,7 @@ from archcare.core import (
 
 
 def _issue(name: str, severity: IssueSeverity) -> MaintenanceIssue:
-    return MaintenanceIssue(
-        task_name=name, severity=severity, description="d", recommendation="r"
-    )
+    return MaintenanceIssue(task_name=name, severity=severity, description="d", recommendation="r")
 
 
 @dataclass(frozen=True)

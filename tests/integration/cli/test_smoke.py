@@ -149,9 +149,7 @@ class TestTaskStatus:
     def test_generic_exception_fails_cleanly(self, mocker):
         runner.invoke(app, ["setup", "config"])
 
-        mocker.patch.object(
-            TaskService, "get_task_status", side_effect=OSError("Disk failed")
-        )
+        mocker.patch.object(TaskService, "get_task_status", side_effect=OSError("Disk failed"))
 
         result = runner.invoke(app, ["task", "status"])
 

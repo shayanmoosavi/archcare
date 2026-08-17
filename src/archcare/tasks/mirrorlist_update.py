@@ -45,9 +45,7 @@ class MirrorlistUpdateTask(BaseTask):
         """
         # Check if reflector is installed
         if not check_command_exists("reflector"):
-            return False, (
-                "reflector is not installed. Install with: sudo pacman -S reflector"
-            )
+            return False, ("reflector is not installed. Install with: sudo pacman -S reflector")
 
         # Check if mirrorlist file exists
         if not self.mirrorlist_path.exists():

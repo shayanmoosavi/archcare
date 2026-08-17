@@ -113,8 +113,7 @@ class MaintenanceCheckTask(BaseTask):
         elif self._info_issues:
             status = TaskStatus.SUCCESS
             logger.success(
-                f"{len(self._info_issues)} info issues found. "
-                "No immediate attention required"
+                f"{len(self._info_issues)} info issues found. No immediate attention required"
             )
         else:
             status = TaskStatus.SUCCESS
@@ -146,9 +145,7 @@ class MaintenanceCheckTask(BaseTask):
                 case IssueSeverity.INFO:
                     self._info_issues.append(issue)
 
-    def _check_task(
-        self, task_name: str, task_config: TaskConfig
-    ) -> list[MaintenanceIssue]:
+    def _check_task(self, task_name: str, task_config: TaskConfig) -> list[MaintenanceIssue]:
         """
         Check a single task for issues.
 
@@ -444,9 +441,7 @@ class MaintenanceCheckTask(BaseTask):
                 severity = IssueSeverity.INFO
             else:
                 # This should never happen
-                raise ValueError(
-                    "details cannot have issues and empty issues at the same time"
-                )
+                raise ValueError("details cannot have issues and empty issues at the same time")
 
             should_notify = severity_map.get(str(severity), -1) >= severity_map.get(
                 notification_level, -1
@@ -496,8 +491,7 @@ class MaintenanceCheckTask(BaseTask):
             lines.append("Tasks needing attention:")
             for maintenance_issue in tasks_needing_attention:
                 lines.append(
-                    f"  - {maintenance_issue.task_name} "
-                    f"({str(maintenance_issue.severity).upper()})"
+                    f"  - {maintenance_issue.task_name} ({str(maintenance_issue.severity).upper()})"
                 )
             lines.append("\n")
 
@@ -507,9 +501,7 @@ class MaintenanceCheckTask(BaseTask):
         else:
             # Add issues by severity
             if details.critical_issues:
-                self._add_issues_section(
-                    lines, "🟥 CRITICAL ISSUES", details.critical_issues
-                )
+                self._add_issues_section(lines, "🟥 CRITICAL ISSUES", details.critical_issues)
 
             if details.warning_issues:
                 self._add_issues_section(lines, "🟨 WARNING ISSUES", details.warning_issues)

@@ -56,15 +56,11 @@ class TaskPresenter:
                 if mc_settings.output_mode == "both":
                     print_info(f"You can also find the report in {report_dir}")
             else:
-                print_info(
-                    f"Output mode was set to 'file', check the report in {report_dir}"
-                )
+                print_info(f"Output mode was set to 'file', check the report in {report_dir}")
         console.print()
 
         # Render the task panel
-        panel_content = self._format_task_details(
-            response.task_name, response.outcome, verbose
-        )
+        panel_content = self._format_task_details(response.task_name, response.outcome, verbose)
         print_panel(
             title=f"Task Result: {response.task_name}",
             content=panel_content,
@@ -110,9 +106,7 @@ class TaskPresenter:
                     f"[green]{info.reason}[/green]",
                 )
 
-            last_run = (
-                info.last_run.strftime("%Y-%m-%d") if info.last_run else "[dim]Never[/dim]"
-            )
+            last_run = info.last_run.strftime("%Y-%m-%d") if info.last_run else "[dim]Never[/dim]"
             rows.append([status, info.task_name, last_run, due_text])
 
         # Pass standard data to the generic UI primitive
@@ -180,9 +174,7 @@ class TaskPresenter:
             case _:  # SKIPPED
                 return "[blue]⤳ SKIPPED[/blue]"
 
-    def _format_task_details(
-        self, task_name: str, result: TaskResult, verbose: bool
-    ) -> str:
+    def _format_task_details(self, task_name: str, result: TaskResult, verbose: bool) -> str:
         """Builds the string for the panel using the Formatter Factory."""
 
         # Build the universal outer shell

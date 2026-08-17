@@ -14,9 +14,7 @@ logs_app = typer.Typer()
 def logs(
     ctx: typer.Context,
     task_name: Annotated[str | None, typer.Argument(help="Task to show logs for")] = None,
-    lines: Annotated[
-        int, typer.Option("--lines", "-n", help="Number of lines to show")
-    ] = 50,
+    lines: Annotated[int, typer.Option("--lines", "-n", help="Number of lines to show")] = 50,
 ):
     """
     Show logs for Archcare or a specific task.

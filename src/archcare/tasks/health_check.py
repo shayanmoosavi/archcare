@@ -78,9 +78,7 @@ class HealthCheckTask(BaseTask):
         # Pausing the progress rendering so sudo prompt can be displayed correctly
         with self.progress.pause():
             packages_ok = self._check_installed_package_files(issues)
-        self.report_progress(
-            TaskStep(name="Package file integrity", status=TaskStatus.SUCCESS)
-        )
+        self.report_progress(TaskStep(name="Package file integrity", status=TaskStatus.SUCCESS))
 
         uptime = self._check_system_uptime()
         self.report_progress(TaskStep(name="System uptime", status=TaskStatus.SUCCESS))
@@ -204,13 +202,11 @@ class HealthCheckTask(BaseTask):
 
         if mem_percent > 90:
             issues.append(
-                f"Memory usage at {mem_percent}% "
-                f"({format_bytes(memory.available)} available)"
+                f"Memory usage at {mem_percent}% ({format_bytes(memory.available)} available)"
             )
         elif mem_percent > 80:
             warnings.append(
-                f"Memory usage at {mem_percent}% "
-                f"({format_bytes(memory.available)} available)"
+                f"Memory usage at {mem_percent}% ({format_bytes(memory.available)} available)"
             )
 
         if swap_percent > 50:
@@ -227,9 +223,7 @@ class HealthCheckTask(BaseTask):
         if disk_percent > 90:
             issues.append(f"Disk usage at {disk_percent}% ({format_bytes(disk.free)} free)")
         elif disk_percent > 80:
-            warnings.append(
-                f"Disk usage at {disk_percent}% ({format_bytes(disk.free)} free)"
-            )
+            warnings.append(f"Disk usage at {disk_percent}% ({format_bytes(disk.free)} free)")
         else:
             logger.debug(f"Disk usage: {disk_percent}% ({format_bytes(disk.free)} free)")
 

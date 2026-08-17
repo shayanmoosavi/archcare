@@ -57,9 +57,7 @@ class TestSeverityValidation:
 
 class TestNotificationAvailability:
     def test_raises_when_notify_send_unavailable(self, service: DebugService, mocker):
-        mocker.patch.object(
-            service.notification_manager, "is_available", return_value=False
-        )
+        mocker.patch.object(service.notification_manager, "is_available", return_value=False)
         with pytest.raises(NotificationUnavailableError):
             service.test_notification("warning")
 

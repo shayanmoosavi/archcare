@@ -184,18 +184,14 @@ class TestHealthCheckTask:
         assert "1 filesystem error(s) detected" in result.output
         assert '"last_status": "failure"' in _state_json(archcare_home)
 
-    def test_pacman_and_package_issues_escalate_to_critical(
-        self, mocker, archcare_home: Path
-    ):
+    def test_pacman_and_package_issues_escalate_to_critical(self, mocker, archcare_home: Path):
         """Verify package manager degradation is caught as a critical issue."""
 
         def _route(command, **_):
             if command[:2] == ["pacman", "-Dk"]:
                 return _cmd_result("error: could not open database\n", success=False)
             if command[:2] == ["pacman", "-Qk"]:
-                return _cmd_result(
-                    "linux: 1000 total files, 5 missing files\n", success=False
-                )
+                return _cmd_result("linux: 1000 total files, 5 missing files\n", success=False)
             return _cmd_result("")
 
         mocker.patch(f"{_PACMAN_MODULE}.run_command", side_effect=_route)

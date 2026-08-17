@@ -248,9 +248,7 @@ def get_systemd_failed_services() -> list[str]:
     Returns:
         List of service names that are in failed state
     """
-    result = run_systemctl(
-        ["list-units", "--state=failed", "--no-pager", "--plain", "--no-legend"]
-    )
+    result = run_systemctl(["list-units", "--state=failed", "--no-pager", "--plain", "--no-legend"])
 
     if not result.success:
         logger.warning("Failed to get systemd failed services")
@@ -338,9 +336,7 @@ def _get_service_description(service_name: str) -> str:
     Returns:
         Service description, or empty string if not found
     """
-    result = run_systemctl(
-        ["list-units", service_name, "--no-pager", "--plain", "--no-legend"]
-    )
+    result = run_systemctl(["list-units", service_name, "--no-pager", "--plain", "--no-legend"])
 
     if not result.success or not result.stdout:
         return ""

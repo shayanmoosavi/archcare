@@ -57,9 +57,7 @@ class TestChownIfRoot:
 
         mock_chown.assert_not_called()
 
-    def test_no_op_when_archcare_user_absent(
-        self, mocker, tmp_path: Path, mock_chown: MagicMock
-    ):
+    def test_no_op_when_archcare_user_absent(self, mocker, tmp_path: Path, mock_chown: MagicMock):
         mocker.patch(f"{_MODULE}.is_root", return_value=True)
 
         UserContext(archcare_user=None).chown_if_root(tmp_path / "file.txt")

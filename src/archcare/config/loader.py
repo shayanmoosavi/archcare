@@ -115,8 +115,7 @@ class ConfigLoader:
 
             config = TasksConfig(tasks=tasks_dict)
             logger.info(
-                f"Loaded {len(config.tasks)} tasks "
-                f"({len(config.get_enabled_tasks())} enabled)"
+                f"Loaded {len(config.tasks)} tasks ({len(config.get_enabled_tasks())} enabled)"
             )
 
             return config
@@ -153,9 +152,7 @@ class ConfigLoader:
         logger.info(f"Saving tasks to: {tasks_path}")
         tasks_path.write_text(dumps(doc))
 
-    def load_ignored_services(
-        self, services_file: Path | None = None
-    ) -> IgnoredServicesConfig:
+    def load_ignored_services(self, services_file: Path | None = None) -> IgnoredServicesConfig:
         """
         Load ignored services configuration.
 
@@ -190,9 +187,7 @@ class ConfigLoader:
             logger.error(str(e))
             return IgnoredServicesConfig(services=[])
         except ValidationError as e:
-            logger.error(
-                "Invalid service structure in ignored-services.toml, ignoring no services"
-            )
+            logger.error("Invalid service structure in ignored-services.toml, ignoring no services")
             logger.error(str(e))
             return IgnoredServicesConfig(services=[])
 
@@ -294,9 +289,7 @@ class ConfigLoader:
         settings.ensure_directories()
         return settings
 
-    def save_settings(
-        self, settings: AppSettings, settings_file: Path | None = None
-    ) -> None:
+    def save_settings(self, settings: AppSettings, settings_file: Path | None = None) -> None:
         """
         Save application settings to TOML file.
 
@@ -307,9 +300,7 @@ class ConfigLoader:
         settings_path = settings_file or self.config_dir / "settings.toml"
 
         # Convert to dict and handle Path objects
-        data: dict[str, Any] = settings.model_dump(
-            exclude={"user"}, exclude_computed_fields=True
-        )
+        data: dict[str, Any] = settings.model_dump(exclude={"user"}, exclude_computed_fields=True)
 
         doc = _load_document(settings_path, defaults.build_settings_toml)
         _patch_document(doc, data)

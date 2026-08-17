@@ -112,11 +112,7 @@ class TaskService:
 
             return TaskStatusResponse(schedule_info=[info])
 
-        schedule_info = (
-            scheduler.get_due_tasks() if due_only else scheduler.get_all_schedule_info()
-        )
+        schedule_info = scheduler.get_due_tasks() if due_only else scheduler.get_all_schedule_info()
         summary = scheduler.get_maintenance_summary()
 
-        return TaskStatusResponse(
-            schedule_info=schedule_info, summary=summary, due_only=due_only
-        )
+        return TaskStatusResponse(schedule_info=schedule_info, summary=summary, due_only=due_only)

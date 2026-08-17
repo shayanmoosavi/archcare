@@ -133,9 +133,7 @@ class TaskExecutor:
 
         is_systemd = not self.user_context.is_interactive
         if not force:
-            handle_disabled_result = self._handle_disabled_task(
-                task_name, task_config, is_systemd
-            )
+            handle_disabled_result = self._handle_disabled_task(task_name, task_config, is_systemd)
             if handle_disabled_result:
                 self._update_state(task_config, handle_disabled_result)
                 return handle_disabled_result
@@ -173,9 +171,7 @@ class TaskExecutor:
                 )
             else:
                 return (
-                    task.create_result(
-                        skipped("Cancelled by user", SkipReason.USER_CANCELLED)
-                    )
+                    task.create_result(skipped("Cancelled by user", SkipReason.USER_CANCELLED))
                     if not self._interaction.confirm("Run anyway?")
                     else None
                 )
@@ -252,9 +248,7 @@ class TaskExecutor:
 
         logger.debug(f"Updated state for {task_config.name}: next due {next_due}")
 
-    def _calculate_next_due(
-        self, result: TaskResult, task_config: TaskConfig
-    ) -> datetime | None:
+    def _calculate_next_due(self, result: TaskResult, task_config: TaskConfig) -> datetime | None:
         """Calculate the next due date based on the result and task configuration.
 
         Args:

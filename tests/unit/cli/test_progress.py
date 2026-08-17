@@ -123,14 +123,10 @@ class TestSpinner:
 
         with rich_progress.spinner("Running reflector..."):
             body_ran = True
-            mock_progress.add_task.assert_called_once_with(
-                "Running reflector...", total=None
-            )
+            mock_progress.add_task.assert_called_once_with("Running reflector...", total=None)
 
         assert body_ran
-        mock_progress.remove_task.assert_called_once_with(
-            mock_progress.add_task.return_value
-        )
+        mock_progress.remove_task.assert_called_once_with(mock_progress.add_task.return_value)
         mock_progress.stop.assert_called_once()
 
     def test_removes_task_and_stops_even_if_body_raises(self, rich_progress: RichProgress):

@@ -27,12 +27,8 @@ def _presenter(ctx: typer.Context) -> TaskPresenter:
 def run(
     ctx: typer.Context,
     task_name: Annotated[str, typer.Argument(help="Name of the task to run")],
-    force: Annotated[
-        bool, typer.Option("--force", "-f", help="Run even if not due")
-    ] = False,
-    verbose: Annotated[
-        bool, typer.Option("--verbose", "-v", help="Show detailed output")
-    ] = False,
+    force: Annotated[bool, typer.Option("--force", "-f", help="Run even if not due")] = False,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Show detailed output")] = False,
 ):
     """
     Run a specific maintenance task.
