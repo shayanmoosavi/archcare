@@ -147,7 +147,7 @@ def build_settings_toml() -> TOMLDocument:
     doc = document()
 
     doc.add(comment("Global Settings"))
-    for key in ("log_level", "log_retention_days", "require_confirmation", "dry_run"):
+    for key in ("log_level", "log_retention_days", "dry_run"):
         doc.add(key, data[key])
     doc.add(nl())
 

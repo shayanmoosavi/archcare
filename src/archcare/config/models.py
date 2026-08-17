@@ -266,12 +266,7 @@ class AppSettings(BaseModel):
     log_level: LogLevel = Field(default=LogLevel.INFO, description="Logging level")
 
     # Behavior
-    require_confirmation: bool = Field(
-        default=True, description="Require user confirmation for destructive operations"
-    )
-    dry_run: bool = Field(
-        default=False, description="Simulate operations without making changes"
-    )
+    dry_run: bool = Field(default=False, description="Simulate operations without making changes")
 
     # mirrorlist-specific settings
     # This corresponds to the [mirrorlist] section in the settings.toml file

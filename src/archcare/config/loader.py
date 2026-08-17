@@ -250,7 +250,6 @@ class ConfigLoader:
             for key in [
                 "log_level",
                 "log_retention_days",
-                "require_confirmation",
                 "dry_run",
             ]:
                 if key in doc:
