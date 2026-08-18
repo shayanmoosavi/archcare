@@ -155,7 +155,6 @@ enabled = true
 ```toml
 log_level = "INFO"
 log_retention_days = 30
-require_confirmation = true
 
 [mirrorlist]
 country = "Germany"
