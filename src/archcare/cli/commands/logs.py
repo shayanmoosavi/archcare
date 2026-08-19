@@ -10,7 +10,16 @@ from archcare.utils import print_error, print_header
 logs_app = typer.Typer()
 
 
-@logs_app.callback(invoke_without_command=True)
+@logs_app.callback(
+    invoke_without_command=True,
+    help="""
+Show logs for Archcare or a specific task.
+
+Example:
+    archcare logs                    # Main logs
+    archcare logs failed-services    # Task-specific logs
+""",
+)
 def logs(
     ctx: typer.Context,
     task_name: Annotated[str | None, typer.Argument(help="Task to show logs for")] = None,
@@ -18,10 +27,6 @@ def logs(
 ):
     """
     Show logs for Archcare or a specific task.
-
-    Example:
-        archcare logs                    # Main logs
-        archcare logs failed-services    # Task-specific logs
     """
     if ctx.invoked_subcommand is not None:
         return  # a subcommand was given, let it handle things

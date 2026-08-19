@@ -20,12 +20,17 @@ from archcare.services.exceptions import (
 setup_app = typer.Typer(help="One-time setup commands for bootstrapping Archcare.")
 
 
-@setup_app.command("config")
+@setup_app.command(
+    "config",
+    help="""
+Initialize archcare configuration files.
+
+This creates default configuration files if they don't exist.
+""",
+)
 def setup_config():
     """
     Initialize archcare configuration files.
-
-    This creates default configuration files if they don't exist.
     """
     service = ConfigService()
 
@@ -41,7 +46,21 @@ def setup_config():
     SetupPresenter.render_config_init(result)
 
 
-@setup_app.command("timers")
+@setup_app.command(
+    "timers",
+    help="""
+Set up systemd timers for automated task execution.
+
+This command:
+    - Creates systemd service and timer templates
+    - Installs them to /etc/systemd/system/
+    - Optionally enables specified timers
+
+Example:
+    archcare setup timers --dry-run
+    archcare setup timers
+""",
+)
 def setup_timers(
     ctx: typer.Context,
     enable: Annotated[
@@ -54,15 +73,6 @@ def setup_timers(
 ):
     """
     Set up systemd timers for automated task execution.
-
-    This command:
-    - Creates systemd service and timer templates
-    - Installs them to /etc/systemd/system/
-    - Optionally enables specified timers
-
-    Example:
-        archcare setup timers --dry-run
-        archcare setup timers
     """
     try:
         user, home_dir = resolve_systemd_target_user()

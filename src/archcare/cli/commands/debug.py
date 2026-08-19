@@ -16,7 +16,17 @@ from archcare.utils import print_error
 debug_app = typer.Typer(help="Debug commands for Archcare.")
 
 
-@debug_app.command()
+@debug_app.command(
+    help="""
+Test desktop notifications.
+
+Sends a test notification to verify the notification system is working.
+
+Example:
+    archcare debug test-notification
+    archcare debug test-notification --severity critical
+"""
+)
 def test_notification(
     ctx: typer.Context,
     severity: Annotated[
@@ -26,12 +36,6 @@ def test_notification(
 ):
     """
     Test desktop notifications.
-
-    Sends a test notification to verify the notification system is working.
-
-    Example:
-        archcare debug test-notification
-        archcare debug test-notification --severity critical
     """
     ctx.obj.setup_logging()
     DebugPresenter.header()

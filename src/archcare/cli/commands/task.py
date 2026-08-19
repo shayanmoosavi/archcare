@@ -23,7 +23,15 @@ def _presenter(ctx: typer.Context) -> TaskPresenter:
     return TaskPresenter(ctx.obj.task_registry)
 
 
-@task_app.command()
+@task_app.command(
+    help="""
+Run a specific maintenance task.
+
+Example:
+    archcare task run failed-services
+    archcare task run system-update --force
+"""
+)
 def run(
     ctx: typer.Context,
     task_name: Annotated[str, typer.Argument(help="Name of the task to run")],
@@ -32,10 +40,6 @@ def run(
 ):
     """
     Run a specific maintenance task.
-
-    Example:
-        archcare task run failed-services
-        archcare task run system-update --force
     """
     ctx.obj.setup_logging()
     presenter = _presenter(ctx)
@@ -66,7 +70,16 @@ def run(
     raise typer.Exit(1)
 
 
-@task_app.command()
+@task_app.command(
+    help="""
+Show status and schedule for tasks.
+
+Example:
+    archcare task status                    # All tasks
+    archcare task status failed-services    # Specific task
+    archcare task status --due              # Only due tasks
+"""
+)
 def status(
     ctx: typer.Context,
     task_name: Annotated[str | None, typer.Argument(help="Specific task to check")] = None,
@@ -74,11 +87,6 @@ def status(
 ):
     """
     Show status and schedule for tasks.
-
-    Example:
-        archcare task status                    # All tasks
-        archcare task status failed-services    # Specific task
-        archcare task status --due              # Only due tasks
     """
     ctx.obj.setup_logging()
     presenter = _presenter(ctx)
@@ -98,7 +106,16 @@ def status(
     presenter.render_status(response)
 
 
-@task_app.command("list")
+@task_app.command(
+    "list",
+    help="""
+List all available and enabled tasks.
+
+Example:
+    archcare task list
+    archcare task list --type manual
+""",
+)
 def list_tasks(
     ctx: typer.Context,
     task_type: Annotated[
@@ -108,10 +125,6 @@ def list_tasks(
 ):
     """
     List all available and enabled tasks.
-
-    Example:
-        archcare task list
-        archcare task list --type manual
     """
     ctx.obj.setup_logging()
     presenter = _presenter(ctx)

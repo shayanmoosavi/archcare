@@ -149,7 +149,7 @@ class MyTask(BaseTask):
 4. **Register in `cli/context.py`** `DEFAULT_TASK_REGISTRY`:
 
 ```python
-TaskDescriptor("my-task", MyTask, MyTaskFormatter),
+(TaskDescriptor("my-task", MyTask, MyTaskFormatter),)
 ```
 
 5. **Add default config** in `config/defaults.py` `build_tasks_toml()`.
