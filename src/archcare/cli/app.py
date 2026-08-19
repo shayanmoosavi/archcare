@@ -6,7 +6,7 @@
 # nuitka-project: --product-name=archcare
 # nuitka-project: --reproducible=yes
 # nuitka-project: --assume-yes-for-downloads
-# nuitka-project: --python-flag=no_site,-O
+# nuitka-project: --python-flag=-S,-O,no_docstrings
 # nuitka-project: --enable-plugins=upx
 from typing import Annotated
 
