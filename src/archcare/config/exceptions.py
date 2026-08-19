@@ -8,7 +8,7 @@ class ArchcareConfigError(ArchcareError):
 
 
 class UnknownTaskError(ArchcareConfigError, ValueError):
-    """Raised when a task name doesn't exist in TasksConfig."""
+    """Raised when a task name doesn't exist in [TasksConfig][TasksConfig]."""
 
     def __init__(self, task_name: str) -> None:
         self.task_name = task_name
@@ -17,8 +17,9 @@ class UnknownTaskError(ArchcareConfigError, ValueError):
 
 class InvalidTaskTypeFilterError(ArchcareConfigError):
     """
-    Raised when TasksConfig.get_tasks_by_type() is given something other
-    than 'automated'/'manual'.
+    Raised when
+    [TasksConfig.get_tasks_by_type][archcare.config.models.TasksConfig.get_tasks_by_type]
+    is given something other than 'automated'/'manual'.
     """
 
     def __init__(self, task_type: str) -> None:
@@ -29,10 +30,13 @@ class InvalidTaskTypeFilterError(ArchcareConfigError):
 class HomeDirectoryResolutionError(ArchcareConfigError, ValueError):
     """
     Raised when a user's home directory can't be resolved via pwd or the
-    /home/ fallback. Must keep ValueError in its MRO - this propagates
-    through home_dir -> validate_paths(), a Pydantic model_validator,
-    which only wraps ValueError/TypeError/AssertionError into
-    ValidationError.
+    `/home/` fallback. Must keep `ValueError` in its MRO - this propagates
+    through `home_dir` -> `validate_paths()`, a Pydantic `model_validator`,
+    which only wraps `ValueError`/`TypeError`/`AssertionError` into
+    `ValidationError`.
+
+    See also:
+        [AppSettings][AppSettings]: the `home_dir` property.
     """
 
     def __init__(self, username: str) -> None:
@@ -45,9 +49,9 @@ class HomeDirectoryResolutionError(ArchcareConfigError, ValueError):
 
 class InvalidUnitNameError(ArchcareConfigError, ValueError):
     """
-    Raised when a configured ignored-service entry isn't a valid systemd
-    unit name. Must keep ValueError in its MRO because it's raised from within a
-    Pydantic field_validator.
+    Raised when a configured ignored service entry isn't a valid systemd
+    unit name. Must keep `ValueError` in its MRO because it's raised from within a
+    Pydantic `field_validator`.
     """
 
     def __init__(self, invalid_names: list[str]) -> None:

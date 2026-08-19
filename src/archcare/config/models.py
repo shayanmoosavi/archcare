@@ -822,7 +822,6 @@ class AppSettings(BaseModel):
 
     Example Configuration:
         ```toml title="settings.toml"
-        user = null                    # Use current/sudo user
         log_retention_days = 30        # Keep 1 month of logs
         log_level = "INFO"             # Standard verbosity
         dry_run = false                # Actually run tasks

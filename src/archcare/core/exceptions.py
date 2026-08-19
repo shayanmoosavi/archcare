@@ -8,4 +8,4 @@ class ArchcareCoreError(ArchcareError):
 
 
 class TaskNotRegisteredError(ArchcareCoreError):
-    """Raised when a task name has no corresponding class in the TaskRegistry."""
+    """Raised when a task name has no corresponding class in the [TaskRegistry][TaskRegistry]."""
