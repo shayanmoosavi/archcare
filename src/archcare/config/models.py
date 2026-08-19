@@ -235,8 +235,8 @@ class TaskConfig(BaseModel):
 
         task_type (TaskType): Controls execution mode (see TaskType enum)
 
-           - `"automated"`: runs on schedule without user interaction
-           - `"manual"`: only runs on explicit user command
+            - `"automated"`: runs on schedule without user interaction
+            - `"manual"`: only runs on explicit user command
 
         frequency (int): How often task should run, in days (must be > 0).
                    Defines `next_due` calculation: `last_run` + frequency days
@@ -1110,7 +1110,7 @@ class TaskState(BaseModel):
             Calculated as: `last_run` + frequency days (from [TaskConfig][TaskConfig])
 
         run_count (int): Total number of times task has been executed. Incremented by
-        [TaskExecutor][archcare.core.executor.TaskExecutor] after each run.
+            [TaskExecutor][archcare.core.executor.TaskExecutor] after each run.
 
         last_error (str | None): Error message from most recent failed run or
             `None` if `last_status` is not `FAILURE`.

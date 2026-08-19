@@ -7,21 +7,22 @@ serves as the foundation for communicating task status and results throughout
 the archcare application.
 
 Module Overview:
-    - TaskResult: Encapsulates complete results from task execution
-    - TaskStep: Represents granular progress updates during task execution
-    - IssueSeverity: Enum defining severity levels for maintenance issues
-    - MaintenanceIssue: Data model for individual maintenance issues
-    - Helper functions: Factory functions for creating TaskResult instances
+    - [TaskResult][]: Encapsulates complete results from task execution
+    - [TaskStep][]: Represents granular progress updates during task execution
+    - [IssueSeverity][]: Enum defining severity levels for maintenance issues
+    - [MaintenanceIssue][]: Data model for individual maintenance issues
+    - Helper functions: Factory functions for creating `TaskResult` instances
 
 Key Features:
-    - Status tracking with multiple states (SUCCESS, FAILURE, SKIPPED, PARTIAL)
+    - Status tracking with multiple states (SUCCESS, FAILURE, SKIPPED, PARTIAL).
+        See [TaskStatus][].
     - Detailed error tracking and exception handling
     - Real-time progress reporting through TaskStep objects
     - Maintenance issue classification by severity
     - Conversion utilities between different result formats
 
 See Also:
-    archcare.config.models: Task status enums and configuration data models
+    [archcare.config.models][]: Task status enums and configuration data models
 """
 
 from dataclasses import dataclass, field
@@ -36,47 +37,37 @@ class TaskResult[TDetails]:
     """
     Complete result of a task execution encapsulating status, messages, and metadata.
 
-    This dataclass is returned by every task's execute() method and provides
+    This dataclass is returned by every task's `execute()` method and provides
     comprehensive information about what happened during execution. It combines
     status tracking, error information, timing data, and contextual details
-    into a single, structured response object.
-
-    The TaskResult supports multiple status states (SUCCESS, FAILURE, SKIPPED,
-    PARTIAL) and provides convenience methods for checking status. Additional
-    metadata including execution duration, skip reasons, and error messages
-    provide detailed insights into task behavior.
+    (generic `TDetails`) into a single, structured response object.
 
     Attributes:
-        status (TaskStatus): The final outcome of task execution. Can be one of:
-            - SUCCESS: Task completed successfully
-            - FAILURE: Task encountered an error and failed
-            - SKIPPED: Task was skipped (not executed)
-            - PARTIAL: Task partially completed (e.g., some checks passed)
+        status (TaskStatus): The final outcome of task execution.
         message (str): Human-readable description of the result. For success,
             typically describes what was accomplished. For failures, describes
             the error. For skipped tasks, describes why skipping occurred.
         details (TDetails | None): Optional structured data providing
             additional context about the execution - a typed dataclass
-            specific to the task that produced it (see core.task_details),
-            or None if there's nothing to report.
+            specific to the task that produced it (see [archcare.core.task_details][]),
+            or `None` if there's nothing to report.
         error (str | None): The error message for the failure, defaults
-            to None for successful or skipped tasks.
+            to `None` for successful or skipped tasks.
         timestamp (datetime): When the task execution completed. Automatically
-            set to the current time when TaskResult is created. Used for
+            set to the current time when `TaskResult` is created. Used for
             audit trails and determining execution order.
         duration_seconds (float): How long the task took to execute, in seconds.
             Used for performance monitoring and optimization. Defaults to 0.0
             if not explicitly set.
         skip_reason (SkipReason | None): Enumerated reason why the task was
-            skipped, if status is SKIPPED. Examples: DISABLED, DEPENDENCY_FAILED,
-            NOT_DUE. Defaults to None.
+            skipped, if status is `SKIPPED`. Defaults to `None`.
 
     Methods:
-        is_success() -> bool: Check if the task succeeded (status == SUCCESS).
-        is_failed() -> bool: Check if the task failed (status == FAILURE).
-        is_skipped() -> bool: Check if the task was skipped (status == SKIPPED).
-        is_partial() -> bool: Check if the task partially succeeded (status == PARTIAL).
-        __str__() -> str: Generate a human-readable string representation.
+        is_success: Check if the task succeeded (status == `SUCCESS`).
+        is_failed: Check if the task failed (status == `FAILURE`).
+        is_skipped: Check if the task was skipped (status == `SKIPPED`).
+        is_partial: Check if the task partially succeeded (status == `PARTIAL`).
+        __str__: Generate a human-readable string representation.
 
     Examples:
         >>> from archcare.config.models import TaskStatus
@@ -103,9 +94,9 @@ class TaskResult[TDetails]:
         ...     )
 
     See Also:
-        TaskStatus: Enumeration of possible task statuses
-        SkipReason: Enumeration of reasons why a task might be skipped
-        TaskStep: For reporting granular progress during execution
+        - [TaskStatus][]: Enumeration of possible task statuses
+        - [SkipReason][]: Enumeration of reasons why a task might be skipped
+        - [TaskStep][]: For reporting granular progress during execution
     """
 
     status: TaskStatus
@@ -121,7 +112,7 @@ class TaskResult[TDetails]:
         Check if the task completed successfully.
 
         Returns:
-            bool: True if status is TaskStatus.SUCCESS, False otherwise.
+            bool: True if status is `SUCCESS`, False otherwise.
 
         Examples:
             >>> result = TaskResult(status=TaskStatus.SUCCESS, message="OK")
@@ -135,7 +126,7 @@ class TaskResult[TDetails]:
         Check if the task execution failed.
 
         Returns:
-            bool: True if status is TaskStatus.FAILURE, False otherwise.
+            bool: True if status is `FAILURE`, False otherwise.
 
         Examples:
             >>> result = TaskResult(status=TaskStatus.FAILURE, message="Error occurred")
@@ -152,7 +143,7 @@ class TaskResult[TDetails]:
         or preconditions were not met.
 
         Returns:
-            bool: True if status is TaskStatus.SKIPPED, False otherwise.
+            bool: True if status is `SKIPPED`, False otherwise.
 
         Examples:
             >>> result = TaskResult(
@@ -173,7 +164,7 @@ class TaskResult[TDetails]:
         some checks pass while others fail.
 
         Returns:
-            bool: True if status is TaskStatus.PARTIAL, False otherwise.
+            bool: True if status is `PARTIAL`, False otherwise.
 
         Examples:
             >>> result = TaskResult(
@@ -193,8 +184,8 @@ class TaskResult[TDetails]:
         duration (if available), and error information (if applicable).
 
         Format:
-            [STATUS] message (duration_seconds)
-            [STATUS] message (duration_seconds) Error: error_details
+            - [STATUS] message (duration_seconds)
+            - [STATUS] message (duration_seconds) Error: error_details
 
         Returns:
             str: A formatted string representation suitable for logging or display.
@@ -232,10 +223,52 @@ class TaskResult[TDetails]:
 @dataclass
 class TaskStep:
     """
-    Represents a single step within a task execution.
+    Represents a single step within a task execution for progress reporting.
 
-    Tasks can report progress by yielding TaskStep objects during execution.
-    This allows for real-time progress updates in the CLI.
+    Tasks can report progress by creating TaskStep instances during execution.
+    These steps are consumed by progress reporters
+    (e.g., [RichProgress][archcare.cli.progress.RichProgress])
+    to provide real-time feedback in the CLI. Each step captures the operation name,
+    its current status, and an optional descriptive message.
+
+    This class is used by [BaseTask.report_progress][archcare.tasks.base.BaseTask.report_progress]
+    and implements the [TaskProgress][archcare.core.progress.TaskProgress] protocol
+    for progress tracking.
+
+    Attributes:
+        name (str): Short identifier for the step (e.g., "Fetching mirrors",
+            "Checking disk space"). Should be concise and descriptive.
+        status (TaskStatus): Current status of this step.
+        message (str): Optional human-readable detail providing context.
+            Defaults to empty string. Example: "Fetched 10 mirrors from Germany".
+
+    Examples:
+        >>> from archcare.core.models import TaskStep, TaskStatus
+        >>> step = TaskStep(name="Updating mirrors", status=TaskStatus.SUCCESS,
+        ...                 message="Fetched 5 mirrors")
+        >>> str(step)
+        'Updating mirrors: Fetched 5 mirrors'
+
+        >>> # Step without message
+        >>> step = TaskStep(name="Checking disk", status=TaskStatus.SUCCESS)
+        >>> str(step)
+        'Checking disk'
+
+        >>> # Failed step with error context
+        >>> step = TaskStep(
+        ...     name="Pacman database check",
+        ...     status=TaskStatus.FAILURE,
+        ...     message="Database lock file exists"
+        ... )
+        >>> str(step)
+        'Pacman database check: Database lock file exists'
+
+    See Also:
+        - [TaskResult][]: Complete task execution result containing multiple steps
+        - [BaseTask.report_progress][archcare.tasks.base.BaseTask.report_progress]: Method that
+            emits `TaskStep` instances
+        - [TaskProgress][archcare.core.progress.TaskProgress]: Protocol for progress reporters
+        - [RichProgress][archcare.cli.progress.RichProgress]: CLI implementation using Rich library
     """
 
     name: str
@@ -243,7 +276,7 @@ class TaskStep:
     message: str = ""
 
     def __str__(self) -> str:
-        """Human-readable representation."""
+        """Human-readable string representation."""
         if self.message:
             return f"{self.name}: {self.message}"
         return self.name
@@ -257,25 +290,6 @@ class IssueSeverity(Enum):
     helping users prioritize which issues to address first. All issues should
     be reviewed, but severity determines how quickly they need attention.
 
-    Attributes:
-        CRITICAL (str): Issues requiring immediate attention. These indicate
-            problems that could impact system stability, security, or
-            functionality. Example: Severely overdue maintenance tasks or broken
-            systemd timers, typically by more than 1.5 times the frequency they
-            should be performed. Should be addressed as soon as possible,
-            typically within hours.
-        WARNING (str): Issues that should be addressed soon. These indicate
-            minor problems that don't immediately impact core functionality
-            but may cause issues if left unattended. Example: Maintenance tasks
-            overdue by a few days. Should be addressed within days.
-        INFO (str): Informational issues with no immediate action needed.
-            These are status updates or reminders for awareness only. Examples:
-            Never-run maintenance tasks or tasks overdue by a day. Can be reviewed
-            at user's convenience.
-
-    Methods:
-        __str__() -> str: Returns the string value of the enumeration.
-
     Examples:
         >>> severity = IssueSeverity.CRITICAL
         >>> str(severity)
@@ -288,9 +302,43 @@ class IssueSeverity(Enum):
         Severity: info
     """
 
-    CRITICAL = "critical"  # Requires immediate attention
-    WARNING = "warning"  # Should be addressed soon
-    INFO = "info"  # Informational, no action needed immediately
+    CRITICAL = "critical"
+    """
+    Issues requiring immediate attention.
+
+    These indicate problems that could impact system stability, security, or
+    functionality.
+
+    Example: Severely overdue maintenance tasks or broken
+    systemd timers, typically by more than 1.5 times the frequency they
+    should be performed.
+
+    Should be addressed as soon as possible,
+    typically within hours.
+    """
+
+    WARNING = "warning"
+    """
+    Issues that should be addressed soon.
+
+    These indicate minor problems that don't immediately impact core functionality
+    but may cause issues if left unattended.
+
+    Example: Maintenance tasks overdue by a few days.
+
+    Should be addressed within days.
+    """
+
+    INFO = "info"
+    """
+    Informational issues with no immediate action needed.
+
+    These are status updates or reminders for awareness only.
+
+    Examples: Never-run maintenance tasks or tasks overdue by a day.
+
+    Can be reviewed at user's convenience.
+    """
 
     def __str__(self) -> str:
         return self.value
@@ -301,46 +349,43 @@ class MaintenanceIssue:
     """
     Represents a single maintenance issue found during check.
 
-    MaintenanceIssue encapsulates details about a specific maintenance problem
-    discovered during system monitoring, providing comprehensive information for
+    It encapsulates details about a specific maintenance problem discovered
+    during system monitoring, providing comprehensive information for
     issue tracking, prioritization, and resolution.
 
-    This model is used by maintenance-check task to report individual issues that
+    This model is used by `maintenance-check` task to report individual issues that
     require attention. Issues are categorized by severity (critical, warning, info)
     and include metadata about task execution history and actionable recommendations.
 
     Attributes:
         task_name (str): Name or identifier of the task associated with this issue.
-            Examples: "system-update", "backup", "security-check". Used to identify
-            which task has the problem and is required for all issues.
+            (e.g., "system-update", "health-check"). Used to identify which task
+            has the problem and is required for all issues.
         severity (IssueSeverity): Severity classification determining urgency and
-            priority. Must be one of: CRITICAL (immediate attention), WARNING (address
-            soon), or INFO (awareness only). Required field that controls how the
-            issue should be handled.
+            priority. Required field that controls how the issue should be handled.
         description (str): Human-readable description of the issue providing context
-            and details about what was found. Should be clear and specific enough for
-            users to understand the problem without additional context. Examples:
-            "System updates are 10 days overdue", "Backup failed with disk full error".
+            and details about what was found. (e.g., "System updates are 10 days overdue",
+            "Backup failed with disk full error")
         days_overdue (int | None): Integer indicating how many days the task is
             overdue relative to its scheduled interval. Positive values indicate
             overdue tasks, negative values indicate tasks not yet due, and None
             indicates no due date tracking. Used to measure maintenance urgency.
-            Defaults to None.
+            Defaults to `None`.
         last_run (datetime | None): Timestamp of the last time this task was
             executed successfully. Useful for determining when maintenance was
             last performed and calculating overdue periods. Defaults to None if
             task has never run.
-        last_status (TaskStatus | None): Status result from the last task execution
-            (SUCCESS, FAILURE, SKIPPED, PARTIAL). Provides execution history context
-            to understand if the issue is a recurring problem or new event. Defaults
-            to None if no execution history available.
+        last_status (TaskStatus | None): Status result from the last task execution.
+            Provides execution history context to understand if the issue is a
+            recurring problem or new event. Defaults to `None` if no execution
+            history available.
         recommendation (str): Actionable recommendation for resolving this issue.
             Should be specific and executable. Examples: "Run system update immediately",
             "Check disk space and run cleanup", "Review and merge pacnew files".
             Required field that guides users toward resolution.
 
-    Properties:
-        is_overdue (bool): Check if the task is currently overdue based on
+    Methods:
+        is_overdue: *(property)* Check if the task is currently overdue based on
             days_overdue value.
 
     Examples:
@@ -430,23 +475,20 @@ def success[TDetails](message: str, details: TDetails | None = None) -> TaskResu
     """
     Create a success result.
 
-    A convenience factory function for creating a TaskResult with SUCCESS status.
+    A convenience factory function for creating a [TaskResult][] with `SUCCESS` status.
     This is the standard way to report successful task completion.
 
     Args:
         message (str): Human-readable success message describing what was accomplished.
+
             Examples: "System updated successfully", "Cleanup completed",
              "All checks passed".
-        details (TDetails | None): A dataclass instance describing task-specific structured
-            details (see core.task_details for per-task schemas), or None
-            if there's nothing to report.
+
+        details (TDetails | None): Same as [failed][].
 
     Returns:
-        TaskResult[TDetails]: A new TaskResult instance with:
-            - status: TaskStatus.SUCCESS
-            - message: The provided message
-            - details: The provided details instance
-            - timestamp: Current time (set automatically)
+        (TaskResult[TDetails]): A new `TaskResult` instance with `SUCCESS` status,
+            provided message, and details.
 
     Examples:
         >>> from dataclasses import dataclass
@@ -470,9 +512,9 @@ def success[TDetails](message: str, details: TDetails | None = None) -> TaskResu
         'Cache cleared'
 
     See Also:
-        failed: Create a failure result
-        skipped: Create a skipped result
-        partial: Create a partial result
+        - [failed][]: Create a failure result
+        - [skipped][]: Create a skipped result
+        - [partial][]: Create a partial result
     """
     return TaskResult(
         status=TaskStatus.SUCCESS,
@@ -487,9 +529,10 @@ def failed[TDetails](
     """
     Create a failure result.
 
-    A convenience factory function for creating a TaskResult with FAILURE status.
+    A convenience factory function for creating a [TaskResult][] with `FAILURE` status.
     This is the standard way to report task execution failures, optionally including
-    the exception that caused the failure for debugging and error tracking.
+    the error message of the exception that caused the failure for debugging
+    and error tracking.
 
     Args:
         message (str): Human-readable failure message describing what went wrong.
@@ -497,18 +540,14 @@ def failed[TDetails](
             "Update check failed", "Installation failed with disk full error",
             "Network connection timeout".
         error (str | None): The error message of the exact exception
-         that caused the failure.
+            that caused the failure.
         details (TDetails | None): A dataclass instance describing task-specific structured
-            details (see core.task_details for per-task schemas), or None
-            if there's nothing to report.
+            details (see [core.task_details][archcare.core.task_details] for per-task schemas),
+            or `None` if there's nothing to report.
 
     Returns:
-        TaskResult[TDetails]: A new TaskResult instance with:
-            - status: TaskStatus.FAILURE
-            - message: The provided failure message
-            - error: The error message (if provided)
-            - details: The provided details instance
-            - timestamp: Current time (set automatically)
+        (TaskResult[TDetails]): A new `TaskResult` instance with `FAILURE` status,
+            the provided message, error, and details.
 
     Examples:
         >>> # Basic failure without exception
@@ -560,9 +599,9 @@ def failed[TDetails](
         '[FAILURE] Backup failed Error: Disk full'
 
     See Also:
-        success: Create a success result
-        skipped: Create a skipped result
-        partial: Create a partial result
+        - [success][]: Create a success result
+        - [skipped][]: Create a skipped result
+        - [partial][]: Create a partial result
     """
     return TaskResult(
         status=TaskStatus.FAILURE,
@@ -578,30 +617,24 @@ def skipped[TDetails](
     """
     Create a skipped result.
 
-    A convenience factory function for creating a TaskResult with SKIPPED status.
+    A convenience factory function for creating a [TaskResult][] with `SKIPPED` status.
     This is the standard way to report tasks that were not executed, including the
     enumerated reason why they were skipped (e.g., disabled, dependency failed).
 
     Args:
         message (str): Human-readable message explaining why the task was skipped.
-            Should provide context about the skip decision. Examples: "Task disabled
-            in configuration", "Dependency task failed", "Preconditions not met",
-            "Running as non-root user but root required".
-        skip_reason (SkipReason | None): Enumerated reason for skipping from the
-            SkipReason enum. Provides machine-readable categorization of skip reasons
-            for programmatic handling. Can be None if no specific reason applies.
-            Examples: DISABLED, DEPENDENCY_FAILED, NOT_DUE.
-        details (TDetails | None): A dataclass instance describing task-specific structured
-            details (see core.task_details for per-task schemas), or None
-            if there's nothing to report.
+            Should provide context about the skip decision.
+
+            Examples: "Task disabled in configuration", "Dependency task failed",
+            "Preconditions not met", "Running as non-root user but root required".
+
+        skip_reason (SkipReason | None): Enumerated reason for skipping task execution,
+            or `None` if no specific reason applies.
+        details (TDetails | None): Same as [failed][].
 
     Returns:
-        TaskResult[TDetails]: A new TaskResult instance with:
-            - status: TaskStatus.SKIPPED
-            - message: The provided skip message
-            - skip_reason: The enumerated skip reason
-            - details: The provided details instance
-            - timestamp: Current time (set automatically)
+        (TaskResult[TDetails]): A new `TaskResult` instance with `SKIPPED` status, provided
+            skip reason, and details.
 
     Examples:
         >>> # Skip due to disabled configuration
@@ -623,10 +656,10 @@ def skipped[TDetails](
         True
 
     See Also:
-        success: Create a success result
-        failed: Create a failure result
-        partial: Create a partial result
-        SkipReason: Enumeration of skip reason types
+        - [success][]: Create a success result
+        - [failed][]: Create a failure result
+        - [partial][]: Create a partial result
+        - [SkipReason][SkipReason]: Enumeration of skip reason types
     """
     return TaskResult(
         status=TaskStatus.SKIPPED,
@@ -640,26 +673,23 @@ def partial[TDetails](message: str, details: TDetails | None = None) -> TaskResu
     """
     Create a partial result.
 
-    A convenience factory function for creating a TaskResult with PARTIAL status.
+    A convenience factory function for creating a [TaskResult][] with `PARTIAL` status.
     Use this when a task makes progress but does not fully complete or fully succeed,
-    such as when some checks pass while others fail, or when partial data is recovered
-    from a failed operation.
+    such as when some checks pass while others fail.
 
     Args:
         message (str): Human-readable status message describing the partial completion.
-            Should clearly indicate what succeeded and what didn't. Examples:
-            "3 of 5 checks passed", "Found 3 failed service(s) requiring attention",
-            "Health check found 2 warning(s)".
-        details (TDetails | None): A dataclass instance describing task-specific structured
-            details (see core.task_details for per-task schemas), or None
-            if there's nothing to report.
+            Should clearly indicate what succeeded and what didn't.
+
+            Examples:
+                "3 of 5 checks passed", "Found 3 failed service(s) requiring attention",
+                "Health check found 2 warning(s)".
+
+        details (TDetails | None): Same as [failed][].
 
     Returns:
-        TaskResult[TDetails]: A new TaskResult instance with:
-            - status: TaskStatus.PARTIAL
-            - message: The provided status message
-            - details: The provided details instance
-            - timestamp: Current time (set automatically)
+        (TaskResult[TDetails]): A new `TaskResult` instance with `PARTIAL` status,
+            the provided message, and details.
 
     Examples:
         >>> result = partial(message="Health check found 2 warning(s)")
