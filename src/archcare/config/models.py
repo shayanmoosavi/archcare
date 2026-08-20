@@ -161,13 +161,10 @@ class TaskStatus(Enum):
 
 class SkipReason(Enum):
     """
-    Reasons why a task execution was skipped
+    Enumerated reasons of why a task execution was skipped
 
-    Example State Progression:
-        - initial state: skip_reason = None
-        - after first success: skip_reason = None, next_due = now + 7 days
-        - check before due: skip_reason = NOT_DUE, last_status = SKIPPED
-        - on due date but task fails: skip_reason = None, last_status = FAILURE
+    See also:
+        [TaskExecutor][archcare.core.executor.TaskExecutor]: Uses it for task schedule handling
     """
 
     NO_WORK_NEEDED = "no_work_needed"
@@ -225,7 +222,7 @@ class TaskConfig(BaseModel):
     Configuration for a single maintenance task
 
     Defines how a task should behave: its name, execution type (automated vs manual),
-    frequency, description, and enabled state. Aggregated by [TasksConfig][TasksConfig].
+    frequency, description, and enabled state. Aggregated by [TasksConfig][].
 
     Attributes:
         name (str): Unique identifier for the task (alphanumeric, hyphens, underscores)
@@ -279,9 +276,9 @@ class TaskConfig(BaseModel):
         actual runs (`last_run`, `last_status`, `next_due`).
 
     See also:
-        - [TasksConfig][TasksConfig]: collection of all task configurations
-        - [AppState][AppState]: runtime state including task execution history
-        - [TaskState][TaskState]: per-task execution state (last run, next due, last status)
+        - [TasksConfig][]: collection of all task configurations
+        - [AppState][]: runtime state including task execution history
+        - [TaskState][]: per-task execution state (last run, next due, last status)
     """
 
     name: str = Field(..., description="Unique task identifier")
