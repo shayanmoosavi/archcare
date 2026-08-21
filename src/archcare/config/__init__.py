@@ -9,6 +9,7 @@ Modules:
     loader: Handles reading and writing TOML/JSON configuration and state files.
     logging: Sets up global and task-specific Loguru logger handlers.
     models: Pydantic configuration and state schemas and enums.
+    user: Provides `UserContext` class for username resolution.
 
 Public API:
     - [AppSettings][]: Application-wide settings model (log level, retention, etc.).
@@ -27,6 +28,7 @@ Public API:
         for a new installation.
     - [setup_logging][]: Function to set up the main file/console loguru handlers.
     - [setup_task_logging][]: Function to set up distinct filtered log handlers for a running task.
+    - [UserContext][]: Single source of truth for username resolution.
 
 See Also:
     - [archcare.config.loader][]: Complete ConfigLoader file management implementation
