@@ -48,6 +48,7 @@ from .models import (
     TaskStatus,
     TaskType,
 )
+from .user import UserContext
 
 __all__ = [
     # Models
@@ -67,4 +68,6 @@ __all__ = [
     # Logging
     "setup_logging",
     "setup_task_logging",
+    # User context
+    "UserContext",
 ]

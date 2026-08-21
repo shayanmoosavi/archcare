@@ -27,9 +27,8 @@ import sys
 
 from loguru import logger
 
-from archcare.utils import UserContext
-
 from .models import AppSettings, LogLevel
+from .user import UserContext
 
 
 def setup_logging(

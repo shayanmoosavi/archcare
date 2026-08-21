@@ -16,9 +16,9 @@ from archcare.config import (
     TaskConfig,
     TasksConfig,
     TaskStatus,
+    UserContext,
 )
 from archcare.tasks.base import BaseTask
-from archcare.utils import UserContext
 
 from .interaction import NonInteractive, TaskInteraction
 from .models import TaskResult, skipped

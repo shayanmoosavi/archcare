@@ -6,9 +6,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from archcare.utils import UserContext
+from archcare.config.user import UserContext
 
-_MODULE = "archcare.utils.user"
+_MODULE = "archcare.config.user"
 
 # ---------------------------------------------------------------------------
 # is_interactive

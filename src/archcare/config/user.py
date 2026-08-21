@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from os import getenv
 from pathlib import Path
 
-from .system import change_ownership_to_user, is_root
+from archcare.utils import change_ownership_to_user, is_root
 
 
 @dataclass(frozen=True)

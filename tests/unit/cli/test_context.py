@@ -7,10 +7,9 @@ import pytest
 
 from archcare.cli.context import DEFAULT_TASK_REGISTRY, AppContext
 from archcare.cli.interaction import CliInteraction
-from archcare.config import AppSettings, LogLevel
+from archcare.config import AppSettings, LogLevel, UserContext
 from archcare.core.executor import TaskExecutor
 from archcare.services.exceptions import ConfigNotInitializedError
-from archcare.utils import UserContext
 
 _MODULE = "archcare.cli.context"
 
