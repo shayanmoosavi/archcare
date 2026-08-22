@@ -1,7 +1,24 @@
 """
 Base task implementation for Archcare.
 
-All maintenance tasks inherit from BaseTask.
+Defines the abstract interface and core orchestrator workflow for all system
+maintenance tasks. All concrete task classes (e.g., `FailedServicesTask`,
+`HealthCheckTask`) must inherit from `BaseTask` and implement its core abstract
+methods.
+
+Key features:
+    - Standardized execution workflow via the `run()` method
+    - Pre-execution precondition and work-needed runtime checks
+    - Automatic, robust rollback hook invocation on execution exceptions
+    - Task-specific thread-safe file logging setup and cleanup
+    - Timing metrics capturing and desktop notifications dispatch support
+    - Real-time task progress reporting hook integration
+
+See Also:
+    - [TaskExecutor][archcare.core.executor.TaskExecutor]: Coordinates the lifecycle
+        and execution of tasks
+    - [TaskResult][]: Schema representation of task run outcomes
+    - [TaskProgress][]: Protocol used to report execution milestones
 """
 
 import time
@@ -19,16 +36,23 @@ from .progress import NoOpProgress, TaskProgress
 
 class BaseTask(ABC):
     """
-    Abstract base class for all maintenance tasks.
+    Abstract base class defining the contract and workflow for all maintenance tasks.
 
-    All tasks must implement:
-    - execute(): Main task logic
+    All tasks in the system are subclassed from `BaseTask`. It uses the Template
+    Method design pattern: the `run()` method defines the exact execution skeleton,
+    while subclasses customize behavior by implementing `execute()`, and optionally
+    overriding `pre_check()`, `should_run()`, `post_execute()`, and `rollback()`.
 
-    Tasks can optionally override:
-    - pre_check(): Verify prerequisites before running
-    - post_execute(): Cleanup after execution
-    - rollback(): Undo changes if execution fails
-    - should_run(): Additional logic to determine if task should run
+    Methods:
+        set_start_time: Set the task start timestamp.
+        execute: *(abstract)* Execute the primary task maintenance logic.
+        pre_check: Verify that all hard prerequisites for task execution are satisfied.
+        should_run: Determine if the task has actual maintenance work to perform.
+        post_execute: Cleanup or follow-up actions after task execution.
+        rollback: Attempt to rollback changes if task execution fails.
+        report_progress: Dispatch a progress update during execution.
+        run: Orchestrate the complete task execution pipeline with safety guards and timing.
+        create_result: Inject execution duration statistics into the completed `TaskResult`.
     """
 
     def __init__(
@@ -39,16 +63,18 @@ class BaseTask(ABC):
         progress: TaskProgress | None = None,
     ):
         """
-        Initialize base task.
+        Initialize the base task context.
 
         Args:
-            config: Task-specific configuration
-            settings: Application settings
-            notification_manager: Injected by TaskExecutor. Optional so
-                tasks can still be constructed directly in tests without
-                needing a real notify-send availability check.
-            progress: Optional progress reporter. If not provided,
-             a NoOpProgress will be used.
+            config (TaskConfig): Task-specific configuration (e.g., enabled, frequency).
+            settings (AppSettings): Application-wide settings (e.g., log levels, paths).
+            notification_manager (NotificationManager | None): Desktop notification manager.
+                Optional so tasks can be instantiated cheaply in unit tests.
+            progress (TaskProgress | None): Real-time progress reporter. If None,
+                uses a `NoOpProgress` stub.
+
+        Side Effects:
+            Initializes internal `_start_time` tracking variable to 0.0.
         """
         self.config = config
         self.settings = settings
@@ -58,59 +84,85 @@ class BaseTask(ABC):
         self._start_time: int | float = 0.0
 
     def set_start_time(self, start_time: int | float | None = None):
+        """
+        Set the task start timestamp.
+
+        Used to calculate duration metrics for the task result.
+
+        Args:
+            start_time (int | float | None): Exact start epoch timestamp.
+                If None, uses current `time.time()`.
+
+        Side Effects:
+            Mutates `self._start_time`.
+        """
         self._start_time = start_time or time.time()
 
     @abstractmethod
     def execute(self) -> TaskResult[Any]:
         """
-        Execute the main task logic.
+        Execute the primary task maintenance logic.
 
-        This method must be implemented by all task subclasses.
-        It should contain the core functionality of the task.
+        Must be implemented by all subclasses. This contains the core functionality
+        representing the actual task work.
 
         Returns:
-            TaskResult indicating success/failure and details
+            TaskResult[Any]: Result indicating success/failure status and details.
 
         Raises:
-            Exception: Any unhandled exceptions will be caught by run()
+            Exception: Any exception raised in this method triggers `rollback()`
+                and is captured as a task failure by `run()`.
         """
         pass
 
     def pre_check(self) -> tuple[bool, str]:
         """
-        Verify prerequisites before task execution.
+        Verify that all hard prerequisites for task execution are satisfied.
 
-        Override this to check for required tools, permissions, or conditions.
+        Override this to check for mandatory command-line utilities, sudo privileges,
+        or hardware preconditions. If this returns False, execution skips immediately
+        without checking if work is needed.
 
         Returns:
-            Tuple of (can_run: bool, reason: str)
-            If can_run is False, the task will be skipped with the given reason.
+            (tuple[bool, str]): A tuple of:
 
-        Example:
-            def pre_check(self) -> tuple[bool, str]:
-                if not shutil.which("systemctl"):
-                    return False, "systemctl command not found"
-                return True, ""
+                - can_run (bool): True if all prerequisites are satisfied, False otherwise.
+                - reason (str): Explanatory message when prerequisites fail (empty on success).
+
+        Examples:
+            >>> class DummyTask(BaseTask):
+            ...     def execute(self) -> TaskResult[Any]: pass
+            ...     def pre_check(self) -> tuple[bool, str]:
+            ...         import shutil
+            ...         if not shutil.which("reflector"):
+            ...             return False, "reflector command missing"
+            ...         return True, ""
         """
         return True, ""
 
     def should_run(self) -> tuple[bool, str, SkipReason | None]:
         """
-        Additional logic to determine if task should run.
+        Determine if the task has actual maintenance work to perform.
 
-        This is separate from pre_check() and is meant for runtime decisions
-        beyond just checking prerequisites. For example, checking if there's
-        actually work to do.
+        This runs after `pre_check()` succeeds. Use it to decide if the task
+        should run or skip based on dynamic runtime criteria (e.g., checking if
+        any systemd services are actually failed, or if thresholds are exceeded).
 
         Returns:
-            Tuple of (should_run: bool, reason: str, skip_reason: SkipReason)
-            If should_run is False, task is skipped with the given reason.
+            (tuple[bool, str, SkipReason | None]): A tuple of:
 
-        Example:
-            def should_run(self) -> tuple[bool, str]:
-                if no_failed_services():
-                    return False, "No failed services found", SkipReason.NO_WORK_NEEDED
-                return True, ""
+                - should_run (bool): True if work needs to be performed, False otherwise.
+                - reason (str): Explanatory reason when skipping (empty if running).
+                - skip_reason (SkipReason | None): Skip classification constant, or None.
+
+        Examples:
+            >>> class DummyTask(BaseTask):
+            ...     def execute(self) -> TaskResult[Any]: pass
+            ...     def should_run(self) -> tuple[bool, str, SkipReason | None]:
+            ...         work_needed = False
+            ...         if not work_needed:
+            ...             return False, "No updates found", SkipReason.NO_WORK_NEEDED
+            ...         return True, "", None
         """
         return True, "", None
 
@@ -118,16 +170,20 @@ class BaseTask(ABC):
         """
         Cleanup or follow-up actions after task execution.
 
-        This runs after execute() regardless of success/failure.
-        Override to perform cleanup, send notifications, etc.
+        Runs at the end of successful or failed `execute()` steps, but before final logging
+        and cleanup handlers teardown. Override this if you wish to do additional steps after
+        task execution, such as sending an status notification, cleaning up old report files,
+        etc.
 
         Args:
-            result: The result from execute()
+            result (TaskResult[Any]): The completed result object returned by `execute()`.
 
-        Example:
-            def post_execute(self, result: TaskResult) -> None:
-                if result.is_failed():
-                    self.send_notification(f"Task {self.name} failed")
+        Examples:
+            >>> class DummyTask(BaseTask):
+            ...     def execute(self) -> TaskResult[None]: pass
+            ...     def post_execute(self, result: TaskResult[Any]) -> None:
+            ...         if result.is_failed() and self.notification_manager:
+            ...             self.notification_manager.notify(f"Task failed: {result.message}")
         """
         return
 
@@ -135,48 +191,69 @@ class BaseTask(ABC):
         """
         Attempt to rollback changes if task execution fails.
 
-        Override this for tasks that make changes that can be undone.
-        This is called automatically if execute() raises an exception.
+        This is invoked automatically by `run()` when `execute()` raises an unhandled
+        exception. Override this in stateful tasks to restore backups or clean up
+        partially-written files.
 
-        Example:
-            def rollback(self) -> None:
-                if self.backup_file.exists():
-                    shutil.copy(self.backup_file, self.original_file)
+        Raises:
+            Exception: Any exception raised within `rollback` is logged as critical,
+                but does not override the primary execution failure.
+
+        Examples:
+            >>> class DummyTask(BaseTask):
+            ...     def execute(self) -> TaskResult[None]: pass
+            ...     def rollback(self) -> None:
+            ...         # Restore backup configuration
+            ...         pass
         """
         return
 
     def report_progress(self, step: TaskStep) -> None:
         """
-        Report progress during task execution.
+        Dispatch a progress update during execution.
 
-        Use this to provide real-time feedback during long-running tasks.
+        Updates the console or GUI interface and writes a log entry with the progress step details.
 
         Args:
-            step: TaskStep describing the current operation
+            step (TaskStep): Detailed step descriptor representing the current milestone.
 
-        Example:
-            self.report_progress(TaskStep(
-                name="Updating mirrors",
-                status=TaskStatus.SUCCESS,
-                message="Fetched 10 mirrors"
-            ))
+        Side Effects:
+            - Logs the progress step message at INFO level.
+            - Mutates progress display state via `self.progress.advance()`.
         """
         logger.info(f"[{self.name}] {step}")
         self.progress.advance(step)
 
     def run(self) -> TaskResult[Any]:
         """
-        Run the complete task workflow with error handling.
+        Orchestrate the complete task execution pipeline with safety guards and timing.
 
-        This method orchestrates the entire task execution:
-        1. Pre-checks (prerequisites)
-        2. Should-run checks (runtime decisions)
-        3. Task execution
-        4. Post-execution cleanup
-        5. Rollback on failure
+        This method executes the entire lifecycle sequence:
+
+        1. Set start execution time.
+        2. Configure task-specific rotating log handlers.
+        3. Invoke `pre_check()` to verify environment prerequisites.
+        4. Invoke `should_run()` to decide if any dynamic work is required.
+        5. Invoke `execute()` inside a contextualized logging handler.
+        6. Invoke `post_execute()` for task-specific cleanups/analytics.
+        7. If an exception occurs, log it and invoke `rollback()`.
+        8. Teardown progress tracking and close task log files.
 
         Returns:
-            TaskResult with execution details and timing
+            (TaskResult[Any]): Standardized task run result containing status,
+                error messages, detailed task context, and total duration.
+
+        Side Effects:
+            - Configures and tears down a Loguru file logging handler.
+            - Stops progress tracking visual elements.
+            - Performs filesystem and/or ownership state mutations depending on subclasses.
+
+        See Also:
+            - [pre_check][]: Prerequisite verification hook
+            - [should_run][]: Dynamic execution requirement hook
+            - [execute][]: Core logic hook
+            - [post_execute][]: Post-run hook
+            - [rollback][]: Error recovery hook
         """
         self.set_start_time()
 
@@ -243,27 +320,36 @@ class BaseTask(ABC):
 
     def create_result(self, result: TaskResult[Any]) -> TaskResult[Any]:
         """
-        Add timing information to result.
+        Inject execution duration statistics into the completed `TaskResult`.
 
         Args:
-            result: TaskResult from execute()
+            result (TaskResult[Any]): Completed result schema instance to finalize.
 
         Returns:
-            TaskResult with duration added
+            (TaskResult[Any]): The same result instance containing calculated `duration_seconds`.
 
-        Reason:
-        - Ensures all results have accurate timing
-        - Keeps execute() methods clean of timing logic
+        Side Effects:
+            Mutates `result.duration_seconds`.
         """
         result.duration_seconds = time.time() - self._start_time
         return result
 
     def __str__(self) -> str:
-        """String representation of task."""
+        """
+        Generate a human-readable string representation of the task.
+
+        Returns:
+            str: Representation including the class name and specific task identifier.
+        """
         return f"{self.__class__.__name__}(name={self.name})"
 
     def __repr__(self) -> str:
-        """Detailed string representation."""
+        """
+        Generate a detailed machine/debugging string representation of the task.
+
+        Returns:
+            str: Detailed representation including class name, name, type, and frequency.
+        """
         return (
             f"{self.__class__.__name__}("
             f"name={self.name}, "
