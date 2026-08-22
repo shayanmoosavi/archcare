@@ -24,31 +24,6 @@ Configuration Files:
     Generated files are written to `~/.config/archcare/` (or the target user's
     config directory when run via systemd timer as root).
 
-Examples:
-    >>> from archcare.config.defaults import build_tasks_toml
-    >>> from tomlkit import dumps
-    >>> doc = build_tasks_toml()
-    >>> print(dumps(doc)[:596])
-    # Archcare Maintenance Tasks Configuration
-    # Format: Each [task-name] section defines a maintenance task
-    #
-    # Fields:
-    #   type = "automated" | "manual"
-    #   frequency = <number>  (days between runs)
-    #   description = <description>
-    #   enabled = true | false
-    <BLANKLINE>
-    # ============================================================================
-    # AUTOMATED TASKS (run automatically via systemd timers)
-    # ============================================================================
-    <BLANKLINE>
-    [maintenance-check]
-    type = "automated"
-    frequency = 1
-    description = "Check for due system maintenance tasks"
-    enabled = true
-    <BLANKLINE>
-
 See Also:
     - [ConfigLoader][]: Loads and saves these configurations
     - [TaskConfig][]: Task configuration model
@@ -158,6 +133,31 @@ def build_tasks_toml() -> TOMLDocument:
     See Also:
         - [ConfigLoader][]: Loads and saves these configurations
         - [create_default_config_files][]: Function that creates the default config files
+
+    Examples:
+        >>> from archcare.config.defaults import build_tasks_toml
+        >>> from tomlkit import dumps
+        >>> doc = build_tasks_toml()
+        >>> print(dumps(doc)[:596])
+        # Archcare Maintenance Tasks Configuration
+        # Format: Each [task-name] section defines a maintenance task
+        #
+        # Fields:
+        #   type = "automated" | "manual"
+        #   frequency = <number>  (days between runs)
+        #   description = <description>
+        #   enabled = true | false
+        <BLANKLINE>
+        # ============================================================================
+        # AUTOMATED TASKS (run automatically via systemd timers)
+        # ============================================================================
+        <BLANKLINE>
+        [maintenance-check]
+        type = "automated"
+        frequency = 1
+        description = "Check for due system maintenance tasks"
+        enabled = true
+        <BLANKLINE>
     """
     doc = document()
 
@@ -193,6 +193,31 @@ def build_tasks_toml() -> TOMLDocument:
 
 
 def _add_tasks(doc: TOMLDocument, tasks: tuple[TaskConfig, ...]) -> None:
+    """
+    Add task configurations to a TOML document.
+
+    Args:
+        doc (TOMLDocument): The TOML document to add tasks to.
+        tasks (tuple[TaskConfig, ...]): Tuple of TaskConfig objects to add.
+
+    Examples:
+        >>> from archcare.config.defaults import _add_tasks
+        >>> from tomlkit import document, dumps
+        >>> from archcare.config.models import TaskConfig, TaskType
+        >>> doc = document()
+        >>> tasks = (
+        ...     TaskConfig(
+        ...         name="test-task",
+        ...         type=TaskType.AUTOMATED,
+        ...         frequency=7,
+        ...         description="Test task",
+        ...         enabled=True,
+        ...     ),
+        ... )
+        >>> _add_tasks(doc, tasks)
+        >>> "test-task" in doc
+        True
+    """
     for i, task in enumerate(tasks):
         task_section = table()
         task_section.update(task.model_dump(by_alias=True, exclude={"name"}))
@@ -211,6 +236,18 @@ def build_settings_toml() -> TOMLDocument:
     See Also:
         - [ConfigLoader][]: Loads and saves these configurations
         - [create_default_config_files][]: Function that creates the default config files
+
+    Examples:
+        >>> from archcare.config.defaults import build_settings_toml
+        >>> from tomlkit import dumps
+        >>> doc = build_settings_toml()
+        >>> toml_str = dumps(doc)
+        >>> "log_level" in toml_str
+        True
+        >>> "mirrorlist" in toml_str
+        True
+        >>> "maintenance_check" in toml_str
+        True
     """
     data: dict[str, Any] = AppSettings().model_dump(exclude={"user"}, exclude_computed_fields=True)
     doc = document()
@@ -255,6 +292,16 @@ def build_ignored_services_toml() -> TOMLDocument:
     See Also:
         - [ConfigLoader][]: Loads and saves these configurations
         - [create_default_config_files][]: Function that creates the default config files
+
+    Examples:
+        >>> from archcare.config.defaults import build_ignored_services_toml
+        >>> from tomlkit import dumps
+        >>> doc = build_ignored_services_toml()
+        >>> toml_str = dumps(doc)
+        >>> "services" in toml_str
+        True
+        >>> "systemd-networkd-wait-online.service" in toml_str
+        True
     """
     doc = document()
     doc.add(comment("Services to ignore in failed-services check"))

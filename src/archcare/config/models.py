@@ -76,6 +76,17 @@ class LogLevel(Enum):
     """System-level failures that affect Archcare operation"""
 
     def __str__(self) -> str:
+        """
+        Return the string representation of the log level.
+
+        Returns:
+            str: The string value of the log level.
+
+        Examples:
+            >>> from archcare.config.models import LogLevel
+            >>> str(LogLevel.INFO)
+            'INFO'
+        """
         return self.value
 
 
@@ -111,6 +122,17 @@ class TaskType(Enum):
     """
 
     def __str__(self):
+        """
+        Return the string representation of the task type.
+
+        Returns:
+            str: The string value of the task type.
+
+        Examples:
+            >>> from archcare.config.models import TaskType
+            >>> str(TaskType.AUTOMATED)
+            'automated'
+        """
         return self.value
 
 
@@ -156,6 +178,17 @@ class TaskStatus(Enum):
     """
 
     def __str__(self) -> str:
+        """
+        Return the string representation of the task status.
+
+        Returns:
+            str: The string value of the task status.
+
+        Examples:
+            >>> from archcare.config.models import TaskStatus
+            >>> str(TaskStatus.SUCCESS)
+            'success'
+        """
         return self.value
 
 
@@ -214,6 +247,17 @@ class SkipReason(Enum):
     """
 
     def __str__(self) -> str:
+        """
+        Return the string representation of the skip reason.
+
+        Returns:
+            str: The string value of the skip reason.
+
+        Examples:
+            >>> from archcare.config.models import SkipReason
+            >>> str(SkipReason.DISABLED)
+            'disabled'
+        """
         return self.value
 
 
@@ -294,14 +338,57 @@ class TaskConfig(BaseModel):
     @field_validator("name")
     @classmethod
     def validate_name(cls, v: str) -> str:
-        """Ensure task name is valid."""
+        """
+        Ensure task name is valid.
+
+        Args:
+            v (str): The task name to validate.
+
+        Returns:
+            str: The validated task name.
+
+        Raises:
+            ValueError: If the task name contains invalid characters.
+
+        Examples:
+            >>> from archcare.config.models import TaskConfig, TaskType
+            >>> TaskConfig.validate_name("health-check")
+            'health-check'
+            >>> TaskConfig.validate_name("health_check")
+            'health_check'
+            >>> TaskConfig.validate_name("health.check")
+            Traceback (most recent call last):
+            ...
+            ValueError: Task name must be alphanumeric with hyphens/underscores: health.check
+        """
         if not v.replace("-", "").replace("_", "").isalnum():
             raise ValueError(f"Task name must be alphanumeric with hyphens/underscores: {v}")
         return v
 
     @field_serializer("task_type")
     def serialize_task_type(self, task_type: TaskType) -> str:
-        """Serialize task_type to string for TOML compatibility."""
+        """
+        Serialize task_type to string for TOML compatibility.
+
+        Args:
+            task_type (TaskType): The `TaskType` enum value to serialize.
+
+        Returns:
+            str: The string representation of the task type.
+
+        Examples:
+            >>> from archcare.config.models import TaskConfig, TaskType
+            >>> config = TaskConfig(
+            ...     name="test",
+            ...     type=TaskType.AUTOMATED,
+            ...     frequency=7,
+            ...     description="test"
+            ... )
+            >>> config.serialize_task_type(TaskType.AUTOMATED)
+            'automated'
+            >>> config.serialize_task_type(TaskType.MANUAL)
+            'manual'
+        """
         return str(task_type)
 
 
@@ -521,6 +608,34 @@ class IgnoredServicesConfig(BaseModel):
     @field_validator("services")
     @classmethod
     def validate_service_names(cls, v: list[str]) -> list[str]:
+        """
+        Validate service names against systemd unit naming conventions.
+
+        Args:
+            v (list[str]): List of service names to validate.
+
+        Returns:
+            list[str]: The validated list of service names.
+
+        Raises:
+            InvalidUnitNameError: If any service name is invalid.
+
+        Examples:
+            >>> from archcare.config.models import IgnoredServicesConfig
+            >>> IgnoredServicesConfig.validate_service_names([
+            ...     "nginx.service",
+            ...     "custom-watchdog.service"
+            ... ])
+            ['nginx.service', 'custom-watchdog.service']
+            >>> IgnoredServicesConfig.validate_service_names(
+            ...     ["invalid service"]  # doctest: +IGNORE_EXCEPTION_DETAIL
+            ... )
+            Traceback (most recent call last):
+            ...
+            archcare.config.exceptions.InvalidUnitNameError:
+            Invalid systemd unit name(s) in ignored-services config:
+            ['invalid service']
+        """
         invalid = [name for name in v if not is_valid_systemd_unit_name(name)]
         if invalid:
             raise InvalidUnitNameError(invalid)
@@ -651,7 +766,27 @@ class MirrorlistSettings(BaseModel):
     @field_validator("protocol")
     @classmethod
     def validate_protocol(cls, v: str) -> str:
-        """Validate protocol value"""
+        """
+        Validate protocol value.
+
+        Args:
+            v (str): The protocol string to validate.
+
+        Returns:
+            str: The validated protocol string.
+
+        Raises:
+            ValueError: If protocol is not one of "http", "https", or "rsync".
+
+        Examples:
+            >>> from archcare.config.models import MirrorlistSettings
+            >>> MirrorlistSettings.validate_protocol("https")
+            'https'
+            >>> MirrorlistSettings.validate_protocol("ftp")
+            Traceback (most recent call last):
+            ...
+            ValueError: protocol must be 'http', 'https', or 'rsync'
+        """
         if v not in ["http", "https", "rsync"]:
             raise ValueError("protocol must be 'http', 'https', or 'rsync'")
         return v
@@ -659,7 +794,27 @@ class MirrorlistSettings(BaseModel):
     @field_validator("sort")
     @classmethod
     def validate_sort(cls, v: str) -> str:
-        """Validate sort value"""
+        """
+        Validate sort value.
+
+        Args:
+            v (str): The sort string to validate.
+
+        Returns:
+            str: The validated sort string.
+
+        Raises:
+            ValueError: If sort is not one of the valid sort options.
+
+        Examples:
+            >>> from archcare.config.models import MirrorlistSettings
+            >>> MirrorlistSettings.validate_sort("rate")
+            'rate'
+            >>> MirrorlistSettings.validate_sort("invalid")
+            Traceback (most recent call last):
+            ...
+            ValueError: sort must be one of ['age', 'rate', 'country', 'score', 'delay']
+        """
         valid_sorts = ["age", "rate", "country", "score", "delay"]
         if v not in valid_sorts:
             raise ValueError(f"sort must be one of {valid_sorts}")
@@ -667,7 +822,22 @@ class MirrorlistSettings(BaseModel):
 
     @field_serializer("path")
     def serialize_path(self, v: Path) -> str:
-        """Serialize the mirrorlist path to a string for TOML compatibility"""
+        """
+        Serialize the mirrorlist path to a string for TOML compatibility.
+
+        Args:
+            v (pathlib.Path): The Path object to serialize.
+
+        Returns:
+            str: The string representation of the path.
+
+        Examples:
+            >>> from pathlib import Path
+            >>> from archcare.config.models import MirrorlistSettings
+            >>> settings = MirrorlistSettings()
+            >>> settings.serialize_path(Path("/etc/pacman.d/mirrorlist"))
+            '/etc/pacman.d/mirrorlist'
+        """
         return str(v)
 
 
@@ -765,7 +935,27 @@ class MaintenanceCheckSettings(BaseModel):
     @field_validator("output_mode")
     @classmethod
     def validate_output_mode(cls, v: str) -> str:
-        """Validate output mode value"""
+        """
+        Validate output mode value.
+
+        Args:
+            v (str): The output mode string to validate.
+
+        Returns:
+            str: The validated output mode string.
+
+        Raises:
+            ValueError: If `output_mode` is not one of "terminal", "file", or "both".
+
+        Examples:
+            >>> from archcare.config.models import MaintenanceCheckSettings
+            >>> MaintenanceCheckSettings.validate_output_mode("terminal")
+            'terminal'
+            >>> MaintenanceCheckSettings.validate_output_mode("invalid")
+            Traceback (most recent call last):
+            ...
+            ValueError: output_mode must be one of: terminal, file, both
+        """
         valid_modes = ["terminal", "file", "both"]
         if v not in valid_modes:
             raise ValueError(f"output_mode must be one of: {', '.join(valid_modes)}")
@@ -774,7 +964,27 @@ class MaintenanceCheckSettings(BaseModel):
     @field_validator("notification_level")
     @classmethod
     def validate_notification_level(cls, v: str) -> str:
-        """Validate notification level value"""
+        """
+        Validate notification level value.
+
+        Args:
+            v (str): The notification level string to validate.
+
+        Returns:
+            str: The validated notification level string.
+
+        Raises:
+            ValueError: If notification_level is not one of "critical", "warning", or "info".
+
+        Examples:
+            >>> from archcare.config.models import MaintenanceCheckSettings
+            >>> MaintenanceCheckSettings.validate_notification_level("warning")
+            'warning'
+            >>> MaintenanceCheckSettings.validate_notification_level("invalid")
+            Traceback (most recent call last):
+            ...
+            ValueError: notification_level must be one of: critical, warning, info
+        """
         valid_levels = ["critical", "warning", "info"]
         if v not in valid_levels:
             raise ValueError(f"notification_level must be one of: {', '.join(valid_levels)}")
@@ -914,6 +1124,14 @@ class AppSettings(BaseModel):
         Raises:
             HomeDirectoryResolutionError: If the user does not exist or
                 home cannot be resolved.
+
+        Examples:
+            >>> from archcare.config.models import AppSettings
+            >>> import os
+            >>> # This will succeed for existing users, but it's not deterministic for a doctest
+            >>> # So only the returned object type will be tested
+            >>> isinstance(AppSettings._resolve_user_home("root"), Path)
+            True
         """
         try:
             return Path(getpwnam(username).pw_dir)
@@ -1033,6 +1251,12 @@ class AppSettings(BaseModel):
 
         Raises:
             ValueError: If any path is relative or malformed
+
+        Examples:
+            >>> from archcare.config.models import AppSettings
+            >>> settings = AppSettings(user="root")
+            >>> settings.validate_paths()  # Should not raise
+            AppSettings(user='root', ...)
         """
         paths = [
             self.log_dir,
@@ -1056,7 +1280,23 @@ class AppSettings(BaseModel):
 
     @field_serializer("log_level")
     def serialize_log_level(self, log_level: LogLevel) -> str:
-        """Serialize log level as a string."""
+        """
+        Serialize log level as a string.
+
+        Args:
+            log_level (LogLevel): The `LogLevel` enum value to serialize.
+
+        Returns:
+            str: The string representation of the log level.
+
+        Examples:
+            >>> from archcare.config.models import AppSettings, LogLevel
+            >>> settings = AppSettings()
+            >>> settings.serialize_log_level(LogLevel.DEBUG)
+            'DEBUG'
+            >>> settings.serialize_log_level(LogLevel.ERROR)
+            'ERROR'
+        """
         return str(log_level)
 
     def ensure_directories(self) -> None:
@@ -1120,22 +1360,21 @@ class TaskState(BaseModel):
         Serialized with datetime objects converted to ISO 8601 strings.
         Deserialized on app startup to restore history.
 
-    Example:
-        ```json title="state.json"
-        {
-            "tasks": {
-                "health-check": {
-                    "last_run": "2025-08-17T10:30:00",
-                    "last_status": "success",
-                    "next_due": "2025-08-24T10:30:00",
-                    "run_count": 52,
-                    "last_error": null,
-                    "skip_reason": null
-                }
-            },
-            "last_updated": "2025-08-17T10:30:00"
-        }
-        ```
+    Examples:
+        >>> from datetime import datetime
+        >>> from archcare.config.models import TaskState, TaskStatus, SkipReason
+        >>> state = TaskState(
+        ...     last_run = datetime(2025, 8, 17, 10, 30, 0),
+        ...     last_status = TaskStatus.SUCCESS,
+        ...     next_due = datetime(2025, 8, 24, 10, 30, 0),
+        ...     run_count = 52,
+        ...     last_error = None,
+        ...     skip_reason = None,
+        ... )
+        >>> print(state.run_count)
+        52
+        >>> print(state.last_status)
+        success
     """
 
     last_run: datetime | None = Field(None, description="Timestamp of last execution")
@@ -1211,6 +1450,16 @@ class AppState(BaseModel):
 
         Returns:
             Corresponding `TaskState` object, lazily created if it doesn't exist
+
+        Examples:
+            >>> from archcare.config.models import AppState, TaskState
+            >>> app_state = AppState()
+            >>> state = app_state.get_task_state("health-check")
+            >>> isinstance(state, TaskState)
+            True
+            >>> # Second call returns the same object
+            >>> app_state.get_task_state("health-check") is state
+            True
         """
         if task_name not in self.tasks:
             self.tasks[task_name] = TaskState()
@@ -1233,6 +1482,20 @@ class AppState(BaseModel):
             next_due (datetime.datetime | None): When to run next
             error (str | None): Error message if `FAILURE` (optional)
             skip_reason (SkipReason | None): Why skipped if `SKIPPED` (optional)
+
+        Examples:
+            >>> from datetime import datetime
+            >>> from archcare.config.models import AppState, TaskStatus
+            >>> app_state = AppState()
+            >>> next_due = datetime(2025, 8, 24, 10, 30, 0)
+            >>> app_state.update_task_state("health-check", TaskStatus.SUCCESS, next_due=next_due)
+            >>> state = app_state.tasks["health-check"]
+            >>> state.run_count
+            1
+            >>> str(state.last_status)
+            'success'
+            >>> state.next_due == next_due
+            True
         """
         state = self.get_task_state(task_name)
         state.last_run = datetime.now()
