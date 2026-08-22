@@ -19,7 +19,7 @@ Configuration (via `AppSettings`):
 See Also:
     - [AppSettings][]: Logging configuration fields
     - [LogLevel][]: Supported log levels
-    - [UserContext][archcare.utils.UserContext]: File ownership handling
+    - [UserContext][]: File ownership handling
     - [TaskExecutor][archcare.core.executor.TaskExecutor]: Calls setup_task_logging per task
 """
 
@@ -27,9 +27,8 @@ import sys
 
 from loguru import logger
 
-from archcare.utils import UserContext
-
 from .models import AppSettings, LogLevel
+from .user import UserContext
 
 
 def setup_logging(
@@ -65,7 +64,7 @@ def setup_logging(
         - [setup_task_logging][]: Configure per-task logging
         - [AppSettings.log_dir][]: Property for log directory setting
         - [AppSettings][]: The `log_level` attribute
-        - [UserContext.chown_if_root][archcare.utils.UserContext.chown_if_root]: Ownership handling
+        - [UserContext.chown_if_root][]: Ownership handling
     """
     # Remove default handler (stderr)
     logger.remove()
@@ -137,8 +136,8 @@ def setup_task_logging(task_name: str, settings: AppSettings) -> int:
 
     See Also:
         - [setup_logging][]: Configure global logging
-        - [BaseTask.run][archcare.tasks.base.BaseTask.run]: Adds task context to log records
-        - [UserContext.chown_if_root][archcare.utils.UserContext.chown_if_root]: Ownership handling
+        - [BaseTask.run][archcare.core.base_task.BaseTask.run]: Adds task context to log records
+        - [UserContext.chown_if_root][]: Ownership handling
     """
     task_log_dir = settings.log_dir / "tasks"
     task_log_dir.mkdir(parents=True, exist_ok=True)

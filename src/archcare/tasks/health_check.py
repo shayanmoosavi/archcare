@@ -8,6 +8,7 @@ from loguru import logger
 
 from archcare.config import TaskStatus
 from archcare.core import (
+    BaseTask,
     HealthCheckDetails,
     HealthCheckSummary,
     TaskResult,
@@ -26,8 +27,6 @@ from archcare.utils import (
     get_memory_info,
     get_system_uptime,
 )
-
-from .base import BaseTask
 
 
 class HealthCheckTask(BaseTask):

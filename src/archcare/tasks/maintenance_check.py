@@ -17,6 +17,7 @@ from archcare.config import (
     TaskType,
 )
 from archcare.core import (
+    BaseTask,
     IssueSeverity,
     MaintenanceCheckDetails,
     MaintenanceCheckSummary,
@@ -25,8 +26,6 @@ from archcare.core import (
     TaskScheduleInfo,
     TaskScheduler,
 )
-
-from .base import BaseTask
 
 
 class MaintenanceCheckTask(BaseTask):

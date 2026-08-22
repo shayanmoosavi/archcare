@@ -4,10 +4,10 @@ from typing import Any
 
 import pytest
 
+from archcare.core.base_task import BaseTask
 from archcare.core.exceptions import TaskNotRegisteredError
 from archcare.core.formatter import DefaultFormatter
 from archcare.core.task_registry import TaskDescriptor, TaskRegistry
-from archcare.tasks.base import BaseTask
 
 
 class FakeTaskA(BaseTask):

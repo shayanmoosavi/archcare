@@ -6,9 +6,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from archcare.config import AppSettings, SkipReason, TaskConfig, TaskStatus
-from archcare.core import TaskResult, TaskStep
+from archcare.core import BaseTask, TaskResult, TaskStep
 from archcare.core.progress import NoOpProgress, TaskProgress
-from archcare.tasks import BaseTask
 
 pytestmark = pytest.mark.usefixtures("no_task_logging")
 
@@ -346,7 +345,7 @@ class TestCreateResult:
     """
 
     def test_duration_seconds_reflects_elapsed_time(self, automated_task, app_settings, mocker):
-        mocker.patch("archcare.tasks.base.time.time", side_effect=[1000.0, 1000.5])
+        mocker.patch("archcare.core.base_task.time.time", side_effect=[1000.0, 1000.5])
         context = TaskContext()
         task = DummyTask(automated_task, app_settings, context)
 

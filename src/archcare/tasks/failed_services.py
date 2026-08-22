@@ -6,6 +6,7 @@ from loguru import logger
 
 from archcare.config import ConfigLoader, SkipReason
 from archcare.core import (
+    BaseTask,
     FailedServiceInfo,
     FailedServicesDetails,
     TaskResult,
@@ -18,8 +19,6 @@ from archcare.utils import (
     get_service_status,
     get_systemd_failed_services,
 )
-
-from .base import BaseTask
 
 
 class FailedServicesTask(BaseTask):

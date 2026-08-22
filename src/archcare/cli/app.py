@@ -14,8 +14,9 @@ import typer
 
 from archcare.cli.commands import debug_app, logs_app, setup_app, task_app
 from archcare.cli.context import AppContext
+from archcare.config import UserContext
 from archcare.services.exceptions import ConfigNotInitializedError
-from archcare.utils import UserContext, configure_console, print_error, print_info
+from archcare.utils import configure_console, print_error, print_info
 
 app = typer.Typer(
     name="archcare",

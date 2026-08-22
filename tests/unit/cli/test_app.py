@@ -6,8 +6,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from archcare.cli.app import callback, main
+from archcare.config import UserContext
 from archcare.services.exceptions import ConfigNotInitializedError
-from archcare.utils import UserContext
 
 _MODULE = "archcare.cli.app"
 _PATCH_APP = f"{_MODULE}.app"

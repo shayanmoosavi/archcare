@@ -10,8 +10,7 @@ from archcare.cli.presenters import (
     MirrorlistUpdateFormatter,
 )
 from archcare.cli.progress import RichProgress
-from archcare.config import AppSettings, ConfigLoader
-from archcare.config.logging import setup_logging
+from archcare.config import AppSettings, ConfigLoader, UserContext, setup_logging
 from archcare.core import TaskDescriptor, TaskRegistry
 from archcare.core.executor import TaskExecutor
 from archcare.services.exceptions import ConfigNotInitializedError
@@ -21,7 +20,6 @@ from archcare.tasks import (
     MaintenanceCheckTask,
     MirrorlistUpdateTask,
 )
-from archcare.utils import UserContext
 
 DEFAULT_TASK_REGISTRY = TaskRegistry(
     (

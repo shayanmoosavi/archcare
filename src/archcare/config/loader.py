@@ -109,9 +109,16 @@ class ConfigLoader:
     Resolves the configuration directory from `AppSettings` defaults if not
     explicitly provided. Creates the directory if it doesn't exist.
 
-    Attributes:
-        user (str | None): The target username for config/state file ownership.
-        config_dir (pathlib.Path): Directory containing configuration files.
+    Methods:
+        load_tasks: Load task configurations from `tasks.toml`.
+        load_ignored_services: Load ignored systemd services from `ignored-services.toml`.
+        load_settings: Load application settings from `settings.toml`.
+        load_state: Load runtime state from `state.json`.
+        save_tasks: Save task configurations to `tasks.toml`.
+        save_ignored_services: Save ignored services list to `ignored-services.toml`.
+        save_settings: Save application settings to `settings.toml`.
+        save_state: Persist runtime state to `state.json`.
+        load_default_settings: Create an `AppSettings` instance with all default values.
     """
 
     def __init__(self, user: str | None = None, config_dir: Path | None = None):

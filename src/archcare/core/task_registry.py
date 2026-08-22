@@ -2,8 +2,7 @@
 
 from dataclasses import dataclass
 
-from archcare.tasks.base import BaseTask
-
+from .base_task import BaseTask
 from .exceptions import TaskNotRegisteredError
 from .formatter import DefaultFormatter, TaskDetailFormatter
 
