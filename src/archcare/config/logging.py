@@ -136,7 +136,7 @@ def setup_task_logging(task_name: str, settings: AppSettings) -> int:
 
     See Also:
         - [setup_logging][]: Configure global logging
-        - [BaseTask.run][archcare.tasks.base.BaseTask.run]: Adds task context to log records
+        - [BaseTask.run][archcare.core.base_task.BaseTask.run]: Adds task context to log records
         - [UserContext.chown_if_root][]: Ownership handling
     """
     task_log_dir = settings.log_dir / "tasks"

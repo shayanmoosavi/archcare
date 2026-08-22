@@ -231,7 +231,8 @@ class TaskStep:
     to provide real-time feedback in the CLI. Each step captures the operation name,
     its current status, and an optional descriptive message.
 
-    This class is used by [BaseTask.report_progress][archcare.tasks.base.BaseTask.report_progress]
+    This class is used by
+    [BaseTask.report_progress][archcare.core.base_task.BaseTask.report_progress]
     and implements the [TaskProgress][archcare.core.progress.TaskProgress] protocol
     for progress tracking.
 
@@ -265,7 +266,7 @@ class TaskStep:
 
     See Also:
         - [TaskResult][]: Complete task execution result containing multiple steps
-        - [BaseTask.report_progress][archcare.tasks.base.BaseTask.report_progress]: Method that
+        - [BaseTask.report_progress][archcare.core.base_task.BaseTask.report_progress]: Method that
             emits `TaskStep` instances
         - [TaskProgress][archcare.core.progress.TaskProgress]: Protocol for progress reporters
         - [RichProgress][archcare.cli.progress.RichProgress]: CLI implementation using Rich library

@@ -790,8 +790,8 @@ class AppSettings(BaseModel):
     for state, logs, config, and reports directories.
 
     Attributes:
-        user (str): The username. Set by [UserContext][archcare.utils.user.UserContext] and
-            used to resolve the home directory at runtime.
+        user (str): The username. Set by [UserContext][] and used to resolve
+            the home directory at runtime.
 
         log_retention_days (int): Age threshold for log file cleanup. (Default: 30)
 
