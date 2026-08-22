@@ -15,10 +15,10 @@ from archcare.config import (
     UserContext,
 )
 from archcare.core import TaskDescriptor, TaskRegistry, TaskResult, success
+from archcare.core.base_task import BaseTask
 from archcare.core.executor import TaskExecutor
 from archcare.core.notifications import NotificationManager
 from archcare.core.progress import NoOpProgress, TaskProgress
-from archcare.tasks import BaseTask
 
 _MODULE = "archcare.core.executor"
 

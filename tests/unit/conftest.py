@@ -139,7 +139,7 @@ def no_task_logging():
     returning a fake id would raise ValueError, so we return a real one.
     """
     with patch(
-        "archcare.tasks.base.setup_task_logging",
+        "archcare.core.base_task.setup_task_logging",
         side_effect=lambda name, settings: logger.add(
             StringIO(), format="{message}", colorize=False
         ),
