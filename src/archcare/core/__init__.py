@@ -2,6 +2,7 @@
 Core functionality for archcare task execution.
 """
 
+from .base_task import BaseTask
 from .models import (
     IssueSeverity,
     MaintenanceIssue,
@@ -25,6 +26,8 @@ from .task_details import (
 from .task_registry import TaskDescriptor, TaskRegistry
 
 __all__ = [
+    # Base task
+    "BaseTask",
     # Models
     "IssueSeverity",
     "MaintenanceIssue",

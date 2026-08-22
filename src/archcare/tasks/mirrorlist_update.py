@@ -7,7 +7,7 @@ from typing import Any
 
 from loguru import logger
 
-from archcare.core import MirrorlistUpdateDetails, TaskResult, failed, success
+from archcare.core import BaseTask, MirrorlistUpdateDetails, TaskResult, failed, success
 from archcare.utils import (
     backup_file,
     check_command_exists,
@@ -16,8 +16,6 @@ from archcare.utils import (
     update_mirrorlist,
     validate_mirrorlist,
 )
-
-from .base import BaseTask
 
 
 class MirrorlistUpdateTask(BaseTask):

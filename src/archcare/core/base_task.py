@@ -1,5 +1,5 @@
 """
-Base task implementation for archcare.
+Base task implementation for Archcare.
 
 All maintenance tasks inherit from BaseTask.
 """
@@ -11,9 +11,10 @@ from typing import Any
 from loguru import logger
 
 from archcare.config import AppSettings, SkipReason, TaskConfig, setup_task_logging
-from archcare.core import TaskResult, TaskStep, failed, skipped
-from archcare.core.notifications import NotificationManager
-from archcare.core.progress import NoOpProgress, TaskProgress
+
+from .models import TaskResult, TaskStep, failed, skipped
+from .notifications import NotificationManager
+from .progress import NoOpProgress, TaskProgress
 
 
 class BaseTask(ABC):

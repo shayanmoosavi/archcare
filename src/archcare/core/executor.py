@@ -18,8 +18,8 @@ from archcare.config import (
     TaskStatus,
     UserContext,
 )
-from archcare.tasks.base import BaseTask
 
+from .base_task import BaseTask
 from .interaction import NonInteractive, TaskInteraction
 from .models import TaskResult, skipped
 from .notifications import NotificationManager
