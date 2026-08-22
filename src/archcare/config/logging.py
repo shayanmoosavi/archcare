@@ -27,7 +27,8 @@ import sys
 
 from loguru import logger
 
-from .models import AppSettings, LogLevel
+from .enums import LogLevel
+from .models import AppSettings
 from .user import UserContext
 
 

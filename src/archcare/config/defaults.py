@@ -35,7 +35,8 @@ from typing import Any
 
 from tomlkit import TOMLDocument, boolean, comment, document, nl, table
 
-from .models import AppSettings, TaskConfig, TaskType
+from .enums import TaskType
+from .models import AppSettings, TaskConfig
 
 _SECTION_DIVIDER = "=" * 76
 
