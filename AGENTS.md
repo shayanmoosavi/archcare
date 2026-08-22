@@ -48,6 +48,7 @@ utils/      → subprocess wrappers, system/hardware queries, notifications
 
 | File               | Purpose                                                                                                                                |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `base_task.py`     | `BaseTask` - abstract base with `execute()`, `pre_check()`, `should_run()`, `post_execute()`, `rollback()`, `run()`                    |
 | `executor.py`      | `TaskExecutor` - coordinates task instantiation, execution, state updates                                                              |
 | `task_registry.py` | `TaskRegistry`, `TaskDescriptor` - static mapping of task name → (class, formatter)                                                    |
 | `models.py`        | `TaskResult[TDetails]`, `TaskStep`, `IssueSeverity`, `MaintenanceIssue`, factory functions (`success`, `failed`, `skipped`, `partial`) |
@@ -70,13 +71,12 @@ utils/      → subprocess wrappers, system/hardware queries, notifications
 
 ### Tasks Layer (`src/archcare/tasks/`)
 
-| File                   | Purpose                                                                                                             |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `base.py`              | `BaseTask` - abstract base with `execute()`, `pre_check()`, `should_run()`, `post_execute()`, `rollback()`, `run()` |
-| `failed_services.py`   | `FailedServicesTask` - checks systemd failed units                                                                  |
-| `health_check.py`      | `HealthCheckTask` - disk, memory, CPU, filesystem, pacman checks                                                    |
-| `mirrorlist_update.py` | `MirrorlistUpdateTask` - runs reflector with backup/rollback                                                        |
-| `maintenance_check.py` | `MaintenanceCheckTask` - scheduler-aware "what's due" report                                                        |
+| File                   | Purpose                                                          |
+| ---------------------- | ---------------------------------------------------------------- |
+| `failed_services.py`   | `FailedServicesTask` - checks systemd failed units               |
+| `health_check.py`      | `HealthCheckTask` - disk, memory, CPU, filesystem, pacman checks |
+| `mirrorlist_update.py` | `MirrorlistUpdateTask` - runs reflector with backup/rollback     |
+| `maintenance_check.py` | `MaintenanceCheckTask` - scheduler-aware "what's due" report     |
 
 ### Services Layer (`src/archcare/services/`)
 
@@ -126,6 +126,10 @@ class MyTaskDetails:
 2. **Create task class** in `tasks/my_task.py` inheriting `BaseTask`:
 
 ```python
+from archcare.core.base_task import BaseTask
+from archcare.core.models import TaskResult, success
+
+
 class MyTask(BaseTask):
     def pre_check(self) -> tuple[bool, str]:
         # Verify prerequisites (e.g., command exists)
