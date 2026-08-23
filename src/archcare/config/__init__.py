@@ -6,6 +6,7 @@ and JSON state files, as well as setting up the global logging environment.
 
 Modules:
     defaults: Default TOML template builders for setting up fresh configurations.
+    enums: Type-safe enums of the Archcare config layer.
     loader: Handles reading and writing TOML/JSON configuration and state files.
     logging: Sets up global and task-specific Loguru logger handlers.
     models: Pydantic configuration and state schemas and enums.

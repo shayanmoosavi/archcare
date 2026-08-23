@@ -204,7 +204,8 @@ def _add_tasks(doc: TOMLDocument, tasks: tuple[TaskConfig, ...]) -> None:
     Examples:
         >>> from archcare.config.defaults import _add_tasks
         >>> from tomlkit import document, dumps
-        >>> from archcare.config.models import TaskConfig, TaskType
+        >>> from archcare.config.models import TaskConfig
+        >>> from archcare.config.enums import TaskType
         >>> doc = document()
         >>> tasks = (
         ...     TaskConfig(

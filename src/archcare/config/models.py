@@ -136,7 +136,7 @@ class TaskConfig(BaseModel):
             ValueError: If the task name contains invalid characters.
 
         Examples:
-            >>> from archcare.config.models import TaskConfig, TaskType
+            >>> from archcare.config.models import TaskConfig
             >>> TaskConfig.validate_name("health-check")
             'health-check'
             >>> TaskConfig.validate_name("health_check")
@@ -162,7 +162,7 @@ class TaskConfig(BaseModel):
             str: The string representation of the task type.
 
         Examples:
-            >>> from archcare.config.models import TaskConfig, TaskType
+            >>> from archcare.config.models import TaskConfig
             >>> config = TaskConfig(
             ...     name="test",
             ...     type=TaskType.AUTOMATED,
@@ -1075,7 +1075,7 @@ class AppSettings(BaseModel):
             str: The string representation of the log level.
 
         Examples:
-            >>> from archcare.config.models import AppSettings, LogLevel
+            >>> from archcare.config.models import AppSettings
             >>> settings = AppSettings()
             >>> settings.serialize_log_level(LogLevel.DEBUG)
             'DEBUG'

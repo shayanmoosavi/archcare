@@ -1,4 +1,38 @@
-"""Enums for Archcare config layer"""
+"""
+Enumeration types for the Archcare configuration layer.
+
+This module defines the core enumeration types used across Archcare's configuration
+and state management systems. These enums provide type-safe constants for:
+
+- **LogLevel**: Logging verbosity levels (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`)
+- **TaskType**: Execution modes for maintenance tasks (`AUTOMATED`, `MANUAL`)
+- **TaskStatus**: Outcome states for task runs (`SUCCESS`, `FAILURE`, `SKIPPED`, `PARTIAL`)
+- **SkipReason**: Enumerated reasons why a task was not executed
+
+All enums inherit from `enum.Enum` and implement `__str__` to return their
+string value, enabling direct serialization to TOML/JSON configuration files.
+
+These enums are used by:
+    - [AppSettings][] for logging configuration
+    - [TaskConfig][] for task definitions
+    - [TaskState][] for runtime state tracking
+    - [ConfigLoader][] for validation
+
+Examples:
+    >>> from archcare.config.enums import LogLevel, TaskType, TaskStatus, SkipReason
+    >>> LogLevel.INFO
+    <LogLevel.INFO: 'INFO'>
+    >>> TaskType.AUTOMATED
+    <TaskType.AUTOMATED: 'automated'>
+    >>> TaskStatus.SUCCESS
+    <TaskStatus.SUCCESS: 'success'>
+    >>> SkipReason.NOT_DUE
+    <SkipReason.NOT_DUE: 'not_due'>
+
+See Also:
+    - [archcare.config.models][]: Pydantic models that use these enums
+    - [archcare.config.loader][]: Configuration loading with enum validation
+"""
 
 from enum import Enum
 
