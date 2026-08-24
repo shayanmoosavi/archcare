@@ -223,6 +223,11 @@ tests/
 - **Integration tests**: Only mock `utils/system.py`'s `run_command`/`run_command_with_sudo` and desktop notifications
 - Run: `uv run pytest`, `uv run pytest tests/unit`, `uv run pytest tests/integration`
 
+### Pytest Config
+- `import-mode=importlib` (avoids `sys.path` manipulation)
+- Coverage via `pytest-cov`
+- Mocking via `pytest-mock`
+
 ---
 
 ## Development Commands
@@ -243,9 +248,22 @@ uv run ty check
 uv run ruff check
 uv run ruff format
 
-# Build script
-scripts/build.sh
+# CI order (must pass in this sequence)
+uv run ruff check && uv run ruff format --check && uv run pytest && uv run ty check
+
+# Build (standalone binary via nuitka)
+uv sync --group build
+uv run scripts/build.sh
+
+# Commit conventions (commitizen)
+uv run cz commit
 ```
+
+### Dependency Groups
+- `dev`: ruff, ty, prek, commitizen, docs, test
+- `build`: nuitka, patchelf
+- `docs`: mkdocstrings, mkdocs-material, mkdocs-autoapi
+- `test`: pytest, pytest-cov, pytest-mock
 
 ---
 
