@@ -36,9 +36,7 @@ class TaskRegistry:
         """
         descriptor = self._by_name.get(name)
         if descriptor is None:
-            raise TaskNotRegisteredError(
-                f"No task registered for: {name}. Available tasks: {list(self._by_name.keys())}"
-            )
+            raise TaskNotRegisteredError(name, list(self._by_name.keys()))
         return descriptor.task_class
 
     def get_formatter_class(self, name: str) -> type[TaskDetailFormatter]:
@@ -51,9 +49,7 @@ class TaskRegistry:
         """
         descriptor = self._by_name.get(name)
         if descriptor is None:
-            raise TaskNotRegisteredError(
-                f"No task registered for: {name}. Available tasks: {list(self._by_name.keys())}"
-            )
+            raise TaskNotRegisteredError(name, list(self._by_name.keys()))
         return descriptor.formatter_class
 
     def names(self) -> tuple[str, ...]:

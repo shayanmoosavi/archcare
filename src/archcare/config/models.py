@@ -413,13 +413,13 @@ class IgnoredServicesConfig(BaseModel):
             ... ])
             ['nginx.service', 'custom-watchdog.service']
             >>> IgnoredServicesConfig.validate_service_names(
-            ...     ["invalid service"]  # doctest: +IGNORE_EXCEPTION_DETAIL
+            ...     ["invalid service"] # doctest: +NORMALIZE_WHITESPACE
             ... )
             Traceback (most recent call last):
             ...
             archcare.config.exceptions.InvalidUnitNameError:
-            Invalid systemd unit name(s) in ignored-services config:
-            ['invalid service']
+                Invalid systemd unit name(s) in ignored-services config:
+                ['invalid service']
         """
         invalid = [name for name in v if not is_valid_systemd_unit_name(name)]
         if invalid:
@@ -699,6 +699,7 @@ class MaintenanceCheckSettings(BaseModel):
     critical_threshold_days: int = Field(
         default=7, ge=0, description="Days overdue before task is considered critical"
     )
+    # TODO: add lt=critical_threshold_days validator
     warning_threshold_days: int = Field(
         default=0, ge=0, description="Days overdue before task is considered warning"
     )
