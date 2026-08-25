@@ -107,7 +107,7 @@ class BaseTask(ABC):
         representing the actual task work.
 
         Returns:
-            TaskResult[Any]: Result indicating success/failure status and details.
+            (TaskResult[Any]): Result indicating success/failure status and details.
 
         Raises:
             Exception: Any exception raised in this method triggers `rollback()`
@@ -126,8 +126,8 @@ class BaseTask(ABC):
         Returns:
             (tuple[bool, str]): A tuple of:
 
-                - can_run (bool): True if all prerequisites are satisfied, False otherwise.
-                - reason (str): Explanatory message when prerequisites fail (empty on success).
+                - `can_run` (`bool`): True if all prerequisites are satisfied, False otherwise.
+                - `reason` (`str`): Explanatory message when prerequisites fail (empty on success).
 
         Examples:
             >>> class DummyTask(BaseTask):
@@ -151,9 +151,9 @@ class BaseTask(ABC):
         Returns:
             (tuple[bool, str, SkipReason | None]): A tuple of:
 
-                - should_run (bool): True if work needs to be performed, False otherwise.
-                - reason (str): Explanatory reason when skipping (empty if running).
-                - skip_reason (SkipReason | None): Skip classification constant, or None.
+                - `should_run` (`bool`): True if work needs to be performed, False otherwise.
+                - `reason` (`str`): Explanatory reason when skipping (empty if running).
+                - `skip_reason` (`SkipReason | None`): Skip classification constant, or None.
 
         Examples:
             >>> class DummyTask(BaseTask):
