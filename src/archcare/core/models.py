@@ -291,6 +291,13 @@ class IssueSeverity(Enum):
     helping users prioritize which issues to address first. All issues should
     be reviewed, but severity determines how quickly they need attention.
 
+    Attributes:
+        CRITICAL (str): Critical issues requiring immediate attention. Should be addressed
+            as soon as possible.
+        WARNING (str): Non-critical issues that may need attention. Not critical, but should
+            be addressed soon.
+        INFO (str): Informational issues that do not require immediate attention.
+
     Examples:
         >>> severity = IssueSeverity.CRITICAL
         >>> str(severity)
@@ -304,42 +311,8 @@ class IssueSeverity(Enum):
     """
 
     CRITICAL = "critical"
-    """
-    Issues requiring immediate attention.
-
-    These indicate problems that could impact system stability, security, or
-    functionality.
-
-    Example: Severely overdue maintenance tasks or broken
-    systemd timers, typically by more than 1.5 times the frequency they
-    should be performed.
-
-    Should be addressed as soon as possible,
-    typically within hours.
-    """
-
     WARNING = "warning"
-    """
-    Issues that should be addressed soon.
-
-    These indicate minor problems that don't immediately impact core functionality
-    but may cause issues if left unattended.
-
-    Example: Maintenance tasks overdue by a few days.
-
-    Should be addressed within days.
-    """
-
     INFO = "info"
-    """
-    Informational issues with no immediate action needed.
-
-    These are status updates or reminders for awareness only.
-
-    Examples: Never-run maintenance tasks or tasks overdue by a day.
-
-    Can be reviewed at user's convenience.
-    """
 
     def __str__(self) -> str:
         return self.value

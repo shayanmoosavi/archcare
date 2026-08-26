@@ -39,32 +39,43 @@ from enum import Enum
 
 class LogLevel(Enum):
     """
-    Logging severity levels for Archcare operations
+    Represent logging severity levels for Archcare operations.
 
     Controls which log messages are written to log files. Higher severity levels
     include messages from lower levels (e.g., `ERROR` includes `ERROR` and `CRITICAL`).
+    This is configured globally in settings to control terminal and file output verbosity.
+
+    Attributes:
+        DEBUG (str): Detailed debugging info, variable values, and function calls.
+        INFO (str): Normal operational events (e.g., "Task started", "Mirror list updated").
+        WARNING (str): Non-critical issues or warnings (e.g., "Task overdue", "Old log files
+            deleted").
+        ERROR (str): Task failures, errors, and exceptions.
+        CRITICAL (str): Severe, system-level failures that affect the operation of Archcare.
 
     Configuration Examples:
         ```toml title="tasks.toml"
-        log_level = "INFO"  # settings.toml: typical production setting
-        log_level = "DEBUG" # settings.toml: troubleshooting mode
+        log_level = "INFO"  # Typical production setting
+        log_level = "DEBUG" # Troubleshooting mode
         ```
+
+    Examples:
+        >>> from archcare.config.enums import LogLevel
+        >>> LogLevel.INFO
+        <LogLevel.INFO: 'INFO'>
+        >>> str(LogLevel.INFO)
+        'INFO'
+
+    See Also:
+        [AppSettings][archcare.config.models.AppSettings]: App-wide settings where this log level
+            is applied
     """
 
     DEBUG = "DEBUG"
-    """Detailed debugging info, variable values, function calls"""
-
     INFO = "INFO"
-    """Normal operations ("Task started", "Mirror list updated")"""
-
     WARNING = "WARNING"
-    """Non-critical issues ("Task overdue", "Old log files deleted")"""
-
     ERROR = "ERROR"
-    """Task failures and exceptions"""
-
     CRITICAL = "CRITICAL"
-    """System-level failures that affect Archcare operation"""
 
     def __str__(self) -> str:
         """
@@ -74,7 +85,7 @@ class LogLevel(Enum):
             str: The string value of the log level.
 
         Examples:
-            >>> from archcare.config.models import LogLevel
+            >>> from archcare.config.enums import LogLevel
             >>> str(LogLevel.INFO)
             'INFO'
         """
@@ -83,34 +94,40 @@ class LogLevel(Enum):
 
 class TaskType(Enum):
     """
-    Task execution modes for Archcare
+    Represent task execution modes for Archcare.
 
-    Examples:
+    Specifies whether the task should be executed automatically or manually.
+    Automated tasks are triggered via systemd timers at scheduled intervals,
+    while manual tasks must be explicitly run by the user.
+
+    Attributes:
+        AUTOMATED (str): Tasks executed automatically on scheduled intervals.
+        MANUAL (str): Tasks executed manually by the user.
+
+    Configuration Examples:
         ```toml title="tasks.toml"
         [health-check]
-        type = "automated"      # Runs on schedule automatically
+        type = "automated"      # Runs automatically on schedule
         frequency = 7           # Every 7 days
 
         [mirrorlist-update]
         type = "manual"         # User must run explicitly
         frequency = 15          # User should run every 15 days
         ```
+
+    Examples:
+        >>> from archcare.config.enums import TaskType
+        >>> TaskType.AUTOMATED
+        <TaskType.AUTOMATED: 'automated'>
+        >>> str(TaskType.AUTOMATED)
+        'automated'
+
+    See Also:
+        [TaskConfig][archcare.config.models.TaskConfig]: Configuration where task type is specified
     """
 
     AUTOMATED = "automated"
-    """
-        - Executed automatically at scheduled intervals if no manual run is in progress
-        - Example: health-check runs weekly without user intervention
-        - Respects frequency setting; next_due is calculated from last_run + frequency days
-    """
-
     MANUAL = "manual"
-    """
-        - Only executed when explicitly requested by the user (via CLI command)
-        - Useful for potentially disruptive operations (mirror list updates, system upgrades)
-        - frequency setting still defines how often it SHOULD run; skipped with `NOT_DUE` reason
-        - User receives notifications when manual tasks are overdue
-    """
 
     def __str__(self) -> str:
         """
@@ -120,7 +137,7 @@ class TaskType(Enum):
             str: The string value of the task type.
 
         Examples:
-            >>> from archcare.config.models import TaskType
+            >>> from archcare.config.enums import TaskType
             >>> str(TaskType.AUTOMATED)
             'automated'
         """
@@ -129,44 +146,33 @@ class TaskType(Enum):
 
 class TaskStatus(Enum):
     """
-    Execution outcome for a completed task run
+    Represent the execution outcome for a completed task run.
 
-    State Persistence:
-        `last_status` persists in `state.json` for reporting and scheduling decisions.
+    Tracks whether a task was successful, failed, skipped, or had partial success.
+    The resulting status is persisted in the application state to track history
+    and make future scheduling decisions.
+
+    Attributes:
+        SUCCESS (str): Task completed without errors, accomplishing all work.
+        FAILURE (str): Task encountered a critical error and was incomplete.
+        SKIPPED (str): Task was not run; preserved for auditing and status reporting.
+        PARTIAL (str): Task completed with mixed results (some parts succeeded, others had issues).
+
+    Examples:
+        >>> from archcare.config.enums import TaskStatus
+        >>> TaskStatus.SUCCESS
+        <TaskStatus.SUCCESS: 'success'>
+        >>> str(TaskStatus.SUCCESS)
+        'success'
+
+    See Also:
+        [TaskState][archcare.config.models.TaskState]: State model containing task execution status
     """
 
     SUCCESS = "success"
-    """
-        - Task completed without errors; all work accomplished
-        - Example: `health-check` found no issues, or `mirrorlist-update` succeeded
-        - `next_due` is set for the next scheduled run
-    """
-
     FAILURE = "failure"
-    """
-        - Task encountered a critical error; work incomplete
-        - Example: no network connection, permission denied, or task raised exception
-        - Error message stored in `last_error`; user should review logs
-        - `next_due` is untouched; automated task will be retried on next
-            scheduled run (systemd timer)
-    """
-
     SKIPPED = "skipped"
-    """
-        - Task did not run; preserved for auditing (not counted in success/failure metrics)
-        - Example: task is disabled, not due yet, or missing dependency
-        - `skip_reason` explains why (`NO_WORK_NEEDED`, `DISABLED`, `NOT_DUE`, etc.)
-        - Does not update `next_due`; scheduling unaffected
-    """
-
     PARTIAL = "partial"
-    """
-        - Task ran with mixed results; some work completed, some failed
-        - Example: `health-check` found warnings (e.g., low disk space) but no
-            critical failures (e.g., package file integrity check failed)
-        - Less critical than `FAILURE`; usually safe to retry
-        - Details in `last_error`; `next_due` updated based on partial results
-    """
 
     def __str__(self) -> str:
         """
@@ -176,7 +182,7 @@ class TaskStatus(Enum):
             str: The string value of the task status.
 
         Examples:
-            >>> from archcare.config.models import TaskStatus
+            >>> from archcare.config.enums import TaskStatus
             >>> str(TaskStatus.SUCCESS)
             'success'
         """
@@ -185,57 +191,38 @@ class TaskStatus(Enum):
 
 class SkipReason(Enum):
     """
-    Enumerated reasons of why a task execution was skipped
+    Represent the enumerated reasons why a task execution was skipped.
 
-    See also:
-        [TaskExecutor][archcare.core.executor.TaskExecutor]: Uses it for task schedule handling
+    Provides semantic categorization for task skips, allowing the scheduling and reporting
+    components to handle different skip scenarios correctly (e.g. advancing schedules or
+    raising warnings).
+
+    Attributes:
+        NO_WORK_NEEDED (str): Task ran but found no system changes or work required.
+        DISABLED (str): Task is disabled in the configuration file.
+        DEPENDENCY_FAILED (str): Task requires a missing system command or program.
+        USER_CANCELLED (str): User explicitly declined to run the task when prompted.
+        NOT_DUE (str): Task is not due for execution according to its frequency schedule.
+        OTHER (str): Miscellaneous or custom skip reason specified by the task implementation.
+
+    Examples:
+        >>> from archcare.config.enums import SkipReason
+        >>> SkipReason.DISABLED
+        <SkipReason.DISABLED: 'disabled'>
+        >>> str(SkipReason.DISABLED)
+        'disabled'
+
+    See Also:
+        [TaskExecutor][archcare.core.executor.TaskExecutor]: Coordinates task handling and schedule
+            state updates
     """
 
     NO_WORK_NEEDED = "no_work_needed"
-    """
-        - Task ran but found nothing to do
-        - Example: `failed-services` found no failed services
-        - Treated as a successful run; next_due still advances
-        - Important for auditing: confirms task ran, not just disabled
-    """
-
     DISABLED = "disabled"
-    """
-        - Task is disabled in configuration (enabled: false)
-        - Example: user temporarily disabled `mirrorlist-update` in `tasks.toml`
-        - Does not affect scheduling; when re-enabled, next_due continues from where
-            it left off
-    """
-
     DEPENDENCY_FAILED = "dependency_failed"
-    """
-        - Required system component or dependency not available
-        - Example: reflector package is not installed for mirrorlist update
-        - The missing dependency is reported to the user and logged; task cannot run
-            until resolved
-    """
-
     USER_CANCELLED = "user_cancelled"
-    """
-        - User chose not to run task when prompted
-        - Example: user said "no" when asked whether to run an already executed task
-        - Task treated as explicitly declined; next_due not advanced (task still "due")
-        - Useful for manual tasks where user may need to run it later
-    """
-
     NOT_DUE = "not_due"
-    """
-        - Task execution window hasn't elapsed yet
-        - Example: `health-check` runs monthly; next execution in 3 days
-        - Applies to both automated and manual tasks; prevents unnecessary runs
-    """
-
     OTHER = "other"
-    """
-        - Miscellaneous reason; check `last_error` for custom message
-        - Example: resource exhaustion, unexpected executor state, or custom task logic
-        - Reserved for edge cases and future extensibility
-    """
 
     def __str__(self) -> str:
         """
@@ -245,7 +232,7 @@ class SkipReason(Enum):
             str: The string value of the skip reason.
 
         Examples:
-            >>> from archcare.config.models import SkipReason
+            >>> from archcare.config.enums import SkipReason
             >>> str(SkipReason.DISABLED)
             'disabled'
         """
