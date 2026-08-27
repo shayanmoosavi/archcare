@@ -1,7 +1,19 @@
 """
-Hardware utility functions for archcare.
+Low-level hardware metrics collection for Archcare.
 
-Provides functions to query and manage hardware components.
+Provides psutil-based helpers to query disk, memory, and CPU statistics.
+All functions return frozen dataclasses from [archcare.utils.info_models][]:
+[DiskUsageInfo][], [MemoryInfo][], and [CpuInfo][].
+
+Each function handles psutil failures gracefully by logging an error and
+returning a zero-initialized instance of the corresponding dataclass, so
+callers never need to catch exceptions.
+
+See Also:
+    - [archcare.utils.info_models][]: Structured return types for all queries.
+    - [archcare.utils.system][]: Systemd/service-level queries.
+    - [HealthCheckTask][archcare.tasks.health_check.HealthCheckTask]: Task that
+        composes these into a health check.
 """
 
 import os
@@ -14,13 +26,17 @@ from .info_models import CpuInfo, DiskUsageInfo, MemoryInfo
 
 def get_disk_usage(path: str = "/") -> DiskUsageInfo:
     """
-    Get disk usage statistics for a path using psutil.
+    Get disk usage statistics for a filesystem mount point.
+
+    Wraps `psutil.disk_usage` to return a structured [DiskUsageInfo][]
+    instance with total, used, free bytes, and percentage utilization.
 
     Args:
-        path: Path to check (default: root filesystem)
+        path (str): Mount point path to query (default: root filesystem `'/'`).
 
     Returns:
-        DiskUsageInfo object with disk usage information
+        DiskUsageInfo: Usage metrics for the specified path. On failure, returns
+            a zero-initialized instance with only `path` populated.
     """
 
     try:
@@ -39,10 +55,15 @@ def get_disk_usage(path: str = "/") -> DiskUsageInfo:
 
 def get_memory_info() -> MemoryInfo:
     """
-    Get system memory information using psutil.
+    Get system memory (RAM and swap) usage statistics.
+
+    Wraps `psutil.virtual_memory` and `psutil.swap_memory` to return a
+    structured [MemoryInfo][] instance with physical and swap memory metrics.
 
     Returns:
-        MemoryInfo object with memory information
+        MemoryInfo: Memory metrics including total/available/used bytes and
+            percentages for both physical RAM and swap. On failure, returns a
+            zero-initialized instance.
     """
 
     try:
@@ -65,10 +86,16 @@ def get_memory_info() -> MemoryInfo:
 
 def get_cpu_info() -> CpuInfo:
     """
-    Get CPU usage information using psutil.
+    Get CPU utilization and load average information.
+
+    Wraps `psutil.cpu_percent`, `psutil.cpu_count`, and `os.getloadavg`
+    to return a structured [CpuInfo][] instance. The CPU percent is measured
+    over a 1-second interval.
 
     Returns:
-        CpuInfo object with CPU information
+        CpuInfo: CPU metrics including core count, utilization percentage,
+            and 1/5/15-minute load averages. On failure, returns an instance
+            with percent=0.0, cores=0, and load_avg=None.
     """
 
     try:
