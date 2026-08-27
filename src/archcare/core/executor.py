@@ -70,15 +70,15 @@ class TaskExecutor:
         Let's demonstrate how to construct a `TaskExecutor` using mocked dependencies:
 
         >>> from pathlib import Path
-        >>> from archcare.config import AppSettings, AppState, ConfigLoader
+        >>> from archcare.config import AppSettings, AppState, ConfigLoader, UserContext
         >>> from archcare.core.task_registry import TaskRegistry
         >>> from archcare.core.executor import TaskExecutor
         >>>
         >>> # Construct mock dependencies
-        >>> settings = AppSettings(user="dummy")
+        >>> settings = AppSettings()
         >>> state = AppState(tasks={})
         >>> registry = TaskRegistry(())
-        >>> loader = ConfigLoader(user="dummy")
+        >>> loader = ConfigLoader()
         >>>
         >>> executor = TaskExecutor(
         ...     config_loader=loader,
