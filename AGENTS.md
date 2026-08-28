@@ -68,6 +68,7 @@ utils/      → subprocess wrappers, system/hardware queries, notifications
 | `loader.py`   | `ConfigLoader` - loads/saves TOML (settings, tasks, ignored-services) and JSON (state)                                                                                                                                      |
 | `defaults.py` | Default TOML document builders for initial config creation                                                                                                                                                                  |
 | `logging.py`  | Logging setup with loguru                                                                                                                                                                                                   |
+| `user.py`     | `UserContext` - resolves ARCHCARE_USER/SUDO_USER, chown helpers                                                                                                                                                             |
 
 ### Tasks Layer (`src/archcare/tasks/`)
 
@@ -106,7 +107,6 @@ utils/      → subprocess wrappers, system/hardware queries, notifications
 | `hardware.py`   | Disk, memory, CPU queries via psutil                                                |
 | `pacman.py`     | Pacman database/package health checks                                               |
 | `mirrorlist.py` | Mirrorlist parsing, reflector invocation                                            |
-| `user.py`       | `UserContext` - resolves ARCHCARE_USER/SUDO_USER, chown helpers                     |
 
 ---
 
@@ -224,6 +224,7 @@ tests/
 - Run: `uv run pytest`, `uv run pytest tests/unit`, `uv run pytest tests/integration`
 
 ### Pytest Config
+
 - `import-mode=importlib` (avoids `sys.path` manipulation)
 - Coverage via `pytest-cov`
 - Mocking via `pytest-mock`
@@ -260,6 +261,7 @@ uv run cz commit
 ```
 
 ### Dependency Groups
+
 - `dev`: ruff, ty, prek, commitizen, docs, test
 - `build`: nuitka, patchelf
 - `docs`: mkdocstrings, mkdocs-material, mkdocs-autoapi
