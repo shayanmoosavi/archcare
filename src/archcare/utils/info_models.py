@@ -47,7 +47,7 @@ class ServiceStatusInfo:
         ...     active="active",
         ...     running=True,
         ...     description="System Logging Service",
-        ...     main_pid=1234
+        ...     main_pid=1234,
         ... )
         >>> info.running
         True

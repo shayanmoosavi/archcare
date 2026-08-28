@@ -82,7 +82,8 @@ def _patch_document(doc: dict[str, Any], data: dict[str, Any]) -> None:
 
     Examples:
         >>> from tomlkit import table
-        >>> doc = table(); doc["a"] = 1
+        >>> doc = table()
+        >>> doc["a"] = 1
         >>> _patch_document(doc, {"a": 2, "b": {"c": 3}})
         >>> doc["a"]
         2

@@ -47,10 +47,7 @@ class TaskDetailFormatter(Protocol):
         >>>
         >>> class DummyFormatter:
         ...     def format(self, details: DummyDetails) -> list[str]:
-        ...         return [
-        ...             f"Executed count: {details.count}",
-        ...             f"Final status: {details.status}"
-        ...         ]
+        ...         return [f"Executed count: {details.count}", f"Final status: {details.status}"]
         >>>
         >>> # Ensure compliance with the TaskDetailFormatter protocol
         >>> formatter: TaskDetailFormatter = DummyFormatter()

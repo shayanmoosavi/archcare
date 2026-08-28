@@ -131,9 +131,12 @@ class BaseTask(ABC):
 
         Examples:
             >>> class DummyTask(BaseTask):
-            ...     def execute(self) -> TaskResult[Any]: pass
+            ...     def execute(self) -> TaskResult[Any]:
+            ...         pass
+            ...
             ...     def pre_check(self) -> tuple[bool, str]:
             ...         import shutil
+            ...
             ...         if not shutil.which("reflector"):
             ...             return False, "reflector command missing"
             ...         return True, ""
@@ -157,7 +160,9 @@ class BaseTask(ABC):
 
         Examples:
             >>> class DummyTask(BaseTask):
-            ...     def execute(self) -> TaskResult[Any]: pass
+            ...     def execute(self) -> TaskResult[Any]:
+            ...         pass
+            ...
             ...     def should_run(self) -> tuple[bool, str, SkipReason | None]:
             ...         work_needed = False
             ...         if not work_needed:
@@ -180,7 +185,9 @@ class BaseTask(ABC):
 
         Examples:
             >>> class DummyTask(BaseTask):
-            ...     def execute(self) -> TaskResult[None]: pass
+            ...     def execute(self) -> TaskResult[None]:
+            ...         pass
+            ...
             ...     def post_execute(self, result: TaskResult[Any]) -> None:
             ...         if result.is_failed() and self.notification_manager:
             ...             self.notification_manager.notify(f"Task failed: {result.message}")
@@ -201,7 +208,9 @@ class BaseTask(ABC):
 
         Examples:
             >>> class DummyTask(BaseTask):
-            ...     def execute(self) -> TaskResult[None]: pass
+            ...     def execute(self) -> TaskResult[None]:
+            ...         pass
+            ...
             ...     def rollback(self) -> None:
             ...         # Restore backup configuration
             ...         pass

@@ -195,7 +195,7 @@ class NotificationManager:
             >>> result = manager.send_notification(
             ...     title="Test Notification",
             ...     message="Hello World!",
-            ...     urgency=NotificationUrgency.LOW
+            ...     urgency=NotificationUrgency.LOW,
             ... )
             >>> isinstance(result, bool)
             True
@@ -271,9 +271,7 @@ class NotificationManager:
             >>> from archcare.core.models import IssueSeverity
             >>> manager = NotificationManager()
             >>> result = manager.send_maintenance_notification(
-            ...     severity=IssueSeverity.CRITICAL,
-            ...     tasks_count=1,
-            ...     summary="Mirror sync is broken!"
+            ...     severity=IssueSeverity.CRITICAL, tasks_count=1, summary="Mirror sync is broken!"
             ... )
             >>> isinstance(result, bool)
             True
@@ -341,16 +339,13 @@ class NotificationManager:
             >>> manager = NotificationManager()
             >>> # Succeeded run
             >>> manager.send_task_result_notification(
-            ...     task_name="failed-services",
-            ...     success=True
+            ...     task_name="failed-services", success=True
             ... ) in (True, False)
             True
 
             >>> # Failed run with custom message
             >>> manager.send_task_result_notification(
-            ...     task_name="health-check",
-            ...     success=False,
-            ...     message="High CPU usage detected!"
+            ...     task_name="health-check", success=False, message="High CPU usage detected!"
             ... ) in (True, False)
             True
         """

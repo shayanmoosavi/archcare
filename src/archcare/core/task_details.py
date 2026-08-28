@@ -21,11 +21,7 @@ Examples:
     >>> from archcare.core.models import TaskResult, success
     >>>
     >>> info = FailedServiceInfo(service="nginx.service", description="Failed to start")
-    >>> details = FailedServicesDetails(
-    ...     total_failed=1,
-    ...     actual_failures=1,
-    ...     failed_services=[info]
-    ... )
+    >>> details = FailedServicesDetails(total_failed=1, actual_failures=1, failed_services=[info])
     >>> result = success("Check complete", details=details)
     >>> result.details.total_failed
     1
@@ -76,7 +72,7 @@ class FailedServiceInfo:
         ...     description="A high performance web server",
         ...     active="failed",
         ...     main_pid=1234,
-        ...     logs=["systemd[1]: Failed to start A high performance web server"]
+        ...     logs=["systemd[1]: Failed to start A high performance web server"],
         ... )
         >>> info.service
         'nginx.service'
@@ -130,7 +126,7 @@ class FailedServicesDetails:
         ...     actual_failures=1,
         ...     ignored=1,
         ...     ignored_services=["systemd-networkd-wait-online.service"],
-        ...     failed_services=[info]
+        ...     failed_services=[info],
         ... )
         >>> details.actual_failures
         1
@@ -173,10 +169,7 @@ class MaintenanceCheckSummary:
     Examples:
         >>> from archcare.core.task_details import MaintenanceCheckSummary
         >>> summary = MaintenanceCheckSummary(
-        ...     total_tasks_monitored=5,
-        ...     critical_count=1,
-        ...     warning_count=2,
-        ...     info_count=0
+        ...     total_tasks_monitored=5, critical_count=1, warning_count=2, info_count=0
         ... )
         >>> summary.total_issues
         3
@@ -294,18 +287,12 @@ class MaintenanceCheckDetails:
         ...     days_overdue=10,
         ...     last_run=datetime(2024, 1, 1),
         ...     last_status=None,
-        ...     recommendation="Run health check immediately"
+        ...     recommendation="Run health check immediately",
         ... )
         >>> summary = MaintenanceCheckSummary(
-        ...     total_tasks_monitored=5,
-        ...     critical_count=1,
-        ...     warning_count=2,
-        ...     info_count=0
+        ...     total_tasks_monitored=5, critical_count=1, warning_count=2, info_count=0
         ... )
-        >>> details = MaintenanceCheckDetails(
-        ...     critical_issues=[issue],
-        ...     summary=summary
-        ... )
+        >>> details = MaintenanceCheckDetails(critical_issues=[issue], summary=summary)
         >>> details.tasks_needing_attention
         [...MaintenanceIssue...]
         >>> len(details.tasks_needing_attention)
@@ -337,7 +324,7 @@ class MaintenanceCheckDetails:
         Examples:
             >>> from archcare.core.task_details import (
             ...     MaintenanceCheckDetails,
-            ...     MaintenanceCheckSummary
+            ...     MaintenanceCheckSummary,
             ... )
             >>> from archcare.core.models import MaintenanceIssue, IssueSeverity
             >>> from datetime import datetime
@@ -349,7 +336,7 @@ class MaintenanceCheckDetails:
             ...     days_overdue=10,
             ...     last_run=None,
             ...     last_status=None,
-            ...     recommendation="Run task a"
+            ...     recommendation="Run task a",
             ... )
             >>> warn = MaintenanceIssue(
             ...     task_name="b",
@@ -358,7 +345,7 @@ class MaintenanceCheckDetails:
             ...     days_overdue=5,
             ...     last_run=None,
             ...     last_status=None,
-            ...     recommendation="Run task b"
+            ...     recommendation="Run task b",
             ... )
             >>> info = MaintenanceIssue(
             ...     task_name="c",
@@ -367,12 +354,10 @@ class MaintenanceCheckDetails:
             ...     days_overdue=1,
             ...     last_run=None,
             ...     last_status=None,
-            ...     recommendation="Run task c"
+            ...     recommendation="Run task c",
             ... )
             >>> details = MaintenanceCheckDetails(
-            ...     critical_issues=[crit],
-            ...     warning_issues=[warn],
-            ...     info_issues=[info]
+            ...     critical_issues=[crit], warning_issues=[warn], info_issues=[info]
             ... )
             >>> len(details.tasks_needing_attention)
             2
@@ -412,7 +397,7 @@ class HealthCheckSummary:
         ...     filesystem_errors_count=0,
         ...     pacman_healthy=True,
         ...     packages_healthy=True,
-        ...     uptime="5 days, 3:42"
+        ...     uptime="5 days, 3:42",
         ... )
         >>> summary.disk_usage_percent
         45.5
@@ -455,7 +440,7 @@ class HealthCheckDetails:
         ...     issues=["Disk / at 95% usage"],
         ...     warnings=["Memory at 85% usage"],
         ...     total_checks=5,
-        ...     summary=summary
+        ...     summary=summary,
         ... )
         >>> details.issues
         ['Disk / at 95% usage']
@@ -512,7 +497,7 @@ class MirrorlistUpdateDetails:
         ...     new_mirrors=10,
         ...     old_info=old_info,
         ...     new_info=new_info,
-        ...     backup_path="/etc/pacman.d/mirrorlist.backup.20240115"
+        ...     backup_path="/etc/pacman.d/mirrorlist.backup.20240115",
         ... )
         >>> details.new_mirrors
         10

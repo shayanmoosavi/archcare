@@ -71,7 +71,7 @@ class TaskNotRegisteredError(ArchcareCoreError):
 
     Examples:
         >>> from archcare.core.exceptions import TaskNotRegisteredError
-        >>> raise TaskNotRegisteredError( # doctest: +NORMALIZE_WHITESPACE
+        >>> raise TaskNotRegisteredError(  # doctest: +NORMALIZE_WHITESPACE
         ...     "nonexistent-task",
         ...     ["A", "B"],
         ... )

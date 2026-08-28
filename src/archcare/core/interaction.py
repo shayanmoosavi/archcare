@@ -42,6 +42,7 @@ class TaskInteraction(Protocol):
         >>> class PrintInteraction:
         ...     def notify(self, message: str, level: str = "info") -> None:
         ...         print(f"[{level.upper()}] {message}")
+        ...
         ...     @staticmethod
         ...     def confirm(prompt: str) -> bool:
         ...         print(f"Prompting: {prompt}")

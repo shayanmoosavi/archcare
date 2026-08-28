@@ -279,8 +279,7 @@ def get_mirrorlist_info(mirrorlist_path: Path) -> MirrorlistInfo:
         >>> with TemporaryDirectory() as d:
         ...     path = Path(d) / "mirrorlist"
         ...     _ = path.write_text(
-        ...         "Server = https://mirrors.example.com\\n"
-        ...         "Server = http://other.example.com\\n"
+        ...         "Server = https://mirrors.example.com\\nServer = http://other.example.com\\n"
         ...     )
         ...     info = get_mirrorlist_info(path)
         ...     info.total_mirrors

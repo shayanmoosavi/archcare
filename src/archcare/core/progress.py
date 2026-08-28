@@ -52,10 +52,13 @@ class TaskProgress(Protocol):
         >>> class CustomProgress:
         ...     def start(self, total: int | None = None) -> None:
         ...         print(f"Started progress with total={total}")
+        ...
         ...     def pause(self) -> AbstractContextManager[None]:
         ...         return nullcontext()
+        ...
         ...     def advance(self, step: TaskStep) -> None:
         ...         print(f"Completed step: {step.name}")
+        ...
         ...     @contextmanager
         ...     def spinner(self, label: str) -> Generator[None, None, None]:
         ...         print(f"Spinner active: {label}")
@@ -63,6 +66,7 @@ class TaskProgress(Protocol):
         ...             yield
         ...         finally:
         ...             print("Spinner stopped")
+        ...
         ...     def stop(self) -> None:
         ...         print("Progress stopped")
         >>>

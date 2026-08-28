@@ -108,10 +108,7 @@ class TaskScheduler:
         >>> last_run = now - timedelta(days=2)
         >>> next_due = last_run + timedelta(days=7)
         >>> state.tasks["health-check"] = TaskState(
-        ...     last_run=last_run,
-        ...     next_due=next_due,
-        ...     last_status=TaskStatus.SUCCESS,
-        ...     run_count=1
+        ...     last_run=last_run, next_due=next_due, last_status=TaskStatus.SUCCESS, run_count=1
         ... )
         >>> info = scheduler.get_schedule_info("health-check")
         >>> info.is_due

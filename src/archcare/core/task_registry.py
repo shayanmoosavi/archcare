@@ -125,10 +125,12 @@ class TaskRegistry:
         ...     def execute(self) -> TaskResult:
         ...         return success("B done")
         >>>
-        >>> registry = TaskRegistry((
-        ...     TaskDescriptor("task-a", TaskA),
-        ...     TaskDescriptor("task-b", TaskB),
-        ... ))
+        >>> registry = TaskRegistry(
+        ...     (
+        ...         TaskDescriptor("task-a", TaskA),
+        ...         TaskDescriptor("task-b", TaskB),
+        ...     )
+        ... )
         >>> registry.names()
         ('task-a', 'task-b')
         >>> registry.get_task_class("task-a")
@@ -266,10 +268,12 @@ class TaskRegistry:
             >>> class B(BaseTask):
             ...     def execute(self) -> TaskResult:
             ...         return success("b")
-            >>> registry = TaskRegistry((
-            ...     TaskDescriptor("task-a", A),
-            ...     TaskDescriptor("task-b", B),
-            ... ))
+            >>> registry = TaskRegistry(
+            ...     (
+            ...         TaskDescriptor("task-a", A),
+            ...         TaskDescriptor("task-b", B),
+            ...     )
+            ... )
             >>> registry.names()
             ('task-a', 'task-b')
         """

@@ -200,21 +200,21 @@ def print_table(
     and rounded borders. This is used to display task scheduled table or general diagnostics.
 
     Args:
-         title (str): The title displayed above the table.
-         headers (list[str]): The header labels for each column.
-         rows (list[list[str | RenderableType]]): A list of rows, where each row contains
-             a cell item (string or a Rich renderable) for every column.
-         justify (list[Literal["default", "left", "center", "right", "full"]] | None): Optional list
-             of alignments for each column. Each element must be one of "default", "left", "center",
-             "right", or "full". If omitted or incomplete, columns default to "left" alignment.
+        title (str): The title displayed above the table.
+        headers (list[str]): The header labels for each column.
+        rows (list[list[str | RenderableType]]): A list of rows, where each row contains
+            a cell item (string or a Rich renderable) for every column.
+        justify (list[Literal["default", "left", "center", "right", "full"]] | None): Optional list
+            of alignments for each column. Each element must be one of "default", "left", "center",
+            "right", or "full". If omitted or incomplete, columns default to "left" alignment.
 
     Examples:
-         >>> from archcare.utils.output import print_table
-         >>> print_table( # doctest: +NORMALIZE_WHITESPACE
-         ...    "Active Services",
-         ...    ["Service", "Status"],
-         ...    [["sshd.service", "active"]],
-         ... )
+        >>> from archcare.utils.output import print_table
+        >>> print_table(  # doctest: +NORMALIZE_WHITESPACE
+        ...     "Active Services",
+        ...     ["Service", "Status"],
+        ...     [["sshd.service", "active"]],
+        ... )
                 Active Services
             ╭──────────────┬────────╮
             │ Service      │ Status │

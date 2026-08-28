@@ -164,10 +164,7 @@ class TaskConfig(BaseModel):
         Examples:
             >>> from archcare.config.models import TaskConfig
             >>> config = TaskConfig(
-            ...     name="test",
-            ...     type=TaskType.AUTOMATED,
-            ...     frequency=7,
-            ...     description="test"
+            ...     name="test", type=TaskType.AUTOMATED, frequency=7, description="test"
             ... )
             >>> config.serialize_task_type(TaskType.AUTOMATED)
             'automated'
@@ -197,22 +194,22 @@ class TasksConfig(BaseModel):
     Examples:
         >>> from archcare.config.models import TasksConfig
         >>> tasks_config = TasksConfig(
-        ...    tasks={
-        ...        "health-check": TaskConfig(
-        ...            name="health-check",
-        ...            type=TaskType.AUTOMATED,
-        ...            frequency=7,
-        ...            description="...",
-        ...            enabled=True
-        ...        ),
-        ...        "mirrorlist-update": TaskConfig(
-        ...            name="mirrorlist-update",
-        ...            type=TaskType.MANUAL,
-        ...            frequency=15,
-        ...            description="...",
-        ...            enabled=True
-        ...        ),
-        ...    }
+        ...     tasks={
+        ...         "health-check": TaskConfig(
+        ...             name="health-check",
+        ...             type=TaskType.AUTOMATED,
+        ...             frequency=7,
+        ...             description="...",
+        ...             enabled=True,
+        ...         ),
+        ...         "mirrorlist-update": TaskConfig(
+        ...             name="mirrorlist-update",
+        ...             type=TaskType.MANUAL,
+        ...             frequency=15,
+        ...             description="...",
+        ...             enabled=True,
+        ...         ),
+        ...     }
         ... )
         >>> print(tasks_config.tasks["health-check"].name)
         health-check
@@ -236,22 +233,22 @@ class TasksConfig(BaseModel):
         Examples:
             >>> from archcare.config.models import TasksConfig
             >>> tasks_config = TasksConfig(
-            ...    tasks={
-            ...        "health-check": TaskConfig(
-            ...            name="health-check",
-            ...            type=TaskType.AUTOMATED,
-            ...            frequency=7,
-            ...            description="...",
-            ...            enabled=True
-            ...        ),
-            ...        "mirrorlist-update": TaskConfig(
-            ...            name="mirrorlist-update",
-            ...            type=TaskType.MANUAL,
-            ...            frequency=15,
-            ...            description="...",
-            ...            enabled=False
-            ...        ),
-            ...    }
+            ...     tasks={
+            ...         "health-check": TaskConfig(
+            ...             name="health-check",
+            ...             type=TaskType.AUTOMATED,
+            ...             frequency=7,
+            ...             description="...",
+            ...             enabled=True,
+            ...         ),
+            ...         "mirrorlist-update": TaskConfig(
+            ...             name="mirrorlist-update",
+            ...             type=TaskType.MANUAL,
+            ...             frequency=15,
+            ...             description="...",
+            ...             enabled=False,
+            ...         ),
+            ...     }
             ... )
             >>> enabled_tasks = tasks_config.get_enabled_tasks()
             >>> print(tuple(enabled_tasks.keys()))
@@ -277,22 +274,22 @@ class TasksConfig(BaseModel):
         Examples:
             >>> from archcare.config.models import TasksConfig
             >>> config = TasksConfig(
-            ...    tasks={
-            ...        "health-check": TaskConfig(
-            ...            name="health-check",
-            ...            type=TaskType.AUTOMATED,
-            ...            frequency=7,
-            ...            description="...",
-            ...            enabled=True
-            ...        ),
-            ...        "mirrorlist-update": TaskConfig(
-            ...            name="mirrorlist-update",
-            ...            type=TaskType.MANUAL,
-            ...            frequency=15,
-            ...            description="...",
-            ...            enabled=True
-            ...        ),
-            ...    }
+            ...     tasks={
+            ...         "health-check": TaskConfig(
+            ...             name="health-check",
+            ...             type=TaskType.AUTOMATED,
+            ...             frequency=7,
+            ...             description="...",
+            ...             enabled=True,
+            ...         ),
+            ...         "mirrorlist-update": TaskConfig(
+            ...             name="mirrorlist-update",
+            ...             type=TaskType.MANUAL,
+            ...             frequency=15,
+            ...             description="...",
+            ...             enabled=True,
+            ...         ),
+            ...     }
             ... )
             >>> auto = config.get_tasks_by_type("automated")
             >>> print(tuple(auto.keys()))
@@ -327,22 +324,22 @@ class TasksConfig(BaseModel):
         Examples:
             >>> from archcare.config.models import TasksConfig
             >>> config = TasksConfig(
-            ...    tasks={
-            ...        "health-check": TaskConfig(
-            ...            name="health-check",
-            ...            type=TaskType.AUTOMATED,
-            ...            frequency=7,
-            ...            description="...",
-            ...            enabled=True
-            ...        ),
-            ...        "mirrorlist-update": TaskConfig(
-            ...            name="mirrorlist-update",
-            ...            type=TaskType.MANUAL,
-            ...            frequency=15,
-            ...            description="...",
-            ...            enabled=True
-            ...        ),
-            ...    }
+            ...     tasks={
+            ...         "health-check": TaskConfig(
+            ...             name="health-check",
+            ...             type=TaskType.AUTOMATED,
+            ...             frequency=7,
+            ...             description="...",
+            ...             enabled=True,
+            ...         ),
+            ...         "mirrorlist-update": TaskConfig(
+            ...             name="mirrorlist-update",
+            ...             type=TaskType.MANUAL,
+            ...             frequency=15,
+            ...             description="...",
+            ...             enabled=True,
+            ...         ),
+            ...     }
             ... )
             >>> task_cfg = config.get_task("health-check")
             >>> print(task_cfg.frequency)
@@ -407,13 +404,12 @@ class IgnoredServicesConfig(BaseModel):
 
         Examples:
             >>> from archcare.config.models import IgnoredServicesConfig
-            >>> IgnoredServicesConfig.validate_service_names([
-            ...     "nginx.service",
-            ...     "custom-watchdog.service"
-            ... ])
+            >>> IgnoredServicesConfig.validate_service_names(
+            ...     ["nginx.service", "custom-watchdog.service"]
+            ... )
             ['nginx.service', 'custom-watchdog.service']
             >>> IgnoredServicesConfig.validate_service_names(
-            ...     ["invalid service"] # doctest: +NORMALIZE_WHITESPACE
+            ...     ["invalid service"]  # doctest: +NORMALIZE_WHITESPACE
             ... )
             Traceback (most recent call last):
             ...
@@ -441,10 +437,10 @@ class IgnoredServicesConfig(BaseModel):
         Examples:
             >>> ignored_cfg = IgnoredServicesConfig(services=["watchdog.service"])
             >>> if not ignored_cfg.is_ignored("nginx.service"):
-            ...    print(f"Failed service: nginx")  # Printed
+            ...     print(f"Failed service: nginx")  # Printed
             Failed service: nginx
             >>> if not ignored_cfg.is_ignored("watchdog.service"):
-            ...    print(f"Failed service: watchdog")  # Not printed if ignored
+            ...     print(f"Failed service: watchdog")  # Not printed if ignored
         """
         return service_name in self.services
 
@@ -837,7 +833,7 @@ class AppSettings(BaseModel):
             raised if user lookup fails
 
     Examples:
-        >>> settings = AppSettings() # Create default settings
+        >>> settings = AppSettings()  # Create default settings
         >>> print(settings.log_level)
         INFO
         >>> print(settings.mirrorlist.protocol)
@@ -1150,12 +1146,12 @@ class TaskState(BaseModel):
         >>> from datetime import datetime
         >>> from archcare.config.models import TaskState, TaskStatus, SkipReason
         >>> state = TaskState(
-        ...     last_run = datetime(2025, 8, 17, 10, 30, 0),
-        ...     last_status = TaskStatus.SUCCESS,
-        ...     next_due = datetime(2025, 8, 24, 10, 30, 0),
-        ...     run_count = 52,
-        ...     last_error = None,
-        ...     skip_reason = None,
+        ...     last_run=datetime(2025, 8, 17, 10, 30, 0),
+        ...     last_status=TaskStatus.SUCCESS,
+        ...     next_due=datetime(2025, 8, 24, 10, 30, 0),
+        ...     run_count=52,
+        ...     last_error=None,
+        ...     skip_reason=None,
         ... )
         >>> print(state.run_count)
         52

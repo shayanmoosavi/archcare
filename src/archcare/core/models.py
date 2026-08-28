@@ -74,7 +74,7 @@ class TaskResult[TDetails]:
         >>> result = TaskResult(
         ...     status=TaskStatus.SUCCESS,
         ...     message="System updated successfully",
-        ...     duration_seconds=12.5
+        ...     duration_seconds=12.5,
         ... )
         >>> result.is_success()
         True
@@ -147,8 +147,7 @@ class TaskResult[TDetails]:
 
         Examples:
             >>> result = TaskResult(
-            ...     status=TaskStatus.SKIPPED,
-            ...     message="Task disabled in configuration"
+            ...     status=TaskStatus.SKIPPED, message="Task disabled in configuration"
             ... )
             >>> result.is_skipped()
             True
@@ -192,9 +191,7 @@ class TaskResult[TDetails]:
 
         Examples:
             >>> result = TaskResult(
-            ...     status=TaskStatus.SUCCESS,
-            ...     message="Cleanup completed",
-            ...     duration_seconds=5.23
+            ...     status=TaskStatus.SUCCESS, message="Cleanup completed", duration_seconds=5.23
             ... )
             >>> str(result)
             '[SUCCESS] Cleanup completed (5.23s)'
@@ -204,7 +201,7 @@ class TaskResult[TDetails]:
             ...     status=TaskStatus.FAILURE,
             ...     message="Installation failed",
             ...     error=str(exc),
-            ...     duration_seconds=2.1
+            ...     duration_seconds=2.1,
             ... )
             >>> str(result)
             '[FAILURE] Installation failed (2.10s) Error: Disk full'
@@ -245,8 +242,9 @@ class TaskStep:
 
     Examples:
         >>> from archcare.core.models import TaskStep, TaskStatus
-        >>> step = TaskStep(name="Updating mirrors", status=TaskStatus.SUCCESS,
-        ...                 message="Fetched 5 mirrors")
+        >>> step = TaskStep(
+        ...     name="Updating mirrors", status=TaskStatus.SUCCESS, message="Fetched 5 mirrors"
+        ... )
         >>> str(step)
         'Updating mirrors: Fetched 5 mirrors'
 
@@ -259,7 +257,7 @@ class TaskStep:
         >>> step = TaskStep(
         ...     name="Pacman database check",
         ...     status=TaskStatus.FAILURE,
-        ...     message="Database lock file exists"
+        ...     message="Database lock file exists",
         ... )
         >>> str(step)
         'Pacman database check: Database lock file exists'
@@ -371,7 +369,7 @@ class MaintenanceIssue:
         ...     days_overdue=10,
         ...     last_run=datetime(2025, 1, 1),
         ...     last_status=TaskStatus.FAILURE,
-        ...     recommendation="Run system update immediately"
+        ...     recommendation="Run system update immediately",
         ... )
         >>> issue.is_overdue
         True
@@ -384,7 +382,7 @@ class MaintenanceIssue:
         ...     days_overdue=5,
         ...     last_run=datetime(2025, 1, 20),
         ...     last_status=TaskStatus.SUCCESS,
-        ...     recommendation="Run cache cleanup task"
+        ...     recommendation="Run cache cleanup task",
         ... )
 
         >>> # Informational issue for tracking
@@ -395,7 +393,7 @@ class MaintenanceIssue:
         ...     days_overdue=None,
         ...     last_run=datetime.now(),
         ...     last_status=TaskStatus.SUCCESS,
-        ...     recommendation="Monitor disk usage and plan for cleanup"
+        ...     recommendation="Monitor disk usage and plan for cleanup",
         ... )
     """
 
@@ -426,7 +424,7 @@ class MaintenanceIssue:
             ...     severity=IssueSeverity.WARNING,
             ...     description="Backup is overdue",
             ...     days_overdue=7,
-            ...     recommendation="Run backup immediately"
+            ...     recommendation="Run backup immediately",
             ... )
             >>> issue.is_overdue
             True
@@ -437,7 +435,7 @@ class MaintenanceIssue:
             ...     severity=IssueSeverity.INFO,
             ...     description="Next check scheduled soon",
             ...     days_overdue=-3,  # Due in 3 days
-            ...     recommendation="No action needed"
+            ...     recommendation="No action needed",
             ... )
             >>> issue.is_overdue
             False
@@ -542,9 +540,7 @@ def failed[TDetails](
         ...     risky_operation()
         ... except Exception as e:
         ...     result = failed(
-        ...         "Operation failed",
-        ...         error=str(e),
-        ...         details=ExampleTaskDetails(retry_count=3)
+        ...         "Operation failed", error=str(e), details=ExampleTaskDetails(retry_count=3)
         ...     )
         >>> result.is_failed()
         True
@@ -563,11 +559,7 @@ def failed[TDetails](
         >>> result = failed(
         ...     "Backup failed",
         ...     error=str(IOError("Disk full")),
-        ...     details=BackupDetails(
-        ...         failed_files=5,
-        ...         total_files=100,
-        ...         backup_size_gb=50
-        ...     )
+        ...     details=BackupDetails(failed_files=5, total_files=100, backup_size_gb=50),
         ... )
         >>> str(result)
         '[FAILURE] Backup failed Error: Disk full'
@@ -612,10 +604,7 @@ def skipped[TDetails](
 
     Examples:
         >>> # Skip due to disabled configuration
-        >>> result = skipped(
-        ...     "Task disabled in configuration",
-        ...     skip_reason=SkipReason.DISABLED
-        ... )
+        >>> result = skipped("Task disabled in configuration", skip_reason=SkipReason.DISABLED)
         >>> result.is_skipped()
         True
         >>> result.skip_reason == SkipReason.DISABLED
