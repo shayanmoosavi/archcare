@@ -1,7 +1,16 @@
 """
 Presenter for the `task` command group.
 
-Owns all terminal rendering for TaskService results.
+Owns all terminal rendering for `TaskService` results. Translates the response DTOs from
+[archcare.services.responses][] into Rich-based terminal output: result panels, schedule tables,
+task listings, and error/warning messages. Task-specific detail rendering is delegated to the
+per-task formatter classes registered in the [TaskRegistry][], and the maintenance-check report is
+delegated to [MaintenanceCheckPresenter][].
+
+See Also:
+    - [TaskService][archcare.services.task_service.TaskService]: Producer of the responses
+        rendered here
+    - [MaintenanceCheckPresenter][]: Renderer for the maintenance-check report
 """
 
 from rich.console import RenderableType
@@ -28,14 +37,50 @@ from .maintenance_presenter import MaintenanceCheckPresenter
 
 
 class TaskPresenter:
-    """Renders TaskService results and errors to the terminal."""
+    """
+    Renders [TaskService][archcare.services.task_service.TaskService] results and errors
+    to the terminal.
+
+    One public method per CLI outcome (`render_run`, `render_status`, `render_list`) plus small
+    static helpers for error and edge-case messages, so the CLI commands stay free of
+    presentation logic.
+    """
 
     def __init__(self, task_registry: TaskRegistry) -> None:
+        """
+        Initialize the presenter.
+
+        Args:
+            task_registry (TaskRegistry): Task registry from which the
+                [TaskDetailFormatter][archcare.core.formatter.TaskDetailFormatter]
+                class for each task is looked up.
+        """
         self._task_registry = task_registry
 
     def render_run(
         self, response: TaskRunResponse, settings: AppSettings, verbose: bool = False
     ) -> None:
+        """
+        Renders the result of `archcare task run` to console.
+
+        For `maintenance-check` runs, the full report is delegated to [MaintenanceCheckPresenter][]
+        (unless `output_mode` is `'file'`, in which case only a pointer to the report directory is
+        shown). In all cases, a summary panel with status, message, duration, and — when `verbose`
+        — the task-specific details is printed.
+
+        Args:
+            response (TaskRunResponse): Run outcome from
+                [TaskService.run_task][archcare.services.task_service.TaskService.run_task]
+                (including interactivity of the invocation).
+            settings (AppSettings): Application settings; used for the maintenance-check
+                `output_mode`, `require_acknowledgment`, and `report_dir`.
+            verbose (bool): Whether to include the task-specific details (rendered via the task's
+                registered formatter). Defaults to `False`.
+
+        Side Effects:
+            Prints to the terminal; for interactive maintenance-check runs with
+                `require_acknowledgment`, may also prompt and wait for user acknowledgment.
+        """
         if not response.outcome.is_skipped():
             print_header(f"Running Task: {response.task_name}")
 
@@ -68,6 +113,18 @@ class TaskPresenter:
         )
 
     def render_status(self, response: TaskStatusResponse) -> None:
+        """
+        Renders the result of `archcare task status` to console.
+
+        Prints a schedule table (overdue / due / OK per task), followed by a summary panel with
+        maintenance counts when a summary is present. When `due_only` filtering yields no tasks,
+        prints a friendly success message instead of an empty table.
+
+        Args:
+            response (TaskStatusResponse): Status outcome from
+                [TaskService.get_task_status][archcare.services.task_service.TaskService.get_task_status]
+                (schedule info entries, optional summary, `due_only` flag).
+        """
 
         if response.due_only and not response.schedule_info:
             print_success("No tasks currently due!")
@@ -88,6 +145,16 @@ class TaskPresenter:
 
     @staticmethod
     def _print_schedule_table(response: TaskStatusResponse):
+        """
+        Print the task schedule table with color-coded statuses.
+
+        Each task is rendered with a status glyph and colored due-date text: red `✗ DUE` when
+        overdue, yellow `⚠ DUE` when due but not overdue, green `✓ OK` otherwise. Tasks never run
+        show a dimmed `Never` for last run.
+
+        Args:
+            response (TaskStatusResponse): Schedule info entries to render.
+        """
         # Build the data in the Presenter
         headers = ["Status", "Task", "Last Run", "Due"]
         rows: list[list[str | RenderableType]] = []
@@ -119,6 +186,17 @@ class TaskPresenter:
 
     @staticmethod
     def render_list(response: TaskListResponse) -> None:
+        """
+        Renders the result of `archcare task list` to console.
+
+        Prints each task as an entry line with an enabled (`✓`) / disabled (`✗`) glyph, type badge,
+        and frequency, followed by its indented description. Prints a warning when the (possibly
+        filtered) task set is empty.
+
+        Args:
+            response (TaskListResponse): Task listing from
+                [TaskService.list_tasks][archcare.services.task_service.TaskService.list_tasks].
+        """
         print_header("Available Tasks")
 
         if not response.tasks:
@@ -136,11 +214,23 @@ class TaskPresenter:
 
     @staticmethod
     def not_found(task_name: str) -> None:
+        """
+        Render a "task not found" error with a hint to list tasks.
+
+        Args:
+            task_name (str): The unknown task name from the request.
+        """
         print_error(f"Task not found: {task_name}")
         print_info("Use 'archcare task list' to see available tasks")
 
     @staticmethod
     def empty() -> None:
+        """
+        Render an error for an empty/invalid tasks file.
+
+        Includes recovery hints: check the logs, and run `archcare setup config` if archcare
+        isn't initialized yet.
+        """
         print_error("Tasks file is empty or invalid.")
         print_info("See the logs for more details.")
         print_info(
@@ -150,20 +240,46 @@ class TaskPresenter:
 
     @staticmethod
     def invalid_task_type() -> None:
+        """Render an error for an invalid `--type` filter value."""
         print_error("Type must be 'automated' or 'manual'")
 
     @staticmethod
     def error(message: str) -> None:
+        """
+        Render an arbitrary error message.
+
+        Args:
+            message (str): The error text to display.
+        """
         print_error(message)
 
     @staticmethod
     def aborted(task_name: str) -> None:
+        """
+        Render a warning that a task run was aborted by the user.
+
+        Args:
+            task_name (str): Name of the aborted task.
+        """
         console.print()
         print_warning(f"Task '{task_name}' execution aborted")
 
     @staticmethod
     def _get_status_text(status: TaskStatus) -> str:
-        """Helper to map TaskStatus to stylized Rich text."""
+        """
+        Map a TaskStatus to stylized Rich text.
+
+        Args:
+            status (TaskStatus): Final task status to render.
+
+        Returns:
+            (str): Rich markup string with a status glyph:
+
+                - SUCCESS: green `✓ SUCCESS`
+                - FAILURE: red `⨯ FAILURE`
+                - PARTIAL: yellow `⚠ PARTIAL`
+                - SKIPPED: blue `⤳ SKIPPED`
+        """
         match status:
             case TaskStatus.SUCCESS:
                 return "[green]✓ SUCCESS[/green]"
@@ -175,8 +291,22 @@ class TaskPresenter:
                 return "[blue]⤳ SKIPPED[/blue]"
 
     def _format_task_details(self, task_name: str, result: TaskResult, verbose: bool) -> str:
-        """Builds the string for the panel using the Formatter Factory."""
+        """
+        Build the summary panel content for a task run.
 
+        Assembles the universal outer shell (status, message, duration, and error if present), and
+        — in verbose mode — appends the task's domain-specific details rendered via its registered
+        `TaskDetailFormatter` from the `TaskRegistry`.
+
+        Args:
+            task_name (str): Name of the executed task; used to look up its formatter class in
+                the registry.
+            result (TaskResult): The run outcome to summarize.
+            verbose (bool): Whether to append the task-specific details.
+
+        Returns:
+            (str): Rich-markup text ready to be placed inside the result panel.
+        """
         # Build the universal outer shell
         lines = [
             f"[bold]Status:[/bold] {self._get_status_text(result.status)}",
