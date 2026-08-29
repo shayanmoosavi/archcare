@@ -1,4 +1,22 @@
-"""Task service for handling task related operations."""
+"""
+Task service for handling task related operations.
+
+Contains [TaskService][], the business logic behind the `archcare task` command group:
+
+- `run_task()`: Execute a single maintenance task via the [TaskExecutor][] and report its outcome.
+- `list_tasks()`: Enumerate tasks from configuration, optionally filtered by type (`automated` /
+    `manual`) or reduced to enabled tasks.
+- `get_task_status()`: Report scheduling status — due dates, overdue state, and a system-wide
+    maintenance summary — via the [TaskScheduler][].
+
+Every public method returns a response DTO from [archcare.services.responses][] so the CLI layer
+never handles raw business state, and translates low-level [UnknownTaskError][] into the
+service-layer [TaskNotFoundError][].
+
+See Also:
+    - [archcare.services.exceptions][]: Service-layer error hierarchy used here
+    - [archcare.cli.commands.task][]: CLI commands delegating to this service
+"""
 
 from loguru import logger
 
@@ -19,22 +37,49 @@ from archcare.services.responses import (
 
 
 class TaskService:
-    """Business logic for the `task` command group."""
+    """
+    Business logic for the `task` command group.
+
+    Acts as the high-level facade over task execution and scheduling: validates task configuration
+    before touching it, delegates the heavy lifting to [TaskExecutor][] (execution) and
+    [TaskScheduler][] (scheduling), and packages results into response DTOs for the CLI presenters.
+    """
 
     def __init__(self, executor: TaskExecutor) -> None:
+        """
+        Initialize the task service.
+
+        Args:
+            executor (TaskExecutor): Executor built once per invocation by the application context
+                and shared across services.
+        """
         self._executor = executor
 
     def run_task(self, task_name: str, force: bool = False) -> TaskRunResponse:
         """
         Execute a maintenance task.
 
+        Validates the task exists in configuration (raising early if the tasks file is empty or the
+        name is unknown), then delegates to the executor's full run pipeline (`pre_check` →
+        `should_run` → `execute` → `post_execute`, plus state updates). Use `force=True` to bypass
+        the due-date check.
+
         Args:
-            task_name: Name of the task to run
-            force: Whether to run even if not due
+            task_name (str): Name of the task to run.
+            force (bool): Whether to run even if not due. Defaults to `False` (the task may be
+                reported as skipped).
+
+        Returns:
+            TaskRunResponse: The task's [TaskResult][archcare.core.models.TaskResult] outcome and
+                whether the invocation was interactive (user terminal vs. systemd timer).
 
         Raises:
             InvalidTasksFileError: If the tasks file is empty or invalid.
             TaskNotFoundError: If `task_name` is not in the task configuration.
+
+        Side Effects:
+            Runs the task (potentially invoking system commands with sudo) and persists updated
+                state (`last_run`, `next_due`, `status`) to `state.json`.
         """
         tasks_config = self._executor.config_loader.load_tasks()
         if not tasks_config.tasks:
@@ -60,8 +105,17 @@ class TaskService:
         """
         List tasks, optionally filtered by type.
 
+        Matching is exact against the [TaskType][] values; when no filter is given, only *enabled*
+        tasks are returned.
+
         Args:
-            task_type: Optional type to filter tasks by (one of 'automated' or 'manual')
+            task_type (str | None): Optional type to filter tasks by — one of `'automated'` or
+                `'manual'`. `None` (default) means no type filter, returning enabled tasks of
+                all types.
+
+        Returns:
+            TaskListResponse: Matching tasks keyed by name, plus the filter that was applied (`None`
+                when unfiltered).
 
         Raises:
             InvalidTasksFileError: If the tasks file is empty or invalid.
@@ -89,15 +143,26 @@ class TaskService:
         """
         Get schedule status for one task, or all tasks.
 
+        Single-task mode (`task_name` set) returns just that task's schedule info. Overview mode
+        (`task_name=None`) returns schedule info for all tasks — restricted to currently-due tasks
+        when `due_only=True` — plus an at-a-glance `summary` of maintenance counts by category.
+
         Args:
-            task_name: Optional name of a single task to get status for
-                      (default: None, meaning all tasks)
-            due_only: Whether to include only tasks that are currently due
-                      (default: False)
+            task_name (str | None): Optional name of a single task to get status for. `None`
+                (default) means all tasks. Defaults to `None`.
+            due_only (bool): Whether to include only tasks that are currently due. Ignored in
+                single-task mode. Defaults to `False`.
+
+        Returns:
+            TaskStatusResponse: Schedule info entries, the maintenance summary (overview mode only),
+                and the `due_only` flag.
 
         Raises:
             InvalidTasksFileError: If the tasks file is empty or invalid.
             TaskNotFoundError: If `task_name` is set but unknown.
+
+        See Also:
+            [TaskScheduler][]: Source of all schedule computations used here.
         """
         tasks_config = self._executor.config_loader.load_tasks()
         if not tasks_config.tasks:
