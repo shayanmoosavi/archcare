@@ -62,9 +62,7 @@ class TestTestNotification:
 
         mock_service.test_notification.assert_called_once_with("critical")
 
-    def test_success_renders_response(
-        self, mock_presenter: MagicMock, mock_service: MagicMock
-    ):
+    def test_success_renders_response(self, mock_presenter: MagicMock, mock_service: MagicMock):
         mock_service.test_notification.return_value = "RESPONSE_SENTINEL"
         ctx = _make_ctx()
 
@@ -109,9 +107,7 @@ class TestTestNotification:
         mock_presenter.notification_send_failed.assert_called_once()
         assert exc_info.value.exit_code == 1
 
-    def test_generic_exception_shows_message_and_exits_1(
-        self, mocker, mock_service: MagicMock
-    ):
+    def test_generic_exception_shows_message_and_exits_1(self, mocker, mock_service: MagicMock):
         mock_error: MagicMock = mocker.patch(f"{_MODULE}.print_error")
         mock_service.test_notification.side_effect = Exception("test")
         ctx = _make_ctx()

@@ -1,7 +1,24 @@
 """
-Task scheduling for archcare.
+Task scheduling manager for the Archcare core layer.
 
-Determines which tasks should run and when.
+This module provides [TaskScheduler][], which evaluates task configurations ([TasksConfig][])
+and current execution history ([AppState][]) to calculate schedule states, overdue time periods,
+and next-due schedules for recurrences. It maps scheduling evaluations to
+[TaskScheduleInfo][] structures.
+
+Scheduling decisions are evaluated dynamically by contrasting execution logs with task frequency
+settings. This decouples individual automated scripts from managing recurrence state or
+triggering timers, delegating scheduling status reporting to a single source of truth.
+
+Key Concepts:
+    - **Frequency-Based Recurrence**: Overdue status is measured by contrasting `next_due`
+        (or last run timestamp offset by configuration recurrence frequency) with the current clock.
+    - **Overdue Severity**: Tasks can be queried to filter only currently outstanding/due
+        operations, sorted dynamically by those most overdue.
+
+See Also:
+    - [TaskConfig][archcare.config.models.TaskConfig]: Configuration defining execution intervals.
+    - [AppState][]: State model tracking execution timestamps.
 """
 
 from datetime import datetime, timedelta
@@ -12,7 +29,21 @@ from archcare.config import AppState, TasksConfig
 
 class TaskScheduleInfo(NamedTuple):
     """
-    Information about a task's schedule status.
+    Detailed information about a task's schedule and overdue status.
+
+    Attributes:
+        task_name (str): Simple identifier of the task.
+        is_due (bool): `True` if the task recurrence interval has expired or the task
+            has never executed; `False` otherwise.
+        last_run (datetime | None): Timestamp of the most recent execution, or `None` if
+            the task has never executed.
+        next_due (datetime | None): Calculated or recorded timestamp for the next scheduled
+            run, or `None` if the task has never executed.
+        days_overdue (int): Number of whole days the task is overdue. Defaults to `0` if
+            the task is not overdue or has never executed.
+        reason (str): Human-readable summary of the task's schedule status.
+            (e.g., `"Never run before"`, `"Overdue by 3 day(s)"`, `"Due tomorrow"`,
+            `"Due in 5 days"`).
     """
 
     task_name: str
@@ -27,36 +58,96 @@ class TaskScheduler:
     """
     Manages task scheduling logic.
 
-    This class handles:
-    - Determining if tasks are due
-    - Calculating overdue periods
-    - Providing schedule information for display
+    Maintains orchestrating queries over the collection of all tasks to assess their
+    due status, remaining intervals, and priority queues, facilitating dashboard queries,
+    system state reports, and execution filtering.
+
+    Attributes:
+        tasks_config (TasksConfig): Source task definitions containing name, frequency,
+            and enable statuses.
+        state (AppState): Live application execution history containing timestamps of previous runs.
+
+    Examples:
+        >>> from datetime import datetime, timedelta
+        >>> from archcare.config import (
+        ...     TasksConfig,
+        ...     TaskConfig,
+        ...     AppState,
+        ...     TaskState,
+        ...     TaskType,
+        ...     TaskStatus,
+        ... )
+        >>> from archcare.core.scheduler import TaskScheduler
+        >>>
+        >>> # Setup dummy task configurations
+        >>> tasks_config = TasksConfig(
+        ...     tasks={
+        ...         "health-check": TaskConfig(
+        ...             name="health-check",
+        ...             type=TaskType.AUTOMATED,
+        ...             frequency=7,
+        ...             description="Core system health",
+        ...             enabled=True,
+        ...         )
+        ...     }
+        ... )
+        >>>
+        >>> # Setup fresh empty state
+        >>> state = AppState(tasks={})
+        >>> scheduler = TaskScheduler(tasks_config, state)
+        >>>
+        >>> # Retrieve schedule for task never executed
+        >>> info = scheduler.get_schedule_info("health-check")
+        >>> info.is_due
+        True
+        >>> info.reason
+        'Never run before'
+        >>>
+        >>> # Simulate a task run that occurred 2 days ago (not due yet)
+        >>> now = datetime.now()
+        >>> last_run = now - timedelta(days=2)
+        >>> next_due = last_run + timedelta(days=7)
+        >>> state.tasks["health-check"] = TaskState(
+        ...     last_run=last_run, next_due=next_due, last_status=TaskStatus.SUCCESS, run_count=1
+        ... )
+        >>> info = scheduler.get_schedule_info("health-check")
+        >>> info.is_due
+        False
+        >>> info.days_overdue
+        0
+
+    See Also:
+        - [TaskScheduleInfo][]: Named tuple detailing a single task's schedule.
     """
 
     def __init__(self, tasks_config: TasksConfig, state: AppState):
         """
-        Initialize scheduler.
+        Initialize the task scheduler.
 
         Args:
-            tasks_config: Task configurations
-            state: Application state with run history
+            tasks_config (TasksConfig): Complete task configurations dictionary.
+            state (AppState): Application state tracking execution history.
         """
         self.tasks_config = tasks_config
         self.state = state
 
     def get_schedule_info(self, task_name: str) -> TaskScheduleInfo:
         """
-        Get detailed schedule information for a task.
+        Calculate detailed scheduling information for a specific task.
+
+        Synthesizes configuration values and state details to determine whether the
+        given task is currently due, calculates its exact next due timestamp, evaluates
+        the overdue day count, and constructs a descriptive status reason string.
 
         Args:
-            task_name: Name of the task
+            task_name (str): Simple string identifier of the task.
 
         Returns:
-            TaskScheduleInfo with schedule details
+            TaskScheduleInfo: Comprehensive scheduling status for the specified task.
 
         Raises:
-            UnknownTaskError: If task doesn't exist (propagated from
-                TasksConfig.get_task()).
+            UnknownTaskError: If the specified `task_name` is not defined in `tasks_config`.
+                (propagated from [TasksConfig.get_task][]).
         """
         task_config = self.tasks_config.get_task(task_name)
 
@@ -99,10 +190,14 @@ class TaskScheduler:
 
     def get_due_tasks(self) -> list[TaskScheduleInfo]:
         """
-        Get all tasks that are currently due.
+        Collect all enabled tasks that are currently due or overdue.
+
+        Filters the set of enabled tasks to identify those currently needing execution,
+        sorting the results with the most overdue tasks positioned first.
 
         Returns:
-            List of TaskScheduleInfo for due tasks, sorted by days overdue
+            (list[TaskScheduleInfo]): A list of scheduling details for due tasks,
+                sorted descending by `days_overdue`.
         """
         due_tasks = []
 
@@ -118,14 +213,15 @@ class TaskScheduler:
 
     def get_all_schedule_info(self) -> list[TaskScheduleInfo]:
         """
-        Get schedule information for all enabled tasks.
+        Collect schedule information for all enabled tasks.
+
+        Generates and aggregates scheduling info records for every enabled task,
+        sorting them to highlight priorities where attention is most urgently needed.
 
         Returns:
-            List of TaskScheduleInfo for all tasks, sorted by next due date
-
-        Reason for sorting:
-        - Shows tasks in order of when attention is needed
-        - Due tasks appear at top
+            (list[TaskScheduleInfo]): A list of scheduling details for all enabled tasks,
+                sorted to place due tasks first, followed by remaining tasks sorted by
+                increasing `next_due` timestamps.
         """
         all_info = []
 
@@ -145,19 +241,19 @@ class TaskScheduler:
 
     def get_maintenance_summary(self) -> dict[str, int]:
         """
-        Get a summary of maintenance status.
+        Compile an at-a-glance summary of system-wide maintenance status.
+
+        Calculates aggregated metric counts covering active tasks, currently due
+        actions, overdue tasks, and upcoming deadlines, facilitating dashboard summaries.
 
         Returns:
-            Dictionary with counts:
-            - total: Total enabled tasks
-            - due: Tasks currently due
-            - overdue: Tasks overdue by 1+ days
-            - upcoming: Tasks due within 7 days
+            (dict[str, int]): A summary dictionary containing the following keys:
 
-        Reason:
-        - Provides at-a-glance system maintenance status
-        - Useful for dashboard displays
-        - Helps prioritize maintenance work
+                - `'total'`: Total count of active/enabled tasks.
+                - `'due'`: Count of tasks currently due/overdue for execution.
+                - `'overdue'`: Count of tasks specifically overdue by 1 or more days.
+                - `'upcoming'`: Count of tasks currently not due but scheduling recurrence
+                  falls within the next 7 days.
         """
         all_info = self.get_all_schedule_info()
 

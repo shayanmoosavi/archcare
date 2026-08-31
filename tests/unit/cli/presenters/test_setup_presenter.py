@@ -137,9 +137,7 @@ class TestRenderConfigInit:
 
 
 class TestRenderTemplateInstallation:
-    @pytest.mark.parametrize(
-        "dry_run,expected_verb", [(True, "Would create"), (False, "Created")]
-    )
+    @pytest.mark.parametrize("dry_run,expected_verb", [(True, "Would create"), (False, "Created")])
     def test_verb_matches_dry_run_flag(
         self, tmp_path, dry_run, expected_verb, mock_success: MagicMock
     ):
@@ -169,9 +167,7 @@ class TestRenderTemplateInstallation:
 
 
 class TestRenderSystemdReload:
-    @pytest.mark.parametrize(
-        "dry_run,expected_verb", [(True, "Would reload"), (False, "Reloaded")]
-    )
+    @pytest.mark.parametrize("dry_run,expected_verb", [(True, "Would reload"), (False, "Reloaded")])
     def test_success_verbs_match_dry_run_flag(
         self, dry_run, expected_verb, mock_success: MagicMock
     ):
@@ -223,9 +219,7 @@ class TestRenderTimerSetup:
         self, automated_task: TaskConfig, mock_print: MagicMock
     ):
 
-        response = _timer_setup_response(
-            automated_tasks={automated_task.name: automated_task}
-        )
+        response = _timer_setup_response(automated_tasks={automated_task.name: automated_task})
         SetupPresenter.render_timer_setup(response)
 
         joined = "\n".join(c.args[0] for c in mock_print.call_args_list if c.args)
@@ -344,9 +338,7 @@ class TestListTimers:
         mocker.patch(_PATCH_WARNINGS)
 
         response = _timer_setup_response(
-            enabled_timers=[
-                TimerEnableResponse(timer_name="archcare@foo.timer", enabled=True)
-            ]
+            enabled_timers=[TimerEnableResponse(timer_name="archcare@foo.timer", enabled=True)]
         )
         _list_timers(response)
 
@@ -356,9 +348,7 @@ class TestListTimers:
         mocker.patch(_PATCH_SUCCESS)
 
         response = _timer_setup_response(
-            enabled_timers=[
-                TimerEnableResponse(timer_name="archcare@bar.timer", enabled=False)
-            ]
+            enabled_timers=[TimerEnableResponse(timer_name="archcare@bar.timer", enabled=False)]
         )
         _list_timers(response)
 

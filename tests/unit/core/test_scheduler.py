@@ -23,9 +23,7 @@ def _scheduler(tasks_config: TasksConfig, state: AppState) -> TaskScheduler:
 
 
 class TestGetScheduleInfo:
-    def test_raises_for_unknown_task(
-        self, tasks_config: TasksConfig, fresh_state: AppState
-    ):
+    def test_raises_for_unknown_task(self, tasks_config: TasksConfig, fresh_state: AppState):
         scheduler = _scheduler(tasks_config, fresh_state)
         with pytest.raises(UnknownTaskError, match="Task not found") as exc_info:
             scheduler.get_schedule_info("does-not-exist")
@@ -35,9 +33,7 @@ class TestGetScheduleInfo:
         info = _scheduler(tasks_config, fresh_state).get_schedule_info("test-manual-task")
         assert info.is_due is True
 
-    def test_never_run_task_has_no_last_run(
-        self, tasks_config: TasksConfig, fresh_state: AppState
-    ):
+    def test_never_run_task_has_no_last_run(self, tasks_config: TasksConfig, fresh_state: AppState):
         info = _scheduler(tasks_config, fresh_state).get_schedule_info("test-manual-task")
         assert info.last_run is None
 
@@ -50,33 +46,25 @@ class TestGetScheduleInfo:
     def test_future_next_due_task_is_not_due(
         self, tasks_config: TasksConfig, state_with_recent_run: AppState
     ):
-        info = _scheduler(tasks_config, state_with_recent_run).get_schedule_info(
-            "test-auto-task"
-        )
+        info = _scheduler(tasks_config, state_with_recent_run).get_schedule_info("test-auto-task")
         assert info.is_due is False
 
     def test_past_next_due_task_is_due(
         self, tasks_config: TasksConfig, state_with_overdue_run: AppState
     ):
-        info = _scheduler(tasks_config, state_with_overdue_run).get_schedule_info(
-            "test-auto-task"
-        )
+        info = _scheduler(tasks_config, state_with_overdue_run).get_schedule_info("test-auto-task")
         assert info.is_due is True
 
     def test_overdue_task_has_positive_days_overdue(
         self, tasks_config: TasksConfig, state_with_overdue_run: AppState
     ):
-        info = _scheduler(tasks_config, state_with_overdue_run).get_schedule_info(
-            "test-auto-task"
-        )
+        info = _scheduler(tasks_config, state_with_overdue_run).get_schedule_info("test-auto-task")
         assert info.days_overdue > 0
 
     def test_not_due_task_has_zero_days_overdue(
         self, tasks_config: TasksConfig, state_with_recent_run: AppState
     ):
-        info = _scheduler(tasks_config, state_with_recent_run).get_schedule_info(
-            "test-auto-task"
-        )
+        info = _scheduler(tasks_config, state_with_recent_run).get_schedule_info("test-auto-task")
         assert info.days_overdue == 0
 
 
@@ -86,9 +74,7 @@ class TestGetScheduleInfo:
 
 
 class TestGetDueTasks:
-    def test_all_tasks_due_when_never_run(
-        self, tasks_config: TasksConfig, fresh_state: AppState
-    ):
+    def test_all_tasks_due_when_never_run(self, tasks_config: TasksConfig, fresh_state: AppState):
         due = _scheduler(tasks_config, fresh_state).get_due_tasks()
         assert len(due) == len(tasks_config.get_enabled_tasks())
 
@@ -106,9 +92,7 @@ class TestGetDueTasks:
         due_names = {info.task_name for info in due}
         assert "test-auto-task" in due_names
 
-    def test_all_returned_tasks_are_due(
-        self, tasks_config: TasksConfig, fresh_state: AppState
-    ):
+    def test_all_returned_tasks_are_due(self, tasks_config: TasksConfig, fresh_state: AppState):
         due = _scheduler(tasks_config, fresh_state).get_due_tasks()
         assert all(info.is_due for info in due)
 
@@ -179,8 +163,6 @@ class TestGetMaintenanceSummary:
         assert summary["due"] >= 1
         assert summary["overdue"] == 0
 
-    def test_summary_has_required_keys(
-        self, tasks_config: TasksConfig, fresh_state: AppState
-    ):
+    def test_summary_has_required_keys(self, tasks_config: TasksConfig, fresh_state: AppState):
         summary = _scheduler(tasks_config, fresh_state).get_maintenance_summary()
         assert {"total", "due", "overdue", "upcoming"} <= summary.keys()

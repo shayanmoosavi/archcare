@@ -1,7 +1,24 @@
 """
-System command utilities for archcare.
+Provide system command utilities and wrappers for Archcare.
 
-Provides safe wrappers around subprocess for executing system commands.
+This module provides safe, robust, and well-logged wrappers around `subprocess`
+for executing system-level commands, systemd/systemctl queries, journalctl log
+retrieval, file ownership management, and system status queries.
+
+Key Components:
+
+- **Subprocess execution**: [run_command][] and [run_command_with_sudo][] provide safe,
+    typed execution of shell commands.
+- **Systemd interaction**: [run_systemctl][], [get_systemd_failed_services][],
+    [get_service_status][], and [get_service_logs][] encapsulate interactions with systemd units.
+- **System utilities**: [format_bytes][], [get_system_uptime][], [change_ownership_to_user][],
+    and [is_valid_systemd_unit_name][] support logging, scheduling, and file permission operations.
+
+All operations are wrapped with logging via Loguru and return strongly typed result objects (e.g.,
+[CommandResult][]).
+
+See Also:
+    [archcare.utils.hardware][]: For hardware queries (disk, CPU, memory) via `psutil`
 """
 
 import re
@@ -44,7 +61,29 @@ _MAX_UNIT_NAME_LENGTH = 255  # systemd's UNIT_NAME_MAX
 @dataclass
 class CommandResult:
     """
-    Result of a system command execution.
+    Represent the result of a system command execution.
+
+    This dataclass encapsulates the outcome of running a subprocess command,
+    holding its command string, exit code, outputs, and success status.
+
+    Attributes:
+        command (str): The full command string that was executed.
+        returncode (int): The exit code returned by the executed process.
+        stdout (str): The trimmed standard output stream from the command execution.
+        stderr (str): The trimmed standard error stream from the command execution.
+        success (bool): Indicates whether the command completed successfully.
+
+    Info: Exit code
+        For `systemctl status` commands, an exit code of 3 (for loaded but
+        inactive status) is treated as successful.
+
+    Examples:
+        >>> from archcare.utils.system import CommandResult
+        >>> result = CommandResult("echo test", 0, "test", "", True)
+        >>> result.success
+        True
+        >>> print(result)
+        [SUCCESS] echo test
     """
 
     command: str
@@ -69,23 +108,43 @@ def run_command(
     env: dict[str, str] | None = None,
 ) -> CommandResult:
     """
-    Run a system command and return structured result.
+    Run a system command and return a structured execution result.
+
+    Executes a command using Python's `subprocess.run`. It handles converting string
+    commands to argument lists, captures output, monitors timeouts, and logs execution.
+    It includes special exit-code handling for `systemctl status` queries (treating
+    exit code 3 as successful).
 
     Args:
-        command: Command to run (list of args or string)
-        check: Raise exception on non-zero exit code
-        capture_output: Capture stdout/stderr
-        text: Return output as string (vs bytes)
-        timeout: Command timeout in seconds
-        cwd: Working directory
-        env: Environment variables
+        command (list[str] | str): The command to run as a list of arguments or a single string.
+        check (bool): If True, raises `subprocess.CalledProcessError` if the process exits
+            with a non-zero exit code. Defaults to `False`.
+        capture_output (bool): If True, captures standard output and standard error.
+            Defaults to `True`.
+        text (bool): If True, returns standard output and error as strings instead of bytes.
+            Defaults to `True`.
+        timeout (int | float | None): The maximum time in seconds the command is allowed
+            to run before being killed. Defaults to `None`.
+        cwd (Path | None): The working directory to set before executing the command.
+            Defaults to `None`.
+        env (dict[str, str] | None): Custom environment variables dictionary to pass to the process.
+            Defaults to `None`.
 
     Returns:
-        CommandResult with execution details
+        CommandResult: Object containing command string, exit code, captured outputs,
+            and success status.
 
     Raises:
-        subprocess.CalledProcessError: If check=True and command fails
-        subprocess.TimeoutExpired: If command exceeds timeout
+        subprocess.CalledProcessError: If `check=True` and the command exits with a non-zero code.
+        subprocess.TimeoutExpired: If the command execution exceeds the specified `timeout`.
+
+    Examples:
+        >>> from archcare.utils.system import run_command
+        >>> res = run_command("echo hello")
+        >>> res.success
+        True
+        >>> res.stdout
+        'hello'
     """
     # Convert string command to list if needed
     if isinstance(command, str):
@@ -148,24 +207,32 @@ def run_command_with_sudo(
     env: dict[str, str] | None = None,
 ) -> CommandResult:
     """
-    Run a command with sudo if not already root.
+    Run a command with sudo privileges if the current process is not running as root.
+
+    Wraps [run_command][] by prepending `sudo` to the command arguments if the current
+    effective user ID (EUID) is not 0 (root). If already running as root, the command
+    is executed unmodified.
 
     Args:
-        command: Command to run (list of args or string)
-        check: Raise exception on non-zero exit code
-        capture_output: Capture stdout/stderr
-        text: Return output as string (vs bytes)
-        timeout: Command timeout in seconds
-        cwd: Working directory
-        env: Environment variables
+        command (list[str] | str): The command to run as a list of arguments or a single string.
+        check (bool): If True, raises `subprocess.CalledProcessError` on failure.
+            Defaults to `False`.
+        capture_output (bool): If True, captures stdout and stderr. Defaults to `True`.
+        text (bool): If True, decodes outputs to strings. Defaults to `True`.
+        timeout (int | None): Timeout limit in seconds. Defaults to `None`.
+        cwd (Path | None): Working directory context. Defaults to `None`.
+        env (dict[str, str] | None): Custom environment variables. Defaults to `None`.
 
     Returns:
-        CommandResult with execution details
+        CommandResult: Structured result of the command execution.
 
-    Note:
-    - If already root, runs command directly
-    - If not root, prepends 'sudo' to command
-    - User must be in sudoers and may be prompted for password
+    Raises:
+        subprocess.CalledProcessError: If `check=True` and the command fails.
+        subprocess.TimeoutExpired: If execution time exceeds the specified timeout.
+
+    See Also:
+        - [run_command][]: The wrapped command used by this utility.
+        - [is_root][]: Used to determine if `sudo` prefixing is required.
     """
     # Convert string to list if needed
     if isinstance(command, str):
@@ -192,13 +259,23 @@ def run_command_with_sudo(
 
 def check_command_exists(command: str) -> bool:
     """
-    Check if a command is available in PATH.
+    Check if a command is available in the system `PATH`.
+
+    Verifies whether an executable with the specified command name exists and is executable
+    within any directory in the system's `PATH`.
 
     Args:
-        command: Command name to check
+        command (str): Name of the executable to search for (e.g., "reflector" or "systemctl").
 
     Returns:
-        True if command exists, False otherwise
+        bool: True if the command is found in `PATH`, False otherwise.
+
+    Examples:
+        >>> from archcare.utils.system import check_command_exists
+        >>> check_command_exists("sh")
+        True
+        >>> check_command_exists("nonexistent_command_name")
+        False
     """
     exists = shutil.which(command) is not None
     logger.debug(f"Command '{command}' exists: {exists}")
@@ -211,15 +288,20 @@ def run_systemctl(
     timeout: int = 30,
 ) -> CommandResult:
     """
-    Run systemctl command.
+    Execute a systemctl command with the specified arguments.
+
+    Constructs and runs a command prefixing arguments with `systemctl`. This is a specific
+    helper wrapper around [run_command][] to simplify systemd service manager queries.
 
     Args:
-        args: Arguments to pass to systemctl
-        check: Raise exception on failure
-        timeout: Command timeout in seconds
+        args (list[str]): List of arguments to pass to `systemctl` (e.g.,
+            `["list-units", "--failed"]`).
+        check (bool): If True, raises `subprocess.CalledProcessError` on non-zero exit code.
+            Defaults to `False`.
+        timeout (int): Time limit in seconds for command execution. Defaults to 30.
 
     Returns:
-        CommandResult from systemctl
+        CommandResult: Structured result of the systemctl command execution.
     """
     command = ["systemctl"] + args
     return run_command(command, check=check, timeout=timeout)
@@ -227,14 +309,19 @@ def run_systemctl(
 
 def is_root() -> bool:
     """
-    Check if running as root.
+    Check if the current process is running with root privileges.
+
+    Determines root status by checking if the effective user ID (EUID) is 0.
+    Many maintenance operations (e.g., updating mirrorlists or checking package file integrity)
+    require root privileges.
 
     Returns:
-        True if running as root (UID 0)
+        bool: True if running as root (UID 0), False otherwise.
 
-    Reason:
-    - Many maintenance tasks require root
-    - Better to check explicitly than let commands fail
+    Examples:
+        >>> from archcare.utils.system import is_root
+        >>> isinstance(is_root(), bool)
+        True
     """
     import os
 
@@ -243,14 +330,19 @@ def is_root() -> bool:
 
 def get_systemd_failed_services() -> list[str]:
     """
-    Get list of failed systemd services.
+    Retrieve a list of systemd units that are currently in a failed state.
+
+    Queries systemd using `systemctl list-units --state=failed` and parses the output
+    to extract the names of all failed services.
 
     Returns:
-        List of service names that are in failed state
+        list[str]: Names of systemd units in a failed state. Returns an empty list
+            if the query fails or if no failed units are found.
+
+    See Also:
+        [run_systemctl][]: Used to query the systemd manager.
     """
-    result = run_systemctl(
-        ["list-units", "--state=failed", "--no-pager", "--plain", "--no-legend"]
-    )
+    result = run_systemctl(["list-units", "--state=failed", "--no-pager", "--plain", "--no-legend"])
 
     if not result.success:
         logger.warning("Failed to get systemd failed services")
@@ -271,31 +363,33 @@ def get_systemd_failed_services() -> list[str]:
 
 def _parse_loaded_status(line: str) -> bool:
     """
-    Parse the 'Loaded:' line from systemctl status.
+    Parse the 'Loaded:' status line from a systemctl status output.
 
     Args:
-        line: Line containing 'Loaded:' information
+        line (str): The line containing 'Loaded:' information from systemctl.
 
     Returns:
-        True if service is loaded, False otherwise
+        bool: True if the service is successfully loaded, False otherwise.
     """
     return "could not be found." not in line
 
 
 def _parse_active_status(line: str) -> tuple[str, bool]:
     """
-    Parse the 'Active:' line from systemctl status.
+    Parse the 'Active:' status line from a systemctl status output.
+
+    Determines both the broad state name (e.g., "active", "inactive", "failed") and a boolean
+    flag indicating if the unit is currently actively running.
 
     Args:
-        line: Line containing 'Active:' information
+        line (str): The line containing 'Active:' information from systemctl.
 
     Returns:
-        Tuple of (active_state, is_running)
+        tuple[str, bool]: A tuple containing:
 
-    Reason for extraction:
-    - Reduces branching in main function
-    - Clearer logic flow
-    - Easy to extend with more states
+            - `active_state` (str): The broad active state (e.g., "active", "inactive",
+                "failed", "unknown").
+            - `is_running` (bool): True if the process is running, False otherwise.
     """
 
     # 'inactive' check should be before 'active' to avoid false positives
@@ -311,13 +405,13 @@ def _parse_active_status(line: str) -> tuple[str, bool]:
 
 def _parse_main_pid(line: str) -> int | None:
     """
-    Parse the 'Main PID:' line from systemctl status.
+    Parse the main process ID (PID) from a systemctl status line.
 
     Args:
-        line: Line containing 'Main PID:' information
+        line (str): The line starting with 'Main PID:' or containing the PID details.
 
     Returns:
-        PID as integer, or None if parsing fails
+        int | None: The parsed process ID as an integer, or `None` if parsing fails.
     """
     parts = line.split()
     if len(parts) >= 3:
@@ -330,17 +424,15 @@ def _parse_main_pid(line: str) -> int | None:
 
 def _get_service_description(service_name: str) -> str:
     """
-    Get service description from systemctl list-units.
+    Query systemctl to obtain the description text of a specific service.
 
     Args:
-        service_name: Name of the service
+        service_name (str): The name of the systemd unit to query.
 
     Returns:
-        Service description, or empty string if not found
+        str: Description text of the service, or an empty string if it cannot be found.
     """
-    result = run_systemctl(
-        ["list-units", service_name, "--no-pager", "--plain", "--no-legend"]
-    )
+    result = run_systemctl(["list-units", service_name, "--no-pager", "--plain", "--no-legend"])
 
     if not result.success or not result.stdout:
         return ""
@@ -352,13 +444,20 @@ def _get_service_description(service_name: str) -> str:
 
 def get_service_status(service_name: str) -> ServiceStatusInfo:
     """
-    Get detailed status information for a service.
+    Retrieve comprehensive status information for a specified systemd service.
+
+    Executes `systemctl status` for the service and parses key details such as
+    whether the service is loaded, active, running, its description, and its PID.
 
     Args:
-        service_name: Name of the service
+        service_name (str): The name of the systemd service unit to check.
 
     Returns:
-        Structured ServiceStatusInfo object
+        ServiceStatusInfo: Data model containing detailed service status attributes.
+
+    See Also:
+        [ServiceStatusInfo][archcare.utils.info_models.ServiceStatusInfo]: Data model for
+            service details.
     """
     result = run_systemctl(["status", service_name, "--no-pager"])
 
@@ -400,15 +499,19 @@ def get_service_logs(
     since: str | None = None,
 ) -> list[str]:
     """
-    Get recent logs for a service using journalctl.
+    Retrieve the most recent log entries for a systemd service using journalctl.
 
     Args:
-        service_name: Name of the service
-        lines: Number of log lines to retrieve
-        since: Time range (e.g., "1 hour ago", "today")
+        service_name (str): Name of the systemd service to query logs for.
+        lines (int): Number of recent log lines to retrieve. Defaults to 50.
+        since (str | None): Time constraint string (e.g., "1 hour ago", "today", "yesterday").
+            Defaults to `None`.
 
     Returns:
-        List of log lines
+        list[str]: List of log entries as strings. Returns an empty list on failure.
+
+    See Also:
+        [run_command][]: Used to execute the journalctl command.
     """
     cmd = ["journalctl", "-u", service_name, "-n", str(lines), "--no-pager"]
 
@@ -426,10 +529,14 @@ def get_service_logs(
 
 def check_filesystem_errors() -> list[str]:
     """
-    Check for filesystem errors in dmesg/journal.
+    Scan dmesg and system logs via journalctl for recent filesystem and hardware errors.
+
+    Searches kernel messages using journalctl for common error indicators (e.g.,
+    low-level disk warnings, ext4/btrfs/xfs integrity messages, I/O errors).
 
     Returns:
-        List of error messages found
+        (list[str]): Up to 10 most recent error/warning log entries. Returns an empty
+            list if no issues are detected or query fails.
     """
     errors = []
 
@@ -450,13 +557,24 @@ def check_filesystem_errors() -> list[str]:
 
 def format_bytes(bytes_value: float) -> str:
     """
-    Format bytes as human-readable string.
+    Convert a raw byte count into a human-readable string representation with units.
+
+    Formats byte sizes into KB, MB, GB, TB, or PB values using a 1024-base scaling factor.
 
     Args:
-        bytes_value: Size in bytes
+        bytes_value (float): Raw size in bytes to be formatted. Must be non-negative.
 
     Returns:
-        Formatted string (e.g., "1.5 GB", "500 MB")
+        str: Format-completed human-readable size string (e.g., "1.50 GB", "512.00 B").
+
+    Examples:
+        >>> from archcare.utils.system import format_bytes
+        >>> format_bytes(500)
+        '500.00 B'
+        >>> format_bytes(1536)
+        '1.50 KB'
+        >>> format_bytes(1024 * 1024 * 5)
+        '5.00 MB'
     """
     for unit in ["B", "KB", "MB", "GB", "TB"]:
         if bytes_value < 1024.0:
@@ -467,10 +585,11 @@ def format_bytes(bytes_value: float) -> str:
 
 def _get_boot_time() -> datetime:
     """
-    Get system boot time.
+    Retrieve the system's boot time as a timestamp.
 
     Returns:
-        Datetime of when system was booted
+        datetime: A datetime object representing the time of last system boot, or
+            the current time if query fails.
     """
     import psutil
 
@@ -484,10 +603,13 @@ def _get_boot_time() -> datetime:
 
 def get_system_uptime() -> str:
     """
-    Get system uptime as human-readable string.
+    Retrieve the system's uptime formatted as a human-readable string.
+
+    Calculates the duration since the last system boot time and formats it into days,
+    hours, and minutes.
 
     Returns:
-        Uptime string (e.g., "5 days, 3 hours")
+        str: Human-readable uptime string (e.g., "5 days, 3 hours" or "2 hours" or "just now").
     """
 
     boot_time = _get_boot_time()
@@ -510,18 +632,24 @@ def get_system_uptime() -> str:
 
 def change_ownership_to_user(path: Path, user: str) -> None:
     """
-    Change ownership of a file/directory to the specified user.
+    Change the owner and group ownership of a filesystem path to a specified user.
 
-    This is needed when archcare runs as root via systemd but creates files
-    that should be owned by the actual user.
+    This function changes both the owner user ID (UID) and primary group ID (GID) of
+    a file or directory to match those of the specified username. This is crucial when
+    Archcare is running as root (e.g., via a systemd system timer) but needs to write
+    or modify configuration or state files that should belong to a specific user.
 
     Args:
-        path: Path to file or directory to change ownership of
-        user: Username to set as owner
+        path (Path): Path to the target file or directory. Must exist.
+        user (str): Username to set as the owner. Must exist in the system user database.
 
     Note:
-        Logs a warning if ownership change fails but does not raise an exception.
-        This allows the task to continue even if ownership change fails.
+        Logs warnings if user is not found, or if permissions prevent changing ownership,
+        but does not raise exceptions, ensuring calling workflows can continue gracefully.
+
+    See also:
+        [UserContext.chown_if_root][archcare.config.user.UserContext.chown_if_root]:
+            Method that uses this utility.
     """
     import os
     import pwd
@@ -546,10 +674,31 @@ def change_ownership_to_user(path: Path, user: str) -> None:
 
 def is_valid_systemd_unit_name(name: str) -> bool:
     """
-    Validate a systemd unit name (e.g. "sshd.service", "getty@tty1.service").
+    Validate if a given string constitutes a syntactically valid systemd unit name.
+
+    Ensures the name adheres to systemd specifications:
+
+    - Length must not exceed 255 characters.
+    - Suffix must match a known unit type (e.g., `.service`, `.timer`, `.target`).
+    - Base name must only contain valid systemd-allowed characters.
+    - Supports template/instance syntax (e.g., `getty@tty1.service`).
+
+    Args:
+        name (str): The unit name string to validate.
 
     Returns:
-        True if the name is a valid systemd unit name, False otherwise.
+        bool: True if the string is a valid systemd unit name, False otherwise.
+
+    Examples:
+        >>> from archcare.utils.system import is_valid_systemd_unit_name
+        >>> is_valid_systemd_unit_name("sshd.service")
+        True
+        >>> is_valid_systemd_unit_name("getty@tty1.service")
+        True
+        >>> is_valid_systemd_unit_name("invalid")
+        False
+        >>> is_valid_systemd_unit_name("invalid.unknown")
+        False
     """
 
     # Check basic structure: non-empty, within length limit, and contains a dot

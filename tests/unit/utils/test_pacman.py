@@ -80,9 +80,7 @@ class TestCheckPackageFiles:
         assert not all_present
         assert "not found" in msg
 
-    def test_returns_false_when_check_command_fails(
-        self, mocker, mock_run_command_sudo: MagicMock
-    ):
+    def test_returns_false_when_check_command_fails(self, mocker, mock_run_command_sudo: MagicMock):
         mocker.patch(_PATCH_CHECK_COMMAND, return_value=True)
         mock_run_command_sudo.return_value = MockResult(
             success=False, stderr="error: failed to read database"
@@ -99,8 +97,7 @@ class TestCheckPackageFiles:
         mocker.patch(_PATCH_CHECK_COMMAND, return_value=True)
 
         mock_stdout = (
-            "linux: 1000 total files, 0 missing files\n"
-            "systemd: 500 total files, 0 missing files\n"
+            "linux: 1000 total files, 0 missing files\nsystemd: 500 total files, 0 missing files\n"
         )
         mock_run_command_sudo.return_value = MockResult(success=True, stdout=mock_stdout)
 

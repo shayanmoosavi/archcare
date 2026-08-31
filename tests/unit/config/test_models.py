@@ -95,9 +95,7 @@ class TestTasksConfig:
         assert automated_task.name in enabled
         assert disabled_task.name not in enabled
 
-    def test_get_enabled_tasks_includes_all_when_all_enabled(
-        self, tasks_config: TasksConfig
-    ):
+    def test_get_enabled_tasks_includes_all_when_all_enabled(self, tasks_config: TasksConfig):
         assert len(tasks_config.get_enabled_tasks()) == len(tasks_config.tasks)
 
     def test_get_tasks_by_type_returns_automated(
@@ -161,9 +159,7 @@ class TestAppSettingsPaths:
         result = AppSettings._resolve_user_home("alice")
         assert result == Path("/var/lib/custom")
 
-    def test_resolve_user_home_fallback_when_user_not_found(
-        self, mock_pwd: MagicMock, mocker
-    ):
+    def test_resolve_user_home_fallback_when_user_not_found(self, mock_pwd: MagicMock, mocker):
         """_resolve_user_home returns home directory when user is not found."""
         mock_pwd.side_effect = KeyError("unknown")
         mocker.patch.object(Path, "exists", return_value=True)
@@ -176,9 +172,7 @@ class TestAppSettingsPaths:
         mock_pwd.side_effect = KeyError("ghost")
         mocker.patch.object(Path, "exists", return_value=False)
 
-        with pytest.raises(
-            HomeDirectoryResolutionError, match="Cannot resolve home directory"
-        ):
+        with pytest.raises(HomeDirectoryResolutionError, match="Cannot resolve home directory"):
             AppSettings._resolve_user_home("ghost")
 
     @pytest.mark.parametrize(
@@ -317,9 +311,7 @@ class TestAppState:
 
 class TestIgnoredServicesConfig:
     def test_valid_services_accepted(self):
-        config = IgnoredServicesConfig(
-            services=["service-a.service", "template@instance.service"]
-        )
+        config = IgnoredServicesConfig(services=["service-a.service", "template@instance.service"])
         assert config.services == ["service-a.service", "template@instance.service"]
 
     def test_invalid_services_raises(self):
@@ -366,9 +358,7 @@ class TestMaintenanceCheckSettings:
 
     @pytest.mark.parametrize("level", ["critical", "warning", "info"])
     def test_valid_notification_level_accepted(self, level):
-        assert (
-            MaintenanceCheckSettings(notification_level=level).notification_level == level
-        )
+        assert MaintenanceCheckSettings(notification_level=level).notification_level == level
 
     def test_invalid_notification_level_raises(self):
         with pytest.raises(ValidationError):

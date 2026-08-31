@@ -1,14 +1,42 @@
-"""Factory functions for default TOML documents for archcare's config files.
+"""
+Default TOML document builders for archcare configuration files.
 
-Uses tomlkit to build documents programmatically, preserving comments and
-structure.
+This module provides factory functions that generate the default configuration
+documents (TOML) used when a user runs `archcare setup config` for the first time.
+It uses `tomlkit` to build documents programmatically while preserving comments,
+formatting, and structure so that generated configs are human-readable and
+well-documented.
+
+The generated files are:
+    - `tasks.toml` - Defines all maintenance tasks with their type, frequency, and description
+    - `settings.toml` - Global settings and per-task configuration (mirrorlist, maintenance_check)
+    - `ignored-services.toml` - List of systemd units to exclude from `failed-services` check
+
+Each builder returns a `tomlkit.TOMLDocument` that can be written directly to disk.
+The documents include extensive inline comments explaining each field and valid values.
+
+Key Components:
+    - [build_tasks_toml][]: Creates `tasks.toml` with automated and manual task definitions
+    - [build_settings_toml][]: Creates `settings.toml` with global and task-specific settings
+    - [build_ignored_services_toml][]: Creates `ignored-services.toml` with default ignore list
+
+Configuration Files:
+    Generated files are written to `~/.config/archcare/` (or the target user's
+    config directory when run via systemd timer as root).
+
+See Also:
+    - [ConfigLoader][]: Loads and saves these configurations
+    - [TaskConfig][]: Task configuration model
+    - [AppSettings][]: Application settings model
+    - [create_default_config_files][]: Function that uses these builders
 """
 
 from typing import Any
 
 from tomlkit import TOMLDocument, boolean, comment, document, nl, table
 
-from .models import AppSettings, TaskConfig, TaskType
+from .enums import TaskType
+from .models import AppSettings, TaskConfig
 
 _SECTION_DIVIDER = "=" * 76
 
@@ -97,7 +125,41 @@ _MANUAL_TASKS = (
 
 
 def build_tasks_toml() -> TOMLDocument:
-    """Return the default tasks.toml document."""
+    """
+    Build the default `tasks.toml` document.
+
+    Returns:
+        TOMLDocument: The default tasks configuration document.
+
+    See Also:
+        - [ConfigLoader][]: Loads and saves these configurations
+        - [create_default_config_files][]: Function that creates the default config files
+
+    Examples:
+        >>> from archcare.config.defaults import build_tasks_toml
+        >>> from tomlkit import dumps
+        >>> doc = build_tasks_toml()
+        >>> print(dumps(doc)[:596])
+        # Archcare Maintenance Tasks Configuration
+        # Format: Each [task-name] section defines a maintenance task
+        #
+        # Fields:
+        #   type = "automated" | "manual"
+        #   frequency = <number>  (days between runs)
+        #   description = <description>
+        #   enabled = true | false
+        <BLANKLINE>
+        # ============================================================================
+        # AUTOMATED TASKS (run automatically via systemd timers)
+        # ============================================================================
+        <BLANKLINE>
+        [maintenance-check]
+        type = "automated"
+        frequency = 1
+        description = "Check for due system maintenance tasks"
+        enabled = true
+        <BLANKLINE>
+    """
     doc = document()
 
     # Header
@@ -132,6 +194,32 @@ def build_tasks_toml() -> TOMLDocument:
 
 
 def _add_tasks(doc: TOMLDocument, tasks: tuple[TaskConfig, ...]) -> None:
+    """
+    Add task configurations to a TOML document.
+
+    Args:
+        doc (TOMLDocument): The TOML document to add tasks to.
+        tasks (tuple[TaskConfig, ...]): Tuple of TaskConfig objects to add.
+
+    Examples:
+        >>> from archcare.config.defaults import _add_tasks
+        >>> from tomlkit import document, dumps
+        >>> from archcare.config.models import TaskConfig
+        >>> from archcare.config.enums import TaskType
+        >>> doc = document()
+        >>> tasks = (
+        ...     TaskConfig(
+        ...         name="test-task",
+        ...         type=TaskType.AUTOMATED,
+        ...         frequency=7,
+        ...         description="Test task",
+        ...         enabled=True,
+        ...     ),
+        ... )
+        >>> _add_tasks(doc, tasks)
+        >>> "test-task" in doc
+        True
+    """
     for i, task in enumerate(tasks):
         task_section = table()
         task_section.update(task.model_dump(by_alias=True, exclude={"name"}))
@@ -141,13 +229,33 @@ def _add_tasks(doc: TOMLDocument, tasks: tuple[TaskConfig, ...]) -> None:
 
 
 def build_settings_toml() -> TOMLDocument:
-    data: dict[str, Any] = AppSettings().model_dump(
-        exclude={"user"}, exclude_computed_fields=True
-    )
+    """
+    Build the default `settings.toml` document.
+
+    Returns:
+        TOMLDocument: The default settings configuration document.
+
+    See Also:
+        - [ConfigLoader][]: Loads and saves these configurations
+        - [create_default_config_files][]: Function that creates the default config files
+
+    Examples:
+        >>> from archcare.config.defaults import build_settings_toml
+        >>> from tomlkit import dumps
+        >>> doc = build_settings_toml()
+        >>> toml_str = dumps(doc)
+        >>> "log_level" in toml_str
+        True
+        >>> "mirrorlist" in toml_str
+        True
+        >>> "maintenance_check" in toml_str
+        True
+    """
+    data: dict[str, Any] = AppSettings().model_dump(exclude={"user"}, exclude_computed_fields=True)
     doc = document()
 
     doc.add(comment("Global Settings"))
-    for key in ("log_level", "log_retention_days", "require_confirmation", "dry_run"):
+    for key in ("log_level", "log_retention_days", "dry_run"):
         doc.add(key, data[key])
     doc.add(nl())
 
@@ -177,6 +285,26 @@ def build_settings_toml() -> TOMLDocument:
 
 
 def build_ignored_services_toml() -> TOMLDocument:
+    """
+    Build the default `ignored-services.toml` document.
+
+    Returns:
+        TOMLDocument: The default ignored services configuration document.
+
+    See Also:
+        - [ConfigLoader][]: Loads and saves these configurations
+        - [create_default_config_files][]: Function that creates the default config files
+
+    Examples:
+        >>> from archcare.config.defaults import build_ignored_services_toml
+        >>> from tomlkit import dumps
+        >>> doc = build_ignored_services_toml()
+        >>> toml_str = dumps(doc)
+        >>> "services" in toml_str
+        True
+        >>> "systemd-networkd-wait-online.service" in toml_str
+        True
+    """
     doc = document()
     doc.add(comment("Services to ignore in failed-services check"))
     doc.add("services", ["systemd-networkd-wait-online.service"])

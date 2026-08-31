@@ -169,9 +169,7 @@ class TestRenderIssueDispatch:
         style: str,
     ):
         """Parametrized test covering critical, warning and info issue tables."""
-        mock_render_table = mocker.patch.object(
-            MaintenanceCheckPresenter, "_render_issues_table"
-        )
+        mock_render_table = mocker.patch.object(MaintenanceCheckPresenter, "_render_issues_table")
 
         # Resolve the requested issue fixture to get the MaintenanceIssue instance
         issue = request.getfixturevalue(issue_fixture)
@@ -229,9 +227,7 @@ class TestRenderAcknowledgmentPrompt:
         mocker.patch.object(MaintenanceCheckPresenter, "_render_issues_table")
 
         details = _details(critical_issues=[critical_issue])
-        MaintenanceCheckPresenter.render(
-            details, is_interactive=True, require_acknowledgment=True
-        )
+        MaintenanceCheckPresenter.render(details, is_interactive=True, require_acknowledgment=True)
 
         mock_console.input.assert_called_once_with("Press Enter to acknowledge... ")
 
@@ -241,9 +237,7 @@ class TestRenderAcknowledgmentPrompt:
         mocker.patch.object(MaintenanceCheckPresenter, "_render_issues_table")
 
         details = _details(critical_issues=[critical_issue])
-        MaintenanceCheckPresenter.render(
-            details, is_interactive=True, require_acknowledgment=False
-        )
+        MaintenanceCheckPresenter.render(details, is_interactive=True, require_acknowledgment=False)
 
         mock_console.input.assert_not_called()
 
@@ -257,9 +251,7 @@ class TestRenderAcknowledgmentPrompt:
         mocker.patch.object(MaintenanceCheckPresenter, "_render_issues_table")
 
         details = _details(critical_issues=[critical_issue])
-        MaintenanceCheckPresenter.render(
-            details, is_interactive=False, require_acknowledgment=True
-        )
+        MaintenanceCheckPresenter.render(details, is_interactive=False, require_acknowledgment=True)
 
         mock_console.input.assert_not_called()
 
@@ -271,9 +263,7 @@ class TestRenderAcknowledgmentPrompt:
         mocker.patch.object(MaintenanceCheckPresenter, "_render_issues_table")
 
         details = _details(warning_issues=[warning_issue])
-        MaintenanceCheckPresenter.render(
-            details, is_interactive=True, require_acknowledgment=True
-        )
+        MaintenanceCheckPresenter.render(details, is_interactive=True, require_acknowledgment=True)
 
         mock_console.input.assert_not_called()
 

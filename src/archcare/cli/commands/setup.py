@@ -1,4 +1,19 @@
-"""One-time setup Typer commands for Archcare."""
+"""
+One-time setup Typer commands for Archcare.
+
+Defines the `archcare setup` sub-app and its two commands:
+
+- `setup config`: writes default TOML config files
+    (`settings.toml`, `tasks.toml`, `ignored-services.toml`)
+    to `~/.config/archcare/`, prompting to overwrite when they already exist.
+- `setup timers`: installs the systemd template units (`archcare@.service`, `archcare@.timer`) into
+    `/etc/systemd/system/`, reloads the daemon, and optionally enables+starts one timer per
+    automated task. Must run via `sudo` since it touches `/etc/systemd/system/`; the target user is
+    resolved from `SUDO_USER`.
+
+All terminal output is delegated to [SetupPresenter][]; commands stay thin and translate each
+failure mode into a presenter call plus a non-zero exit.
+"""
 
 from typing import Annotated
 
@@ -20,12 +35,21 @@ from archcare.services.exceptions import (
 setup_app = typer.Typer(help="One-time setup commands for bootstrapping Archcare.")
 
 
-@setup_app.command("config")
+@setup_app.command(
+    "config",
+    help="""
+Initialize archcare configuration files.
+
+This creates default configuration files if they don't exist.
+""",
+)
 def setup_config():
     """
     Initialize archcare configuration files.
 
-    This creates default configuration files if they don't exist.
+    Prompts the user (via Typer) to overwrite any pre-existing TOML config files in the standard
+    config directory, then delegates to [ConfigService.initialize][] to write the defaults. The full
+    result is rendered via [SetupPresenter][].
     """
     service = ConfigService()
 
@@ -41,7 +65,21 @@ def setup_config():
     SetupPresenter.render_config_init(result)
 
 
-@setup_app.command("timers")
+@setup_app.command(
+    "timers",
+    help="""
+Set up systemd timers for automated task execution.
+
+This command:
+    - Creates systemd service and timer templates
+    - Installs them to /etc/systemd/system/
+    - Optionally enables specified timers
+
+Example:
+    archcare setup timers --dry-run
+    archcare setup timers
+""",
+)
 def setup_timers(
     ctx: typer.Context,
     enable: Annotated[
@@ -55,14 +93,20 @@ def setup_timers(
     """
     Set up systemd timers for automated task execution.
 
-    This command:
-    - Creates systemd service and timer templates
-    - Installs them to /etc/systemd/system/
-    - Optionally enables specified timers
+    Resolves the target user via [resolve_systemd_target_user][] (raising a non-zero exit if not
+    root or if `SUDO_USER` is unset/invalid), then builds a fresh executor scoped to that user via
+    [executor_for_user][archcare.cli.context.AppContext.executor_for_user] and constructs a
+    [TimerService][] for the install/reload/enable pipeline. Each step is rendered by the matching
+    [SetupPresenter][] helper. The `dry_run` flag short-circuits all filesystem writes and systemctl
+    invocations, ending with the dry-run completion notice.
 
-    Example:
-        archcare setup timers --dry-run
-        archcare setup timers
+    Args:
+        ctx (typer.Context): Typer context whose `obj` is an
+            [AppContext][archcare.cli.context.AppContext].
+        enable (bool): When `True`, enable+start the per-task timers after installation. Defaults
+            to `True`.
+        dry_run (bool): When `True`, perform no filesystem or systemctl writes; just print what
+            would be done. Defaults to `False`.
     """
     try:
         user, home_dir = resolve_systemd_target_user()

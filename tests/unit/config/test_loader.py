@@ -108,9 +108,7 @@ class TestConfigLoaderTasks:
         config: TasksConfig = loader.load_tasks(tasks_file)
         assert config.tasks == {}
 
-    def test_toml_decode_error_returns_empty_config(
-        self, loader: ConfigLoader, config_dir: Path
-    ):
+    def test_toml_decode_error_returns_empty_config(self, loader: ConfigLoader, config_dir: Path):
         """A syntactically invalid TOML file should gracefully return empty tasks."""
         tasks_file: Path = config_dir / "tasks.toml"
         _w(tasks_file, _BAD_TOML)
@@ -118,9 +116,7 @@ class TestConfigLoaderTasks:
         config: TasksConfig = loader.load_tasks()
         assert config.tasks == {}
 
-    def test_validation_error_returns_empty_config(
-        self, loader: ConfigLoader, config_dir: Path
-    ):
+    def test_validation_error_returns_empty_config(self, loader: ConfigLoader, config_dir: Path):
         """A valid TOML file with wrong schema types should return empty tasks."""
         # frequency = -1 fails TaskConfig validation
         _w(
@@ -137,9 +133,7 @@ enabled = true
         config: TasksConfig = loader.load_tasks()
         assert config.tasks == {}
 
-    def test_valid_file_parses_single_task_correctly(
-        self, loader: ConfigLoader, config_dir: Path
-    ):
+    def test_valid_file_parses_single_task_correctly(self, loader: ConfigLoader, config_dir: Path):
         tasks_file: Path = config_dir / "tasks.toml"
         _w(tasks_file, _TASK_TOML)
 
@@ -178,9 +172,7 @@ enabled = true
         loaded = fresh_loader.load_tasks()
         assert loaded.tasks["test-task"].frequency == 10
 
-    def test_updates_an_existing_field_in_place(
-        self, loader: ConfigLoader, config_dir: Path
-    ):
+    def test_updates_an_existing_field_in_place(self, loader: ConfigLoader, config_dir: Path):
         _w(config_dir / "tasks.toml", _TASK_TOML)
 
         tasks_config = loader.load_tasks()
@@ -206,9 +198,7 @@ enabled = true
         assert "type = " in content
         assert "task_type" not in content
 
-    def test_preserves_comments_on_an_existing_file(
-        self, loader: ConfigLoader, config_dir: Path
-    ):
+    def test_preserves_comments_on_an_existing_file(self, loader: ConfigLoader, config_dir: Path):
         tasks_file = config_dir / "tasks.toml"
         _w(tasks_file, "# A note about this task\n" + _TASK_TOML)
 
@@ -258,16 +248,12 @@ class TestConfigLoaderIgnoredServices:
         config = loader.load_ignored_services()
         assert "apache2.service" in config.services
 
-    def test_toml_decode_error_returns_empty_list(
-        self, loader: ConfigLoader, config_dir: Path
-    ):
+    def test_toml_decode_error_returns_empty_list(self, loader: ConfigLoader, config_dir: Path):
         _w(config_dir / "ignored-services.toml", _BAD_TOML)
         config = loader.load_ignored_services()
         assert config.services == []
 
-    def test_validation_error_returns_empty_list(
-        self, loader: ConfigLoader, config_dir: Path
-    ):
+    def test_validation_error_returns_empty_list(self, loader: ConfigLoader, config_dir: Path):
         # Should be a list of strings, passing an int
         _w(config_dir / "ignored-services.toml", "services = 123")
 
@@ -281,9 +267,7 @@ class TestConfigLoaderIgnoredServices:
 
         assert loaded == ignored_services
 
-    def test_preserves_comments_on_an_existing_file(
-        self, loader: ConfigLoader, config_dir: Path
-    ):
+    def test_preserves_comments_on_an_existing_file(self, loader: ConfigLoader, config_dir: Path):
         services_file = config_dir / "ignored-services.toml"
         _w(services_file, "# Noisy but harmless\nservices = []\n")
 
@@ -326,18 +310,14 @@ class TestConfigLoaderSettings:
         default_settings = loader.load_default_settings()
         assert settings == default_settings
 
-    def test_toml_decode_error_returns_defaults(
-        self, loader: ConfigLoader, config_dir: Path
-    ):
+    def test_toml_decode_error_returns_defaults(self, loader: ConfigLoader, config_dir: Path):
         _w(config_dir / "settings.toml", _BAD_TOML)
 
         settings = loader.load_settings()
         default_settings = loader.load_default_settings()
         assert settings == default_settings
 
-    def test_validation_error_returns_defaults(
-        self, loader: ConfigLoader, config_dir: Path
-    ):
+    def test_validation_error_returns_defaults(self, loader: ConfigLoader, config_dir: Path):
         # Expected int
         _w(config_dir / "settings.toml", 'log_retention_days = "seven"\n')
 
@@ -372,9 +352,7 @@ number_of_mirrors = 3
         assert settings.mirrorlist.country == "France"
         assert settings.mirrorlist.number_of_mirrors == 3
 
-    def test_falls_back_to_defaults_on_invalid_value(
-        self, loader: ConfigLoader, config_dir: Path
-    ):
+    def test_falls_back_to_defaults_on_invalid_value(self, loader: ConfigLoader, config_dir: Path):
         _w(config_dir / "settings.toml", 'log_level = "VERBOSE"\n')
         assert loader.load_settings().log_level.value == "INFO"
 
@@ -391,9 +369,7 @@ require_acknowledgment = false
         assert settings.maintenance_check.output_mode == "file"
         assert settings.maintenance_check.require_acknowledgment is False
 
-    def test_updates_cached_settings_after_loading(
-        self, loader: ConfigLoader, config_dir: Path
-    ):
+    def test_updates_cached_settings_after_loading(self, loader: ConfigLoader, config_dir: Path):
         _w(config_dir / "settings.toml", "log_retention_days = 99\n")
         loader.load_settings()
         assert loader._settings.log_retention_days == 99
@@ -458,22 +434,16 @@ require_acknowledgment = false
 
 
 class TestStateManagement:
-    def test_returns_fresh_state_when_file_absent(
-        self, loader: ConfigLoader, state_file: Path
-    ):
+    def test_returns_fresh_state_when_file_absent(self, loader: ConfigLoader, state_file: Path):
         state = loader.load_state(state_file=state_file)
         assert isinstance(state, AppState)
         assert state.tasks == {}
 
-    def test_returns_fresh_state_on_corrupt_json(
-        self, loader: ConfigLoader, state_file: Path
-    ):
+    def test_returns_fresh_state_on_corrupt_json(self, loader: ConfigLoader, state_file: Path):
         state_file.write_text("{{{ not json")
         assert loader.load_state(state_file=state_file).tasks == {}
 
-    def test_returns_fresh_state_on_invalid_structure(
-        self, loader: ConfigLoader, state_file: Path
-    ):
+    def test_returns_fresh_state_on_invalid_structure(self, loader: ConfigLoader, state_file: Path):
         # tasks should be a dict; passing a string triggers ValidationError
         state_file.write_text('{"tasks": "should be a dict not a string"}')
         result = loader.load_state(state_file=state_file)
@@ -551,9 +521,7 @@ class TestCreateDefaultConfigFiles:
         assert tmp_path / "ignored-services.toml" in skipped
         assert tmp_path / "settings.toml" in skipped
 
-    @pytest.mark.parametrize(
-        "filename", ["tasks.toml", "ignored-services.toml", "settings.toml"]
-    )
+    @pytest.mark.parametrize("filename", ["tasks.toml", "ignored-services.toml", "settings.toml"])
     def test_does_not_overwrite_existing_files_without_force(self, tmp_path, filename):
         sentinel = "sentinel content"
         (tmp_path / filename).write_text(sentinel)
@@ -563,9 +531,7 @@ class TestCreateDefaultConfigFiles:
         assert tmp_path / filename not in created
         assert tmp_path / filename in skipped
 
-    @pytest.mark.parametrize(
-        "filename", ["tasks.toml", "ignored-services.toml", "settings.toml"]
-    )
+    @pytest.mark.parametrize("filename", ["tasks.toml", "ignored-services.toml", "settings.toml"])
     def test_overwrites_existing_files_with_force(self, tmp_path, filename):
         sentinel = "sentinel content"
         (tmp_path / filename).write_text(sentinel)

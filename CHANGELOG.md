@@ -1,3 +1,18 @@
+## v0.3.1 (2026-08-31)
+
+### Fix
+
+- **core**: fix wrong error message for an unregistered task
+
+### Refactor
+
+- **config**: move enums to a dedicated module and update imports
+- move base task to core layer for architectural consistency
+- move user module to config layer for consistency
+- **commands**: move the help messages out of the docstrings
+- **config**: remove dead code
+- remove dead code
+
 ## v0.3.0 (2026-08-14)
 
 ### Feat

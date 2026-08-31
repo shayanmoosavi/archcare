@@ -117,15 +117,11 @@ class TestGetAutomatedTasks:
         result = timer_service.get_automated_tasks()
         assert all(str(t.task_type) == "automated" for t in result.values())
 
-    def test_automated_task_present(
-        self, timer_service: TimerService, automated_task: TaskConfig
-    ):
+    def test_automated_task_present(self, timer_service: TimerService, automated_task: TaskConfig):
         result = timer_service.get_automated_tasks()
         assert automated_task.name in result
 
-    def test_manual_task_excluded(
-        self, timer_service: TimerService, manual_task: TaskConfig
-    ):
+    def test_manual_task_excluded(self, timer_service: TimerService, manual_task: TaskConfig):
         result = timer_service.get_automated_tasks()
         assert manual_task.name not in result
 
@@ -173,9 +169,7 @@ class TestInstallTemplates:
 
 
 class TestReload:
-    def test_dry_run_does_not_call_systemctl(
-        self, timer_service: TimerService, monkeypatch
-    ):
+    def test_dry_run_does_not_call_systemctl(self, timer_service: TimerService, monkeypatch):
         calls = []
         monkeypatch.setattr(_PATCH_SYSTEMCTL, lambda *a: calls.append(a))
         timer_service.reload(dry_run=True)
@@ -206,9 +200,7 @@ class TestSetupTimers:
     ):
         calls = []
         monkeypatch.setattr(_PATCH_SYSTEMCTL, lambda *a: calls.append(a))
-        timer_service.setup_timers(
-            {automated_task.name: automated_task}, dry_run=True, enable=True
-        )
+        timer_service.setup_timers({automated_task.name: automated_task}, dry_run=True, enable=True)
         assert not calls
 
     def test_enable_false_makes_no_systemctl_calls(

@@ -79,9 +79,7 @@ class TestLogsCallback:
         assert "line4" in out and "line5" in out
         assert "line1" not in out and "line2" not in out and "line3" not in out
 
-    def test_shows_all_lines_when_fewer_than_requested(
-        self, tmp_path: Path, capsys, mocker
-    ):
+    def test_shows_all_lines_when_fewer_than_requested(self, tmp_path: Path, capsys, mocker):
         """
         Confirming the app doesn't crash or drop lines
         when a log file is shorter than the requested tail length.

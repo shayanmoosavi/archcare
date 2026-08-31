@@ -1,7 +1,38 @@
 """
-Maintenance check task for archcare.
+Maintenance check task for Archcare.
 
-Monitors task schedule status and alerts users to tasks needing attention.
+This module provides [MaintenanceCheckTask][], a scheduler-aware task that monitors the status of
+all enabled maintenance tasks and reports which ones need attention. It is registered in the static
+task registry and exposed to users as the `maintenance-check` command.
+
+Unlike other tasks, this task does not perform maintenance itself. Instead it inspects task
+configuration and persistent state (via [TaskScheduler][]) and emits categorized
+[MaintenanceIssue][] findings:
+
+- **Critical**: automated tasks severely overdue past the timer threshold (frequency × 1.5 days) —
+    the systemd timer is likely broken or disabled.
+- **Warning**: manual tasks overdue past `warning_threshold_days`, or automated tasks that failed
+    and are now due for a retry.
+- **Info**: tasks that have never been run, or manual tasks slightly overdue (below the warning
+    threshold).
+
+The overall result status is `FAILURE` if any critical issue exists, `PARTIAL` if only warnings,
+and `SUCCESS` otherwise. In `post_execute()`, the task may additionally send a desktop notification
+(respecting the configured `notification_level`) and write a timestamped text report to
+`~/.local/state/archcare/reports/` (when `output_mode` is `"file"` or `"both"`), pruning reports
+older than `report_retention_days`.
+
+!!! note "Self-exclusion"
+    The `maintenance-check` task never monitors itself, preventing a
+    self-referential "overdue" report.
+
+See Also:
+    - [BaseTask][]: Abstract workflow this task implements
+    - [TaskScheduler][]: Computes due/overdue status
+    - [TaskResult][]: The structured result object that the task returns
+    - [MaintenanceCheckDetails][]: Details schema produced by this task
+    - [MaintenanceCheckSettings][archcare.config.models.MaintenanceCheckSettings]:
+        Thresholds, notification, and report settings
 """
 
 from datetime import datetime, timedelta
@@ -17,6 +48,7 @@ from archcare.config import (
     TaskType,
 )
 from archcare.core import (
+    BaseTask,
     IssueSeverity,
     MaintenanceCheckDetails,
     MaintenanceCheckSummary,
@@ -26,18 +58,31 @@ from archcare.core import (
     TaskScheduler,
 )
 
-from .base import BaseTask
-
 
 class MaintenanceCheckTask(BaseTask):
     """
-    Check for due and overdue maintenance tasks.
+    Check for due and overdue maintenance tasks and report findings by severity.
 
     This task monitors all enabled tasks and reports:
+
     - Manual tasks that are due or overdue
     - Automated tasks that have failed
-    - Automated tasks with broken timers (overdue with no attempts)
+    - Automated tasks with broken timers (overdue past frequency × 1.5 days)
     - Tasks that have never been run
+
+    Findings are categorized into `info`, `warning`, and `critical` buckets (see `self._check_task`
+    in source code) and aggregated into a [MaintenanceCheckSummary][].
+
+    !!! note "Fresh state"
+        Unlike most tasks, `MaintenanceCheckTask` builds its own [ConfigLoader][] at instantiation
+        time and loads tasks/state eagerly, rather than deferring to the
+        executor. This guarantees the report reflects the latest on-disk state
+        even when other tasks have run in the same invocation.
+
+    See Also:
+        - [MaintenanceCheckSettings][archcare.config.models.MaintenanceCheckSettings]: Configurable
+            thresholds (`critical_threshold_days`, `warning_threshold_days`), notification, and
+            report options
     """
 
     def __init__(
@@ -48,11 +93,26 @@ class MaintenanceCheckTask(BaseTask):
         **kwargs,
     ):
         """
-        Initialize maintenance check task.
+        Initialize the maintenance check task and load current schedule state.
+
+        Sets up empty issue accumulator lists and eagerly constructs a [ConfigLoader][] (bound to
+        the target user) plus a [TaskScheduler][] seeded with the freshly loaded tasks configuration
+        and persisted state.
 
         Args:
-            config: Task configuration
-            settings: Application settings
+            config (TaskConfig): Task-specific configuration (e.g., enabled, frequency).
+            settings (AppSettings): Application-wide settings, including the
+                [MaintenanceCheckSettings][archcare.config.models.MaintenanceCheckSettings]
+                thresholds and the target `user`.
+
+        Other Args:
+            *args (tuple): Forwarded to `BaseTask.__init__()`.
+            **kwargs (dict): Forwarded to `BaseTask.__init__()`.
+
+        Side Effects:
+            - Initializes `_info_issues`, `_warning_issues`, and
+                `_critical_issues` to empty lists.
+            - Reads `state.json` and `tasks.toml` from disk via the loader.
         """
         super().__init__(config, settings, *args, **kwargs)
 
@@ -69,10 +129,25 @@ class MaintenanceCheckTask(BaseTask):
 
     def execute(self) -> TaskResult[MaintenanceCheckDetails]:
         """
-        Execute maintenance check.
+        Execute the maintenance check across all enabled tasks.
+
+        Iterates over every enabled task (skipping the `maintenance-check` task itself), collects
+        per-task issues via `self._check_task`, buckets them by severity, and selects the overall
+        outcome:
+
+        - `FAILURE` when any critical issue was found (also set as `error`)
+        - `PARTIAL` when only warnings were found
+        - `SUCCESS` when only info-level findings or nothing at all
 
         Returns:
-            TaskResult with maintenance check details
+            (TaskResult[MaintenanceCheckDetails]):
+                Result whose `details` is a [MaintenanceCheckDetails][] containing the categorized
+                issue lists, a [MaintenanceCheckSummary][] (counts plus `total_tasks_monitored`),
+                and a human-readable message from `summary.summary_message`.
+
+        Side Effects:
+            Emits Loguru log messages at `info`/`warning`/`error`/`success` levels summarizing
+            the findings.
         """
 
         logger.info("Starting maintenance check")
@@ -113,8 +188,7 @@ class MaintenanceCheckTask(BaseTask):
         elif self._info_issues:
             status = TaskStatus.SUCCESS
             logger.success(
-                f"{len(self._info_issues)} info issues found. "
-                "No immediate attention required"
+                f"{len(self._info_issues)} info issues found. No immediate attention required"
             )
         else:
             status = TaskStatus.SUCCESS
@@ -136,7 +210,21 @@ class MaintenanceCheckTask(BaseTask):
             error=error_message,
         )
 
-    def _categorize_issues(self, issues: list[MaintenanceIssue]):
+    def _categorize_issues(self, issues: list[MaintenanceIssue]) -> None:
+        """
+        Bucket issues into the per-severity accumulator lists.
+
+        Dispatches each issue to `self._critical_issues`, `self._warning_issues`, or
+        `self._info_issues` according to its [IssueSeverity][].
+
+        Args:
+            issues (list[MaintenanceIssue]): Issues found for a single task,
+                as returned by `self._check_task`.
+
+        Side Effects:
+            Mutates `self._critical_issues`, `self._warning_issues`, and
+                `self._info_issues`.
+        """
         for issue in issues:
             match issue.severity:
                 case IssueSeverity.CRITICAL:
@@ -146,18 +234,25 @@ class MaintenanceCheckTask(BaseTask):
                 case IssueSeverity.INFO:
                     self._info_issues.append(issue)
 
-    def _check_task(
-        self, task_name: str, task_config: TaskConfig
-    ) -> list[MaintenanceIssue]:
+    def _check_task(self, task_name: str, task_config: TaskConfig) -> list[MaintenanceIssue]:
         """
-        Check a single task for issues.
+        Check a single task for issues based on its type and state.
+
+        Applies the following checks in order (short-circuiting after the first
+        that produces findings):
+
+        1. **Never run** (`last_run` is `None`): emits an `INFO` issue and returns immediately.
+        2. **Manual tasks**: checked for due/overdue status via `self._check_overdue_task`.
+        3. **Automated tasks**: if the last run failed and the task is due, a `WARNING` is emitted
+            via `self._check_failed_automated_task`; additionally, if overdue past `frequency × 1.5`
+            days, a `CRITICAL` "broken timer" issue is emitted via `self._check_broken_timer`.
 
         Args:
-            task_name: Name of the task
-            task_config: Task configuration
+            task_name (str): Name of the task being checked.
+            task_config (TaskConfig): Configuration of the task being checked.
 
         Returns:
-            List of issues found (maybe empty)
+            list[MaintenanceIssue]: Issues found for this task (possibly empty).
         """
         issues: list[MaintenanceIssue] = []
 
@@ -216,16 +311,26 @@ class MaintenanceCheckTask(BaseTask):
         task_state: TaskState,
     ):
         """
-        Checks whether a manual task is overdue and appends
-        the MaintenanceIssue to the issues list if so.
+        Check whether a manual task is due or overdue.
+
+        If the task's schedule indicates it is due, appends a `MaintenanceIssue` whose severity is
+        determined by `self._determine_severity` and whose recommendation suggests running the task
+        manually.
 
         Args:
-            days_overdue: Number of days overdue.
-            issues: List of maintenance issues found
-            schedule_info: Schedule info for the task being checked
-            task_config: The TaskConfig instance for the task being checked
-            task_name: Name of the task
-            task_state: The current state of the task
+            days_overdue (int): Number of days the task is overdue (0 = due today).
+            issues (list[MaintenanceIssue]): Accumulator list to append the
+                issue to when the task is due.
+            schedule_info (TaskScheduleInfo): Schedule info for the task being
+                checked (provides the `is_due` flag).
+            task_config (TaskConfig): The task configuration of the task being
+                checked (used for the description text).
+            task_name (str): Name of the task being checked.
+            task_state (TaskState): Current persisted state of the task
+                (provides `last_run`/`last_status` for the issue).
+
+        Side Effects:
+            Appends to `issues` when the task is due.
         """
         if schedule_info.is_due:
             severity = self._determine_severity(days_overdue)
@@ -251,16 +356,24 @@ class MaintenanceCheckTask(BaseTask):
         task_state: TaskState,
     ):
         """
-        Checks whether the systemd timer for an automated task is broken and appends
-        the MaintenanceIssue to the issues list if so.
+        Check whether the systemd timer for an automated task is broken.
+
+        A timer is considered broken when the task is overdue by more than `timer_threshold_days`
+        (typically `frequency × 1.5`). Emits a `CRITICAL` issue with recommendations to
+        inspect/enable the `archcare@<task>.timer` unit.
 
         Args:
-            days_overdue: Number of days overdue.
-            issues: List of maintenance issues found
-            timer_threshold_days: The threshold for the days overdue
-             to be considered critical
-            task_name: Name of the task
-            task_state: The current state of the task
+            days_overdue (int): Number of days the task is overdue.
+            issues (list[MaintenanceIssue]): Accumulator list to append the
+                issue to when the timer is considered broken.
+            timer_threshold_days (float): Overdue threshold (in days) beyond
+                which the timer is deemed broken.
+            task_name (str): Name of the task being checked.
+            task_state (TaskState): Current persisted state of the task
+                (provides `last_run`/`last_status` for the issue).
+
+        Side Effects:
+            Appends to `issues` when the task exceeds the timer threshold.
         """
 
         if days_overdue > timer_threshold_days:
@@ -292,15 +405,24 @@ class MaintenanceCheckTask(BaseTask):
         task_state: TaskState,
     ):
         """
-        Check whether a failed automated task is overdue and appends
-        the MaintenanceIssue to the issues list if so.
+        Check whether a failed automated task is due for a retry.
+
+        If the task's schedule indicates it is due, appends a `WARNING` `MaintenanceIssue` noting
+        that the last run failed and the task is overdue, with recommendations to inspect the timer
+        and logs.
 
         Args:
-            days_overdue: Number of days overdue.
-            issues: List of maintenance issues found
-            schedule_info: Schedule info for the task being checked
-            task_name: Name of the task
-            task_state: The current state of the task
+            days_overdue (int): Number of days the task is overdue.
+            issues (list[MaintenanceIssue]): Accumulator list to append the
+                issue to when the failed task is due.
+            schedule_info (TaskScheduleInfo): Schedule info for the task being
+                checked (provides the `is_due` flag).
+            task_name (str): Name of the task being checked.
+            task_state (TaskState): Current persisted state of the task
+                (provides `last_run`/`last_status` for the issue).
+
+        Side Effects:
+            Appends to `issues` when the failed task is due.
         """
         if schedule_info.is_due:
             issues.append(
@@ -323,13 +445,19 @@ class MaintenanceCheckTask(BaseTask):
 
     def _determine_severity(self, days_overdue: int) -> IssueSeverity:
         """
-        Determine severity based on days overdue.
+        Determine issue severity based on days overdue.
+
+        Compares against the configurable thresholds in `MaintenanceCheckSettings`:
+
+        - `>= critical_threshold_days` (default 7): `CRITICAL`
+        - `>= warning_threshold_days` (default 0): `WARNING`
+        - otherwise: `INFO`
 
         Args:
-            days_overdue: Number of days overdue.
+            days_overdue (int): Number of days the task is overdue.
 
         Returns:
-            Appropriate severity level
+            IssueSeverity: The severity level appropriate for the given overdue duration.
         """
         critical_threshold = self.settings.maintenance_check.critical_threshold_days
         warning_threshold = self.settings.maintenance_check.warning_threshold_days
@@ -347,14 +475,28 @@ class MaintenanceCheckTask(BaseTask):
     @staticmethod
     def _format_overdue_description(task_config: TaskConfig, days_overdue: int) -> str:
         """
-        Format a description for an overdue task.
+        Format a human-readable description for an overdue task.
+
+        Produces grammatically-correct text distinguishing "due today", singular ("1 day"),
+        and plural ("N days") cases.
 
         Args:
-            task_config: Task configuration
-            days_overdue: Days overdue
+            task_config (TaskConfig): Configuration of the overdue task (its `name` is included in
+                the description).
+            days_overdue (int): Number of days the task is overdue (0 = due today).
 
         Returns:
-            Formatted description
+            str: Formatted description, e.g. ``"Task `failed-services` is overdue by 3 days"``.
+
+        Examples:
+            >>> from types import SimpleNamespace
+            >>> cfg = SimpleNamespace(name="backup")
+            >>> MaintenanceCheckTask._format_overdue_description(cfg, 0)
+            'Task `backup` is due today'
+            >>> MaintenanceCheckTask._format_overdue_description(cfg, 1)
+            'Task `backup` is overdue by 1 day'
+            >>> MaintenanceCheckTask._format_overdue_description(cfg, 5)
+            'Task `backup` is overdue by 5 days'
         """
         if days_overdue == 0:
             return f"Task `{task_config.name}` is due today"
@@ -366,13 +508,21 @@ class MaintenanceCheckTask(BaseTask):
     @staticmethod
     def _format_time_ago(timestamp: datetime | None) -> str:
         """
-        Format a timestamp as human-readable time ago.
+        Format a timestamp as a human-readable "time ago" string.
+
+        Chooses the largest non-zero unit (days → hours → minutes); sub-minute deltas render as
+        "just now".
 
         Args:
-            timestamp: Timestamp to format
+            timestamp (datetime | None): Timestamp to format relative to now, or `None` for "never".
 
         Returns:
-            Human-readable string like "2 days ago"
+            str: Human-readable string such as `"2 days ago"`, `"1 hour ago"`, `"3 minutes ago"`,
+                `"just now"`, or `"never"` if `timestamp` is `None`.
+
+        Examples:
+            >>> MaintenanceCheckTask._format_time_ago(None)
+            'never'
         """
         if timestamp is None:
             return "never"
@@ -400,10 +550,22 @@ class MaintenanceCheckTask(BaseTask):
 
     def post_execute(self, result: TaskResult[MaintenanceCheckDetails]) -> None:
         """
-        Post-execution actions: send notifications and show terminal output.
+        Post-execution actions: send desktop notification and save report file.
+
+        Runs after `execute()` regardless of outcome. Two optional side effects are triggered based
+        on [MaintenanceCheckSettings][archcare.config.models.MaintenanceCheckSettings]:
+
+        - A desktop notification when `show_notifications` is enabled (further filtered by
+            `notification_level`, see `self._send_notification` in the source code).
+        - A timestamped text report written when `output_mode` is `"file"` or `"both"` (see
+            `self._save_report` in the source code).
 
         Args:
-            result: The result from execute()
+            result (TaskResult[MaintenanceCheckDetails]): The result produced by `execute()`.
+
+        Raises:
+            ValueError: If `result.details` is unexpectedly `None` (defensive check; `execute()`
+                always populates details).
         """
         details = result.details
         if not details:
@@ -419,12 +581,28 @@ class MaintenanceCheckTask(BaseTask):
         if output_mode in ("file", "both"):
             self._save_report(details, result.timestamp, result.status)
 
-    def _send_notification(self, details: MaintenanceCheckDetails):
+    def _send_notification(self, details: MaintenanceCheckDetails) -> None:
         """
-        Send desktop notification based on check results.
+        Send a desktop notification based on check results.
+
+        Determines the highest severity present in the findings and compares it against the
+        configured `notification_level` (info=0, warning=1, critical=2): a notification is sent only
+        when the finding severity meets or exceeds the configured threshold. No notification is sent
+        when there are no findings at all.
 
         Args:
-            details: Maintenance check details
+            details (MaintenanceCheckDetails): Check results containing the categorized issue lists
+                and summary.
+
+        Raises:
+            ValueError: If the summary reports issues but all severity lists are empty (defensive
+                check; should never happen).
+
+        Side Effects:
+            - Emits Loguru log messages at `debug` level when suppressed.
+            - Sends a desktop notification via
+                [NotificationManager.send_maintenance_notification][archcare.core.notifications.NotificationManager.send_maintenance_notification]
+                when the threshold is met and a notification manager is available.
         """
 
         notification_level = self.settings.maintenance_check.notification_level
@@ -444,9 +622,7 @@ class MaintenanceCheckTask(BaseTask):
                 severity = IssueSeverity.INFO
             else:
                 # This should never happen
-                raise ValueError(
-                    "details cannot have issues and empty issues at the same time"
-                )
+                raise ValueError("details cannot have issues and empty issues at the same time")
 
             should_notify = severity_map.get(str(severity), -1) >= severity_map.get(
                 notification_level, -1
@@ -468,14 +644,25 @@ class MaintenanceCheckTask(BaseTask):
 
     def _save_report(
         self, details: MaintenanceCheckDetails, timestamp: datetime, status: TaskStatus
-    ):
+    ) -> None:
         """
-        Save maintenance check report to file.
+        Save a maintenance check report as a timestamped text file.
+
+        Writes `maintenance-check_<YYYYMMDD_HHMMSS>.txt` into `self.settings.report_dir`. The report
+        contains the status, the number of monitored tasks, a "tasks needing attention" list
+        (critical + warning), and per-severity sections with formatted issue details. Afterwards,
+        old reports are pruned via `self._cleanup_old_reports`.
 
         Args:
-            details: Maintenance check details
-            timestamp: Report generation timestamp
-            status: Status of maintenance check
+            details (MaintenanceCheckDetails): Check results to render into the report.
+            timestamp (datetime): Report generation timestamp, used both in the filename and
+                the header.
+            status (TaskStatus): Overall status of the maintenance check.
+
+        Side Effects:
+            - Creates a new report file on disk.
+            - May delete old report files past the retention window.
+            - Emits Loguru log messages at `debug`/`info` levels.
         """
         # Generate report filename with timestamp
         timestamp_str = timestamp.strftime("%Y%m%d_%H%M%S")
@@ -496,8 +683,7 @@ class MaintenanceCheckTask(BaseTask):
             lines.append("Tasks needing attention:")
             for maintenance_issue in tasks_needing_attention:
                 lines.append(
-                    f"  - {maintenance_issue.task_name} "
-                    f"({str(maintenance_issue.severity).upper()})"
+                    f"  - {maintenance_issue.task_name} ({str(maintenance_issue.severity).upper()})"
                 )
             lines.append("\n")
 
@@ -507,9 +693,7 @@ class MaintenanceCheckTask(BaseTask):
         else:
             # Add issues by severity
             if details.critical_issues:
-                self._add_issues_section(
-                    lines, "🟥 CRITICAL ISSUES", details.critical_issues
-                )
+                self._add_issues_section(lines, "🟥 CRITICAL ISSUES", details.critical_issues)
 
             if details.warning_issues:
                 self._add_issues_section(lines, "🟨 WARNING ISSUES", details.warning_issues)
@@ -529,14 +713,20 @@ class MaintenanceCheckTask(BaseTask):
 
     def _add_issues_section(
         self, lines: list[str], header_title: str, issues: list[MaintenanceIssue]
-    ):
+    ) -> None:
         """
-        Adds the issues section to the report file
+        Append a titled issues section to the report lines.
+
+        Writes the section header followed by an 80-character separator rule and one formatted block
+        per issue (via `self._format_issue_text`).
 
         Args:
-            lines: Previously built text lines to append to
-            header_title: The title of the header
-            issues: The list of maintenance issues
+            lines (list[str]): Report lines being built; new lines are appended in place.
+            header_title (str): Section header text (e.g., `"🟥 CRITICAL ISSUES"`).
+            issues (list[MaintenanceIssue]): Issues to include in this section.
+
+        Side Effects:
+            Mutates `lines` by appending the section content.
         """
         lines.append(header_title)
         lines.append("-" * 80)
@@ -546,13 +736,17 @@ class MaintenanceCheckTask(BaseTask):
     @staticmethod
     def _format_issue_text(issue: MaintenanceIssue) -> list[str]:
         """
-        Format an issue as text lines.
+        Format a single issue as report text lines.
+
+        Emits the task name and description unconditionally, followed by days overdue, last run,
+        and last status only when available, and always ends with the recommendation and a
+        blank line.
 
         Args:
-            issue: Issue to format
+            issue (MaintenanceIssue): Issue to format.
 
         Returns:
-            List of text lines
+            list[str]: Text lines for the report, including a trailing blank line.
         """
         lines = [f"Task: {issue.task_name}", f"Issue: {issue.description}"]
         if issue.days_overdue is not None:
@@ -565,8 +759,18 @@ class MaintenanceCheckTask(BaseTask):
         lines.append("\n")
         return lines
 
-    def _cleanup_old_reports(self):
-        """Clean up old maintenance check reports based on retention setting."""
+    def _cleanup_old_reports(self) -> None:
+        """
+        Delete old maintenance reports according to the retention setting.
+
+        Scans `self.settings.report_dir` for `maintenance-check_*.txt` files and removes any whose
+        modification time is older than `report_retention_days` (default 30). Individual deletion
+        failures are logged as warnings and do not abort the sweep.
+
+        Side Effects:
+            - Deletes expired report files from disk.
+            - Emits Loguru log messages at `debug`/`info`/`warning` levels.
+        """
         retention_days = self.settings.maintenance_check.report_retention_days
         cutoff_date = datetime.now() - timedelta(days=retention_days)
 

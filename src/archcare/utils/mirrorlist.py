@@ -1,7 +1,28 @@
 """
-Mirrorlist utility functions for archcare.
+Pacman mirrorlist management utilities for Archcare.
 
-Provides functions to manage and update pacman mirrorlists.
+Provides helpers to create timestamped backups of mirrorlist files, restore
+from backups, run [reflector](https://wiki.archlinux.org/title/Reflector) to
+refresh the mirrorlist, validate the resulting file, and parse its metadata.
+
+All file operations use [run_command_with_sudo][] since the pacman mirrorlist
+(``/etc/pacman.d/mirrorlist``) is root-owned. Callers are responsible for
+rollback logic; this module focuses on atomic operations.
+
+Configuration in ``settings.toml``:
+
+```toml title="settings.toml"
+[mirrorlist]
+country = "Germany"
+protocol = "https"
+sort = "rate"
+number_of_mirrors = 5
+```
+
+See Also:
+    - [MirrorlistInfo][]: Structured mirrorlist metadata.
+    - [MirrorlistUpdateTask][archcare.tasks.mirrorlist_update.MirrorlistUpdateTask]: Task composing
+        these into a full update cycle.
 """
 
 from datetime import datetime
@@ -16,17 +37,27 @@ from .system import CommandResult, check_command_exists, run_command_with_sudo
 
 def backup_file(source: Path, backup_suffix: str = ".backup") -> Path:
     """
-    Create a backup of a file.
+    Create a timestamped backup of a file.
+
+    Copies the source file to ``<source>_<YYYY-MM-DD_HHMMSS><backup_suffix>``
+    using ``cp -p`` via [run_command_with_sudo][], preserving permissions and
+    timestamps. This is used before mirrorlist updates so the original can be
+    restored if the new mirrorlist is invalid.
 
     Args:
-        source: File to back up
-        backup_suffix: Suffix for backup file
+        source (Path): File to back up. Must exist on disk.
+        backup_suffix (str): Suffix appended after the timestamp. Defaults to
+            `".backup"`.
 
     Returns:
-        Path to the backup file
+        Path: Absolute path to the newly created backup file.
 
     Raises:
-        IOError: If backup fails
+        OSError: If the source file does not exist, or if the ``cp`` command
+            fails (permissions, disk full, etc.).
+
+    See Also:
+        [restore_backup][]: Restoring a file from a backup created here.
     """
 
     if not source.exists():
@@ -50,12 +81,21 @@ def restore_backup(backup_path: Path, target: Path) -> None:
     """
     Restore a file from backup.
 
+    Copies the backup file to the target path using ``cp -p`` via
+    [run_command_with_sudo][], preserving permissions and timestamps. Typically
+    called to roll back a failed mirrorlist update.
+
     Args:
-        backup_path: Backup file to restore from
-        target: Target location to restore to
+        backup_path (Path): Backup file to restore from. Must exist.
+        target (Path): Destination path to restore to. Parent directory must
+            exist.
 
     Raises:
-        IOError: If restore fails
+        OSError: If the backup file does not exist, or if the ``cp`` command
+            fails.
+
+    See Also:
+        [backup_file][]: Creating a backup before an update.
     """
 
     if not backup_path.exists():
@@ -78,21 +118,42 @@ def update_mirrorlist(
     save_path: Path | None = None,
 ) -> CommandResult:
     """
-    Update mirrorlist using reflector.
+    Refresh the pacman mirrorlist using reflector.
+
+    Builds and executes a ``reflector`` command with the given filters, then
+    returns the structured [CommandResult][]. The command is run via
+    [run_command_with_sudo][] because the default target
+    (``/etc/pacman.d/mirrorlist``) is root-owned.
+
+    The total timeout scales with ``latest``: ``latest * 5 + 30`` seconds,
+    giving each mirror up to 5 seconds plus a 30-second padding.
 
     Args:
-        country: Country or list of countries (e.g., "US" or ["US", "CA"])
-        protocol: Protocol or list (e.g., "https" or ["https", "http"])
-        latest: Number of most recently synchronized mirrors
-        number: Maximum number of mirrors to include
-        sort: Sort method (rate, age, country, score, delay)
-        save_path: Where to save mirrorlist (None = stdout)
+        country (str | list[str] | None): Country filter(s) passed to
+            ``--country``. Accepts a single code (``"US"``) or a list
+            (``["US", "CA"]``). No filter when ``None``.
+        protocol (str | list[str] | None): Protocol filter(s) passed to
+            ``--protocol``. Valid values include ``"https"``, ``"http"``,
+            ``"rsync"``. No filter when ``None``.
+        latest (int): Only include this many latest synchronized mirrors.
+            Passed to ``--latest``. Defaults to `20`.
+        number (int): Maximum number of mirrors in the output. Passed to
+            ``--number``. Defaults to `5`.
+        sort (str): Sort method passed to ``--sort``. Valid values:
+            ``"rate"``, ``"age"``, ``"country"``, ``"score"``, ``"delay"``.
+            Defaults to ``"rate"``.
+        save_path (Path | None): Destination for the generated mirrorlist.
+            Passed to ``--save``. When ``None``, reflector writes to stdout.
 
     Returns:
-        CommandResult from reflector execution
+        CommandResult: Execution result from reflector, with stdout containing
+            the mirrorlist when ``save_path`` is ``None``.
 
     Raises:
-        RuntimeError: If reflector command is not found
+        RuntimeError: If ``reflector`` is not installed on the system.
+
+    See Also:
+        [validate_mirrorlist][]: Validating the resulting file after this call.
     """
     if not check_command_exists("reflector"):
         raise RuntimeError("'reflector' command not found")
@@ -135,13 +196,42 @@ def update_mirrorlist(
 
 def validate_mirrorlist(mirrorlist_path: Path) -> tuple[bool, str]:
     """
-    Validate that a mirrorlist file is valid and has mirrors.
+    Validate that a mirrorlist file exists, is non-empty, and contains mirrors.
+
+    Reads the file and counts uncommented ``Server = `` lines. Returns a
+    boolean status together with a human-readable message suitable for logging
+    or display.
 
     Args:
-        mirrorlist_path: Path to mirrorlist file
+        mirrorlist_path (Path): Path to the mirrorlist file to validate.
 
     Returns:
-        Tuple of (is_valid: bool, message: str)
+        (tuple[bool, str]): A pair of ``(is_valid, message)``. ``is_valid`` is
+            ``True`` when the file exists, is readable, and contains at least
+            one ``Server = `` line. ``message`` describes the result
+            (e.g. ``"Valid mirrorlist with 3 mirrors"`` or an error reason).
+
+    Examples:
+        >>> from pathlib import Path
+        >>> from tempfile import TemporaryDirectory
+        >>> with TemporaryDirectory() as d:
+        ...     path = Path(d) / "mirrorlist"
+        ...     _ = path.write_text("Server = https://mirrors.example.com\\n")
+        ...     valid, msg = validate_mirrorlist(path)
+        ...     valid
+        True
+
+        >>> with TemporaryDirectory() as d:
+        ...     path = Path(d) / "empty_mirrorlist"
+        ...     path.touch()
+        ...     validate_mirrorlist(path)
+        (False, 'Mirrorlist is empty')
+
+        >>> validate_mirrorlist(Path("/nonexistent/path"))
+        (False, 'Mirrorlist file does not exist: /nonexistent/path')
+
+    See Also:
+        [get_mirrorlist_info][]: Richer metadata extraction for a valid file.
     """
     if not mirrorlist_path.exists():
         return False, f"Mirrorlist file does not exist: {mirrorlist_path}"
@@ -170,13 +260,35 @@ def validate_mirrorlist(mirrorlist_path: Path) -> tuple[bool, str]:
 
 def get_mirrorlist_info(mirrorlist_path: Path) -> MirrorlistInfo:
     """
-    Get information about a mirrorlist file.
+    Parse a mirrorlist file and return structured metadata.
+
+    Extracts the total number of uncommented ``Server = `` lines, the set of
+    protocols in use (``https``, ``http``, ``rsync``), and the file's last
+    modified timestamp.
 
     Args:
-        mirrorlist_path: Path to mirrorlist file
+        mirrorlist_path (Path): Path to the mirrorlist file to parse.
 
     Returns:
-        MirrorlistInfo object with mirrorlist information
+        MirrorlistInfo: Parsed metadata. Returns a zero-initialized instance
+            when the file does not exist.
+
+    Examples:
+        >>> from pathlib import Path
+        >>> from tempfile import TemporaryDirectory
+        >>> with TemporaryDirectory() as d:
+        ...     path = Path(d) / "mirrorlist"
+        ...     _ = path.write_text(
+        ...         "Server = https://mirrors.example.com\\nServer = http://other.example.com\\n"
+        ...     )
+        ...     info = get_mirrorlist_info(path)
+        ...     info.total_mirrors
+        2
+        >>> get_mirrorlist_info(Path("/nonexistent")).total_mirrors
+        0
+
+    See Also:
+        [validate_mirrorlist][]: Lightweight validation without full parsing.
     """
 
     if not mirrorlist_path.exists():

@@ -69,17 +69,13 @@ class TestSystemctlParsing:
         assert _parse_loaded_status("Unit nonexistent.service could not be found.") is False
 
     def test_parse_active_status_running(self):
-        state, is_running = _parse_active_status(
-            "   Active: active (running) since Mon 2026-06-26"
-        )
+        state, is_running = _parse_active_status("   Active: active (running) since Mon 2026-06-26")
         assert state == "active"
         assert is_running is True
 
     def test_parse_active_status_exited(self):
         # e.g., oneshot services
-        state, is_running = _parse_active_status(
-            "   Active: active (exited) since Mon 2026-06-26"
-        )
+        state, is_running = _parse_active_status("   Active: active (exited) since Mon 2026-06-26")
         assert state == "active"
         assert is_running is False
 
@@ -341,9 +337,7 @@ class TestRunCommandWithSudo:
             "-Syu",
         ]
 
-    def test_does_not_prepend_sudo_when_already_root(
-        self, mocker, mock_run_command: MagicMock
-    ):
+    def test_does_not_prepend_sudo_when_already_root(self, mocker, mock_run_command: MagicMock):
         mocker.patch(_PATCH_IS_ROOT, return_value=True)
         run_command_with_sudo(["pacman", "-Syu"])
 

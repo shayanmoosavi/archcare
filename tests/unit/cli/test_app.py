@@ -6,8 +6,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from archcare.cli.app import callback, main
+from archcare.config import UserContext
 from archcare.services.exceptions import ConfigNotInitializedError
-from archcare.utils import UserContext
 
 _MODULE = "archcare.cli.app"
 _PATCH_APP = f"{_MODULE}.app"
@@ -58,9 +58,7 @@ class TestCallback:
 
         assert mock_context.call_args.kwargs["devel"] is devel_flag
 
-    def test_user_derived_from_archcare_user_env_var(
-        self, mock_context: MagicMock, monkeypatch
-    ):
+    def test_user_derived_from_archcare_user_env_var(self, mock_context: MagicMock, monkeypatch):
         monkeypatch.setenv("ARCHCARE_USER", "alice")
         ctx = SimpleNamespace()
 

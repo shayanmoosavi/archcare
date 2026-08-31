@@ -182,15 +182,11 @@ class TestBackupFile:
         assert "source_file_" in backup_path.name
         assert datetime.now().strftime("%Y-%m-%d") in backup_path.name
 
-    def test_wraps_called_process_error_as_io_error(
-        self, monkeypatch, write_src_file: Path
-    ):
+    def test_wraps_called_process_error_as_io_error(self, monkeypatch, write_src_file: Path):
         source = write_src_file
 
         # Simulate a CalledProcessError being raised by run_command_with_sudo
-        monkeypatch.setattr(
-            _PATCH_RUN_SUDO, MagicMock(side_effect=CalledProcessError(1, "cp"))
-        )
+        monkeypatch.setattr(_PATCH_RUN_SUDO, MagicMock(side_effect=CalledProcessError(1, "cp")))
 
         with pytest.raises(IOError):
             backup_file(source)
@@ -221,9 +217,7 @@ class TestRestoreBackup:
         backup: Path = tmp_path / "target.backup"
         backup.write_text("backed up content\n")
 
-        monkeypatch.setattr(
-            _PATCH_RUN_SUDO, MagicMock(side_effect=CalledProcessError(1, "cp"))
-        )
+        monkeypatch.setattr(_PATCH_RUN_SUDO, MagicMock(side_effect=CalledProcessError(1, "cp")))
 
         with pytest.raises(IOError):
             restore_backup(backup, tmp_path / "target")

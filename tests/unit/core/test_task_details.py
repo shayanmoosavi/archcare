@@ -192,10 +192,7 @@ class TestSummaryMessage:
             critical_count=2,
             warning_count=1,
         )
-        assert (
-            summary.summary_message
-            == "Found 2 critical, 1 warning issue(s) requiring attention"
-        )
+        assert summary.summary_message == "Found 2 critical, 1 warning issue(s) requiring attention"
 
     def test_zero_count_categories_are_omitted(self):
         """
@@ -208,10 +205,7 @@ class TestSummaryMessage:
             critical_count=1,
             info_count=1,
         )
-        assert (
-            summary.summary_message
-            == "Found 1 critical, 1 info issue(s) requiring attention"
-        )
+        assert summary.summary_message == "Found 1 critical, 1 info issue(s) requiring attention"
         assert "warning" not in summary.summary_message
 
 
@@ -239,9 +233,7 @@ class TestMaintenanceCheckDetails:
             critical_issues=[self._issue("a", IssueSeverity.CRITICAL)],
             warning_issues=[self._issue("b", IssueSeverity.WARNING)],
             info_issues=[self._issue("c", IssueSeverity.INFO)],
-            summary=MaintenanceCheckSummary(
-                critical_count=1, warning_count=1, info_count=1
-            ),
+            summary=MaintenanceCheckSummary(critical_count=1, warning_count=1, info_count=1),
         )
         assert details.critical_issues == [self._issue("a", IssueSeverity.CRITICAL)]
         assert details.warning_issues == [self._issue("b", IssueSeverity.WARNING)]
