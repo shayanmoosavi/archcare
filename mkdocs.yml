@@ -15,6 +15,9 @@ theme:
     - navigation.instant.progress
     - navigation.instant.prefetch
     - navigation.footer
+    - navigation.tabs
+    - navigation.sections
+    - navigation.path
   palette:
     # Palette toggle for light mode
     - scheme: default
@@ -36,6 +39,8 @@ theme:
     code: JetBrains Mono
 nav:
   - Home: index.md
+  - Architecture:
+      - architecture/overview.md
 copyright: Copyright &copy; 2026 Shayan Moosavi
 
 # Plugins and extensions
