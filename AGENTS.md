@@ -32,7 +32,7 @@ utils/      → subprocess wrappers, system/hardware queries, notifications
 
 1. **Dependency Injection** - `AppContext` builds a `TaskExecutor` once per invocation and threads it down through `ctx.obj`; nothing reaches for global state.
 
-2. **Ports for Environment-Specific Code** - `TaskInteraction` (confirm/notify) and `TaskDetailFormatter` (render task details) are duck-typed protocols defined in `core/`, with CLI implementations in `cli/`. This enables a future GUI to reuse `core/` and `config/` unmodified.
+2. **Ports for Environment-Specific Code** - `TaskInteraction` (confirm/notify), `TaskProgress` (progress display), and `TaskDetailFormatter` (render task details) are duck-typed protocols defined in `core/`, with CLI implementations in `cli/` that are injected into the executor. This enables a future GUI to reuse `core/` and `config/` unmodified. See `docs/architecture/registry-and-ports.md`.
 
 3. **Static Registry** - `TaskRegistry` (`core/task_registry.py`) maps each task name to its execution class and detail formatter class.
 
@@ -56,7 +56,7 @@ utils/      → subprocess wrappers, system/hardware queries, notifications
 | `scheduler.py`     | `TaskScheduler` - determines if tasks are due based on frequency/last run                                                              |
 | `formatter.py`     | `TaskDetailFormatter` protocol, `DefaultFormatter`                                                                                     |
 | `interaction.py`   | `TaskInteraction` protocol, `NonInteractive` implementation                                                                            |
-| `progress.py`      | `TaskProgress` protocol, `NoOpProgress`, `RichProgress`                                                                                |
+| `progress.py`      | `TaskProgress` protocol (`start()`, `advance()`, `stop()`, `pause()`, `spinner()`), `NoOpProgress`                                    |
 | `notifications.py` | `NotificationManager` - desktop notifications via `notify-send`                                                                        |
 | `exceptions.py`    | Core exception hierarchy                                                                                                               |
 
@@ -64,7 +64,8 @@ utils/      → subprocess wrappers, system/hardware queries, notifications
 
 | File          | Purpose                                                                                                                                                                                                                     |
 | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `models.py`   | Pydantic models: `TaskConfig`, `TasksConfig`, `AppSettings`, `AppState`, `TaskState`, `MirrorlistSettings`, `MaintenanceCheckSettings`, `IgnoredServicesConfig`, enums (`TaskType`, `TaskStatus`, `SkipReason`, `LogLevel`) |
+| `models.py`   | Pydantic models: `TaskConfig`, `TasksConfig`, `AppSettings`, `AppState`, `TaskState`, `MirrorlistSettings`, `MaintenanceCheckSettings`, `IgnoredServicesConfig` |
+| `enums.py`    | Enums: `TaskType`, `TaskStatus`, `SkipReason`, `LogLevel`                                                                                                  |
 | `loader.py`   | `ConfigLoader` - loads/saves TOML (settings, tasks, ignored-services) and JSON (state)                                                                                                                                      |
 | `defaults.py` | Default TOML document builders for initial config creation                                                                                                                                                                  |
 | `logging.py`  | Logging setup with loguru                                                                                                                                                                                                   |
@@ -84,7 +85,7 @@ utils/      → subprocess wrappers, system/hardware queries, notifications
 | File               | Purpose                                                                            |
 | ------------------ | ---------------------------------------------------------------------------------- |
 | `task_service.py`  | `TaskService` - high-level operations: `run_task`, `get_task_status`, `list_tasks` |
-| `setup_service.py` | `SetupService` - config creation, systemd timer installation                       |
+| `setup_service.py` | `ConfigService` - config creation; `TimerService` - systemd timer installation     |
 | `debug_service.py` | `DebugService` - notification testing                                              |
 | `responses.py`     | Response dataclasses for service layer                                             |
 
@@ -324,13 +325,13 @@ archcare debug test-notification --severity warning
 
 ## Ports (Protocols for Extensibility)
 
-| Protocol              | Location              | CLI Implementation                  | Purpose               |
-| --------------------- | --------------------- | ----------------------------------- | --------------------- |
-| `TaskInteraction`     | `core/interaction.py` | `cli/interaction.py:CliInteraction` | confirm(), notify()   |
-| `TaskDetailFormatter` | `core/formatter.py`   | `cli/presenters/*.py`               | render_task_details() |
-| `TaskProgress`        | `core/progress.py`    | `cli/progress.py:RichProgress`      | advance(), stop()     |
+| Protocol              | Location              | CLI Implementation                  | Purpose                                          |
+| --------------------- | --------------------- | ----------------------------------- | ------------------------------------------------ |
+| `TaskInteraction`     | `core/interaction.py` | `cli/interaction.py:CliInteraction` | confirm(), notify()                              |
+| `TaskDetailFormatter` | `core/formatter.py`   | `cli/presenters/*.py`               | format() -> list[str]                            |
+| `TaskProgress`        | `core/progress.py`    | `cli/progress.py:RichProgress`      | start(), advance(), stop(), pause(), spinner()   |
 
-A GUI frontend would implement these three protocols and supply them to `TaskExecutor`.
+A GUI frontend would implement these three protocols and inject them into `TaskExecutor` (see `docs/architecture/registry-and-ports.md`).
 
 ---
 

@@ -35,7 +35,7 @@ theme:
         icon: material/weather-night
         name: Switch to light mode
   font:
-    text: Electrolize
+    text: Solway
     code: JetBrains Mono
 nav:
   - Home: index.md
