@@ -42,6 +42,7 @@ nav:
   - Architecture:
       - architecture/overview.md
       - architecture/task-lifecycle.md
+      - architecture/registry-and-ports.md
 copyright: Copyright &copy; 2026 Shayan Moosavi
 
 # Plugins and extensions
