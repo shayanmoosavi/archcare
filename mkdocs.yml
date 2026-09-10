@@ -44,6 +44,10 @@ nav:
       - architecture/task-lifecycle.md
       - architecture/registry-and-ports.md
       - architecture/configuration.md
+  - Guides:
+      - guides/index.md
+      - guides/adding-a-task.md
+      - guides/contributing.md
 copyright: Copyright &copy; 2026 Shayan Moosavi
 
 # Plugins and extensions
