@@ -1,7 +1,7 @@
 # Adding a New Task
 
 **Audience:** a contributor adding a maintenance task to the registry. This guide assumes you have
-read the [Architecture Overview](../architecture/overview.md) and the
+read the [Architecture Overview](../architecture/index.md) and the
 [Task Execution Lifecycle](../architecture/task-lifecycle.md#the-basetask-contract) pages — the hook
 contract is described once there and only summarized here.
 
@@ -522,7 +522,7 @@ within its `frequency` window.
 ## Pitfalls
 
 - **Never import from `cli/` or `services/` in `core/`, `tasks/`, or `config/`.** This is the
-  project's one hard layering rule (see the [Architecture Overview](../architecture/overview.md)).
+  project's one hard layering rule (see the [Architecture Overview](../architecture/index.md)).
   The task's OS boundary is [`archcare.utils.system`][archcare.utils.system] —
   [`run_command`][archcare.utils.system.run_command] /
   [`run_command_with_sudo`][archcare.utils.system.run_command_with_sudo] — nothing else.

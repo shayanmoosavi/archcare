@@ -4,7 +4,7 @@ Archcare's **CONF** layer is the persistence boundary of the system: everything 
 (declarative TOML) and everything the machine owns (runtime JSON state) lives here, behind a single
 gateway — [`ConfigLoader`][archcare.config.loader.ConfigLoader] — and a single enforcement point —
 [Pydantic](https://pydantic.dev/) models. This page tours the models, the files they map to, and the
-rules of the round-trip. The layer's import rule comes from the [architecture overview](overview.md):
+rules of the round-trip. The layer's import rule comes from the [architecture overview](index.md):
 **CONF** never imports from **CLI** or **SVC**.
 
 ## The big split: config vs. state
@@ -314,7 +314,7 @@ files are ignored on load (Pydantic default behavior).
 
 Validators are the enforcement point for every rule on this page: `frequency > 0`, absolute paths,
 unit-name charset, reflector sort allowlist. And like the rest of CONF, the exceptions follow the
-[project-wide hierarchy](overview.md) rooted in
+[project-wide hierarchy](index.md) rooted in
 [`ArchcareError`][archcare.exceptions.ArchcareError] — with one deliberate quirk:
 [`UnknownTaskError`][archcare.config.exceptions.UnknownTaskError],
 [`HomeDirectoryResolutionError`][archcare.config.exceptions.HomeDirectoryResolutionError], and
@@ -331,5 +331,5 @@ survives the crossing while staying catchable as `ArchcareError` everywhere else
   this state
 - [Registry, ports & extensibility](registry-and-ports.md) — how task names resolve against the
   registry
-- [Architecture overview](overview.md) — the layered architecture and where **CONF** layer sits
+- [Architecture overview](index.md) — the layered architecture and where **CONF** layer sits
   in it

@@ -50,7 +50,7 @@ uv run pytest
 ## Project layout
 
 Archcare is strictly layered — `cli/` → `services/` → `core/` + `config/` → `tasks/` + `utils/`.
-The [Architecture Overview](../architecture/overview.md) is the authoritative tour; don't rest on
+The [Architecture Overview](../architecture/index.md) is the authoritative tour; don't rest on
 this page's one-line summary:
 
 | Layer | Modules in `src/archcare/` | Responsibility                                         |
@@ -180,8 +180,7 @@ still serves every consumer.
 This combination has caught real bugs unit tests alone missed — check `git log` for examples where
 a mocked unit test passed while the real wiring was broken. When you add behavior, prefer one
 integration test exercising the real path over many integration tests re-testing unit-covered
-logic; the [adding-a-task guide](adding-a-task.md#step-7-integration-tests) shows the worked
-pattern.
+logic; the [adding-a-task guide](adding-a-task.md#step-7-test-it) shows the worked pattern.
 
 ```bash
 uv run pytest                    # full suite
@@ -334,11 +333,11 @@ Releases are tag-driven and automated by `.github/workflows/release.yml`. The fl
 
 Open an [issue](https://github.com/shayanmoosavi/archcare/issues) for bug reports, feature ideas,
 and questions about contributing. For usage help, the README and this site's
-[architecture pages](../architecture/overview.md) are the first stop.
+[architecture pages](../architecture/index.md) are the first stop.
 
 ## Related pages
 
-- [Architecture Overview](../architecture/overview.md) — the layered design and the philosophy
+- [Architecture Overview](../architecture/index.md) — the layered design and the philosophy
   behind it.
 - [Registry, Ports & Extensibility](../architecture/registry-and-ports.md) — the port protocols
   the layering rule leans on.

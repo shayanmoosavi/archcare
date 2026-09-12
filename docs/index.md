@@ -42,7 +42,7 @@ maintenance tasks are due, on demand or fully unattended via systemd timers.
     The layered design, the dependency rules that hold it together, and the
     philosophy behind ports, registries, and typed results.
 
-    [:material-cube-scan: Read the overview](architecture/overview.md){ .md-button .md-button--primary }
+    [:material-cube-scan: Read the overview](architecture/index.md){ .md-button .md-button--primary }
 
 - :material-play-circle:{ .lg .middle } **Task execution lifecycle**
 

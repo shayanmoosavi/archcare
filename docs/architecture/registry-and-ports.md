@@ -6,7 +6,7 @@ protocols** that keep `core/` free of presentation code. Where the
 [Task Execution Lifecycle](task-lifecycle.md) page follows a run through the pipeline, this page
 shows the wiring underneath it — the seams a future GUI frontend would plug into.
 
-If you have just read [Architecture Overview](overview.md): overview explains _why_ the layers and
+If you have just read [Architecture Overview](index.md): overview explains _why_ the layers and
 seams exist; this page is the reference for what each seam actually looks like in source.
 
 ## The registry
@@ -239,7 +239,7 @@ and the run is silent and prompt-free by construction rather than by convention.
 
 ## Related pages
 
-- [Architecture Overview](overview.md) — the layered design these seams make possible.
+- [Architecture Overview](index.md) — the layered design these seams make possible.
 - [Task Execution Lifecycle](task-lifecycle.md) — the runtime flow the ports plug into (its
   _figure 2_ shows the executor gates that call `TaskInteraction`).
 - [Configuration & state](configuration.md) — the `tasks.toml` schema whose keys the registry

@@ -1,5 +1,44 @@
 # Architecture Overview
 
+**Audience:** Contributers and those interested in the design decisions behind Archcare. This
+page explains the layered architecture and the design philosophy behind it. Refer to the cards
+below for the other pages of this section.
+
+## What's in this section
+
+<div class="grid cards" markdown>
+
+- :material-engine-outline:{ .lg .middle } **Task execution lifecycle**
+
+    ***
+
+    From CLI command to state file: the full run flow, the `BaseTask`
+    contract, and how task state is tracked and updated.
+
+    [:material-map-search: Study the lifecycle](task-lifecycle.md){ .md-button .md-button--primary }
+
+- :material-puzzle:{ .lg .middle } **Registry, ports & extensibility**
+
+    ***
+
+    The seams that keep the core presentation-agnostic: the static registry,
+    the duck-typed ports, and how to build against them.
+
+    [:material-compass: Explore the seams](registry-and-ports.md){ .md-button .md-button--primary }
+
+- :material-table-cog:{ .lg .middle } **Configuration & state**
+
+    ***
+
+    The **CONF** layer's contract: Pydantic models, the TOML/JSON round-trip,
+    and what arrives when defaults meet the validator.
+
+    [:material-application-braces-outline: Tour the models](configuration.md){ .md-button .md-button--primary }
+
+</div>
+
+## The layered architecture
+
 Archcare is organized as a strictly layered architecture. Every layer has a single responsibility,
 and dependencies only ever point "downward" — from presentation toward plumbing, never the other
 way around. This keeps the business logic testable in isolation, makes each layer replaceable,

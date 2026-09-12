@@ -42,7 +42,7 @@ theme:
 nav:
   - Home: index.md
   - Architecture:
-      - architecture/overview.md
+      - architecture/index.md
       - architecture/task-lifecycle.md
       - architecture/registry-and-ports.md
       - architecture/configuration.md

@@ -4,7 +4,7 @@ This page traces what happens between `archcare task run <name>` and the row tha
 `state.json` afterward — the full pipeline from shell to disk, the contract every concrete task
 honors, and how a single run's outcome is classified.
 
-If you have just read [Architecture Overview](overview.md), this is the deep-dive companion:
+If you have just read [Architecture Overview](index.md), this is the deep-dive companion:
 overview explains _what the layers are_, this page explains _what runs inside them_.
 
 ## Diagram conventions
@@ -382,7 +382,7 @@ For the per-task-detail schemas that populate the `details` field on each termin
 
 ## Related pages
 
-- [Architecture Overview](overview.md) — the layered design and why the layers exist.
+- [Architecture Overview](index.md) — the layered design and why the layers exist.
 - [Registry, ports & extensibility](registry-and-ports.md) — how a task's class is found, and how
   the CLI/GUI seam works.
 - [Configuration & state](configuration.md) — the [`AppState`][archcare.config.models.AppState]
