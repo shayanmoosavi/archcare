@@ -50,6 +50,10 @@ nav:
       - guides/index.md
       - guides/adding-a-task.md
       - guides/contributing.md
+  - Reference:
+      - reference/index.md
+      - reference/cli.md
+      - reference/configuration-files.md
 copyright: Copyright &copy; 2026 Shayan Moosavi
 
 # Plugins and extensions
