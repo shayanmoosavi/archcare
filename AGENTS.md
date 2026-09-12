@@ -13,7 +13,7 @@ This document provides a comprehensive reference for working with the Archcare c
 - Refreshes mirrorlist via `reflector` with backup/rollback (`mirrorlist-update`)
 - Tracks maintenance task schedules and reports what's due (`maintenance-check`)
 
-**Tech Stack**: Python 3.13+, Typer (CLI), Rich (terminal UI), Loguru (logging), Pydantic (config/validation), psutil (system metrics)
+**Tech Stack**: Python 3.13–3.14 (`requires-python = ">=3.13,<3.15.0"`), Typer (CLI), Rich (terminal UI), Loguru (logging), Pydantic (config/validation), psutil (system metrics)
 
 ---
 
@@ -56,20 +56,20 @@ utils/      → subprocess wrappers, system/hardware queries, notifications
 | `scheduler.py`     | `TaskScheduler` - determines if tasks are due based on frequency/last run                                                              |
 | `formatter.py`     | `TaskDetailFormatter` protocol, `DefaultFormatter`                                                                                     |
 | `interaction.py`   | `TaskInteraction` protocol, `NonInteractive` implementation                                                                            |
-| `progress.py`      | `TaskProgress` protocol (`start()`, `advance()`, `stop()`, `pause()`, `spinner()`), `NoOpProgress`                                    |
+| `progress.py`      | `TaskProgress` protocol (`start()`, `advance()`, `stop()`, `pause()`, `spinner()`), `NoOpProgress`                                     |
 | `notifications.py` | `NotificationManager` - desktop notifications via `notify-send`                                                                        |
 | `exceptions.py`    | Core exception hierarchy                                                                                                               |
 
 ### Config Layer (`src/archcare/config/`)
 
-| File          | Purpose                                                                                                                                                                                                                     |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| File          | Purpose                                                                                                                                                         |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `models.py`   | Pydantic models: `TaskConfig`, `TasksConfig`, `AppSettings`, `AppState`, `TaskState`, `MirrorlistSettings`, `MaintenanceCheckSettings`, `IgnoredServicesConfig` |
-| `enums.py`    | Enums: `TaskType`, `TaskStatus`, `SkipReason`, `LogLevel`                                                                                                  |
-| `loader.py`   | `ConfigLoader` - loads/saves TOML (settings, tasks, ignored-services) and JSON (state)                                                                                                                                      |
-| `defaults.py` | Default TOML document builders for initial config creation                                                                                                                                                                  |
-| `logging.py`  | Logging setup with loguru                                                                                                                                                                                                   |
-| `user.py`     | `UserContext` - resolves ARCHCARE_USER/SUDO_USER, chown helpers                                                                                                                                                             |
+| `enums.py`    | Enums: `TaskType`, `TaskStatus`, `SkipReason`, `LogLevel`                                                                                                       |
+| `loader.py`   | `ConfigLoader` - loads/saves TOML (settings, tasks, ignored-services) and JSON (state)                                                                          |
+| `defaults.py` | Default TOML document builders for initial config creation                                                                                                      |
+| `logging.py`  | Logging setup with loguru                                                                                                                                       |
+| `user.py`     | `UserContext` - resolves ARCHCARE_USER/SUDO_USER, chown helpers                                                                                                 |
 
 ### Tasks Layer (`src/archcare/tasks/`)
 
@@ -82,32 +82,35 @@ utils/      → subprocess wrappers, system/hardware queries, notifications
 
 ### Services Layer (`src/archcare/services/`)
 
-| File               | Purpose                                                                            |
-| ------------------ | ---------------------------------------------------------------------------------- |
-| `task_service.py`  | `TaskService` - high-level operations: `run_task`, `get_task_status`, `list_tasks` |
-| `setup_service.py` | `ConfigService` - config creation; `TimerService` - systemd timer installation     |
-| `debug_service.py` | `DebugService` - notification testing                                              |
-| `responses.py`     | Response dataclasses for service layer                                             |
+| File               | Purpose                                                                                                                                             |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `task_service.py`  | `TaskService` - high-level operations: `run_task`, `get_task_status`, `list_tasks`                                                                  |
+| `setup_service.py` | `ConfigService` - config creation; `TimerService` - systemd timer installation                                                                      |
+| `debug_service.py` | `DebugService` - notification testing                                                                                                               |
+| `responses.py`     | Response dataclasses for service layer                                                                                                              |
+| `exceptions.py`    | `ArchcareServiceError` base + service-layer exceptions (`TaskNotFoundError`, `ConfigNotInitializedError`, `NotRootError`, notification errors, ...) |
 
 ### CLI Layer (`src/archcare/cli/`)
 
-| File             | Purpose                                                                                        |
-| ---------------- | ---------------------------------------------------------------------------------------------- |
-| `app.py`         | Typer app, command groups, main callback                                                       |
-| `context.py`     | `AppContext` - per-invocation context with lazy `ConfigLoader`, `TaskExecutor`, `TaskRegistry` |
-| `commands/`      | Command implementations: `task.py`, `setup.py`, `logs.py`, `debug.py`                          |
-| `presenters/`    | Terminal rendering: `TaskPresenter`, formatters for each task                                  |
-| `interaction.py` | `CliInteraction` - implements `TaskInteraction` for CLI                                        |
-| `progress.py`    | `RichProgress` - implements `TaskProgress` with Rich                                           |
+| File             | Purpose                                                                                                                                             |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app.py`         | Typer app, command groups, main callback                                                                                                            |
+| `context.py`     | `AppContext` - per-invocation context with lazy `ConfigLoader`, `TaskExecutor`, `TaskRegistry`                                                      |
+| `commands/`      | Command implementations: `task.py`, `setup.py`, `logs.py`, `debug.py`                                                                               |
+| `presenters/`    | Terminal rendering: `task_presenter.py`, `maintenance_presenter.py`, `setup_presenter.py`, `debug_presenter.py`, task formatters in `formatters.py` |
+| `interaction.py` | `CliInteraction` - implements `TaskInteraction` for CLI                                                                                             |
+| `progress.py`    | `RichProgress` - implements `TaskProgress` with Rich                                                                                                |
 
 ### Utils Layer (`src/archcare/utils/`)
 
-| File            | Purpose                                                                             |
-| --------------- | ----------------------------------------------------------------------------------- |
-| `system.py`     | `run_command`, `run_command_with_sudo` - subprocess wrappers (the ONLY OS boundary) |
-| `hardware.py`   | Disk, memory, CPU queries via psutil                                                |
-| `pacman.py`     | Pacman database/package health checks                                               |
-| `mirrorlist.py` | Mirrorlist parsing, reflector invocation                                            |
+| File             | Purpose                                                                                                                                                          |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `system.py`      | `run_command`, `run_command_with_sudo` - subprocess wrappers (the ONLY OS boundary)                                                                              |
+| `hardware.py`    | Disk, memory, CPU queries via psutil                                                                                                                             |
+| `pacman.py`      | Pacman database/package health checks                                                                                                                            |
+| `mirrorlist.py`  | Mirrorlist parsing, reflector invocation                                                                                                                         |
+| `info_models.py` | Frozen dataclasses returned by utils queries: `ServiceStatusInfo`, `DiskUsageInfo`, `MemoryInfo`, `CpuInfo`, `MirrorlistInfo`                                    |
+| `output.py`      | Global Rich `Console` + print helpers (`print_success`, `print_error`, `print_panel`, `print_table`); `configure_console()` mutes output in non-interactive runs |
 
 ---
 
@@ -207,15 +210,19 @@ TaskPresenter.render_run() → terminal output
 ```
 tests/
 ├── unit/           # Mirrors src/archcare/ 1:1, mocks at precise boundaries
+│   ├── cli/
+│   │   ├── commands/
+│   │   └── presenters/
 │   ├── config/
 │   ├── core/
 │   ├── services/
 │   ├── tasks/
-│   └── utils/
-├── integration/    # Real CLI via CliRunner, real AppContext, real file I/O (tmp_path)
-│   ├── cli/
-│   └── tasks/
-└── conftest.py
+│   ├── utils/
+│   └── conftest.py
+└── integration/    # Real CLI via CliRunner, real AppContext, real file I/O (tmp_path)
+    ├── cli/
+    ├──tasks/
+    └── conftest.py
 ```
 
 ### Test Principles
@@ -265,8 +272,39 @@ uv run cz commit
 
 - `dev`: ruff, ty, prek, commitizen, docs, test
 - `build`: nuitka, patchelf
-- `docs`: mkdocstrings, mkdocs-material, mkdocs-autoapi
+- `docs`: mkdocstrings-python, mkdocs-material[imaging], mkdocs-autoapi, mkdocs-git-revision-date-localized-plugin
 - `test`: pytest, pytest-cov, pytest-mock
+
+---
+
+## Documentation (MkDocs Material)
+
+### Site Structure (4 sections, 11 pages)
+
+| Section      | Pages                                                                     |
+| ------------ | ------------------------------------------------------------------------- |
+| Home         | `docs/index.md` - hero + "Where to go next" cards to the 3 sections       |
+| Architecture | `architecture/{index,task-lifecycle,registry-and-ports,configuration}.md` |
+| Guides       | `guides/{index,adding-a-task,contributing}.md`                            |
+| Reference    | `reference/{index,cli,configuration-files}.md`                            |
+
+### Config Essentials (`mkdocs.yml`)
+
+- Material theme, nav tabs, section hubs with card grids
+- API reference via `mkdocstrings` + `mkdocs-autoapi` (autoapi_dir: `src`)
+- `git-revision-date-localized` (creation dates)
+
+### Commands
+
+```bash
+uv run mkdocs build --strict      # Verify: must exit 0 with zero mkdocs warnings
+uv run mkdocs serve               # Live-reload preview
+uv run ruff format --check docs/  # Format check covers python code blocks in docs/ as well
+```
+
+**Rule**: the strict build must stay green. `WARNING:root:` lines from
+`git-revision-date-localized` are git-history notices for uncommitted files — they disappear
+after commit; strict mode ignores them.
 
 ---
 
@@ -325,11 +363,11 @@ archcare debug test-notification --severity warning
 
 ## Ports (Protocols for Extensibility)
 
-| Protocol              | Location              | CLI Implementation                  | Purpose                                          |
-| --------------------- | --------------------- | ----------------------------------- | ------------------------------------------------ |
-| `TaskInteraction`     | `core/interaction.py` | `cli/interaction.py:CliInteraction` | confirm(), notify()                              |
-| `TaskDetailFormatter` | `core/formatter.py`   | `cli/presenters/*.py`               | format() -> list[str]                            |
-| `TaskProgress`        | `core/progress.py`    | `cli/progress.py:RichProgress`      | start(), advance(), stop(), pause(), spinner()   |
+| Protocol              | Location              | CLI Implementation                  | Purpose                                        |
+| --------------------- | --------------------- | ----------------------------------- | ---------------------------------------------- |
+| `TaskInteraction`     | `core/interaction.py` | `cli/interaction.py:CliInteraction` | confirm(), notify()                            |
+| `TaskDetailFormatter` | `core/formatter.py`   | `cli/presenters/*.py`               | format() -> list[str]                          |
+| `TaskProgress`        | `core/progress.py`    | `cli/progress.py:RichProgress`      | start(), advance(), stop(), pause(), spinner() |
 
 A GUI frontend would implement these three protocols and inject them into `TaskExecutor` (see `docs/architecture/registry-and-ports.md`).
 
@@ -342,3 +380,4 @@ A GUI frontend would implement these three protocols and inject them into `TaskE
 3. **State file ownership**: When running as root via systemd, `TaskExecutor._update_state()` chowns state file to target user
 4. **Logging**: Per-task log handlers added/removed in `BaseTask.run()` via `setup_task_logging()`
 5. **Notifications**: `NotificationManager` lazily constructed (does `notify-send` availability check on init)
+6. **Keep this file in sync**: If you discover this file disagrees with the codebase, invoke the agents-md-sync skill before finishing.
