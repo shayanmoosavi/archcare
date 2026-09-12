@@ -14,89 +14,37 @@ maintenance tasks are due, on demand or fully unattended via systemd timers.
 
 ---
 
-## Documentation map
+## Where to go next
 
 <div class="grid cards" markdown>
 
-- :material-code-tags:{ .lg .middle } **API reference**
+- :material-ruler-square-compass:{ .lg .middle } **Architecture**
 
     ***
 
-    Auto-generated, cross-referenced API documentation for every module,
-    class, and function — built from the source docstrings.
+    Why Archcare is layered the way it is: the dependency rules, the task
+    execution lifecycle, and the ports and registry that keep the core
+    frontend-agnostic.
 
-    [:material-book-open-page-variant: Read the docs](autoapi/archcare/index.md){ .md-button .md-button--primary }
+    [:simple-blueprint: Explore the design](architecture/index.md){ .md-button .md-button--primary }
 
-- :material-console:{ .lg .middle } **CLI reference**
-
-    ***
-
-    Every command, subcommand, and option — including exit-code behavior.
-
-    [:material-magnify: Browse commands](reference/cli.md){ .md-button .md-button--primary }
-
-- :material-ruler-square-compass:{ .lg .middle } **Architecture overview**
+- :material-book-outline:{ .lg .middle } **Guides**
 
     ***
 
-    The layered design, the dependency rules that hold it together, and the
-    philosophy behind ports, registries, and typed results.
+    Task-oriented walkthroughs: add a new maintenance task end to end, or set
+    up a development environment and contribute.
 
-    [:material-cube-scan: Read the overview](architecture/index.md){ .md-button .md-button--primary }
+    [:material-tools: Start building](guides/index.md){ .md-button .md-button--primary }
 
-- :material-play-circle:{ .lg .middle } **Task execution lifecycle**
-
-    ***
-
-    From CLI command to state file: the full run flow, the `BaseTask`
-    contract, and how task state is tracked and updated.
-
-    [:material-map-marker-path: Walk the lifecycle](architecture/task-lifecycle.md){ .md-button .md-button--primary }
-
-- :material-puzzle:{ .lg .middle } **Registry, ports & extensibility**
+- :material-book-open-page-variant:{ .lg .middle } **Reference**
 
     ***
 
-    How `TaskRegistry` wires everything together and how the port protocols
-    keep the core frontend-agnostic.
+    Exhaustive, lookup-friendly material: every CLI command and option, every
+    configuration-file key, and the auto-generated API documentation.
 
-    [:material-compass: Explore the seams](architecture/registry-and-ports.md){ .md-button .md-button--primary }
-
-- :material-database-cog:{ .lg .middle } **Configuration & state**
-
-    ***
-
-    The Pydantic models behind `tasks.toml`, `settings.toml`, and
-    `state.json` — and how they are loaded, validated, and persisted.
-
-    [:material-application-braces-outline: See the models](architecture/configuration.md){ .md-button .md-button--primary }
-
-- :material-plus-circle:{ .lg .middle } **Adding a new task**
-
-    ***
-
-    A complete, step-by-step guide to implementing, registering, formatting,
-    and testing a new maintenance task.
-
-    [:material-book-outline: Follow the guide](guides/adding-a-task.md){ .md-button .md-button--primary }
-
-- :material-account-group:{ .lg .middle } **Contributing**
-
-    ***
-
-    Development setup, the testing philosophy, linting and type-checking
-    pipeline, and release conventions.
-
-    [:fontawesome-regular-handshake: Start contributing](guides/contributing.md){ .md-button .md-button--primary }
-
-- :material-file-cog:{ .lg .middle } **Configuration files reference**
-
-    ***
-
-    Every key of every configuration file, with types, defaults, and
-    semantics in one place.
-
-    [:material-text-search: Look up a key](reference/configuration-files.md){ .md-button .md-button--primary }
+    [:material-text-search: Look it up](reference/index.md){ .md-button .md-button--primary }
 
 </div>
 
