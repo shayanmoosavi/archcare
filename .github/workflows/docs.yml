@@ -23,11 +23,14 @@ jobs:
           # Full history is required by git-revision-date-localized plugin
           # (for last-updated). Sparse checkout limits the
           # materialized working tree to what the build needs (docs/ + src/ for
-          # mkdocs-autoapi)
+          # mkdocs-autoapi) plus the composite setup action used below;
+          # top-level files (e.g., pyproject.toml) are always included by
+          # git's cone mode.
           fetch-depth: 0
           sparse-checkout: |
             docs
             src
+            .github/actions/setup
 
       - name: Set up environment
         uses: ./.github/actions/setup
