@@ -244,7 +244,7 @@ class TaskExecutor:
             if is_systemd:
                 return task.create_result(
                     skipped(
-                        "Task run from systemd timer will not be interactive",
+                        "Task is disabled and will not be run from systemd timer.",
                         SkipReason.DISABLED,
                     )
                 )
@@ -292,7 +292,7 @@ class TaskExecutor:
                 logger.info(f"Skipping the execution of task {task_name}")
                 return task.create_result(
                     skipped(
-                        "Task run from systemd timer will not be interactive",
+                        "Task is not due and will not be run from systemd timer.",
                         SkipReason.NOT_DUE,
                     )
                 )
@@ -366,6 +366,8 @@ class TaskExecutor:
             case TaskStatus.SKIPPED:
                 # Disabled tasks have no next due date
                 if result.skip_reason == SkipReason.DISABLED:
+                    # NOTE: Disabled task last run isn't cleared so it would be considered overdue
+                    #  when enabled again
                     next_due = None
                 else:
                     next_due = self.state.get_task_state(task_config.name).next_due
