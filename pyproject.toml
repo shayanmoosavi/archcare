@@ -17,6 +17,10 @@ dependencies = [
     "types-psutil (>=7.2.1.20260116,<8.0.0.0)",
 ]
 
+[project.urls]
+Repository = "https://github.com/shayanmoosavi/archcare.git"
+Documentation = "https://shayanmoosavi.github.io/archcare/"
+
 [project.scripts]
 archcare = "archcare.cli:main"
 

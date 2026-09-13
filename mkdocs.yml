@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
 site_name: Archcare
-site_url: https://mydomain.org/mysite
+site_url: https://shayanmoosavi.github.io/archcare/
 repo_url: https://github.com/shayanmoosavi/archcare
 
 theme:
