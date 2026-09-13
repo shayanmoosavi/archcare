@@ -6,9 +6,7 @@
 *__pycache__/
 
 # Cache directories
-.mypy_cache/
-.pytest_cache/
-.ruff_cache/
+*cache/
 
 # Pytest coverage
 .coverage
@@ -17,3 +15,10 @@
 *build/
 *onefile-build/
 *dist/
+
+# Static built documentation site
+site/
+
+# Hermes agent
+.hermes/
+IDEA.md

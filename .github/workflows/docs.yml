@@ -1,0 +1,64 @@
+name: Deploy docs
+
+on:
+  push:
+    branches: [main, dev]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Full history is required by git-revision-date-localized plugin
+          # (for last-updated). Sparse checkout limits the
+          # materialized working tree to what the build needs (docs/ + src/ for
+          # mkdocs-autoapi) plus the composite setup action used below;
+          # top-level files (e.g., pyproject.toml) are always included by
+          # git's cone mode.
+          fetch-depth: 0
+          sparse-checkout: |
+            docs
+            src
+            .github/actions/setup
+
+      - name: Set up environment
+        uses: ./.github/actions/setup
+        with:
+          python-version: "3.13"
+          install-groups: docs
+          cache-key-suffix: docs
+
+      # libcairo2 is required by mkdocs-material[imaging] (cairosvg), used by
+      # the `social` plugin for card generation.
+      - name: Install system deps
+        run: sudo apt-get update && sudo apt-get install -y libcairo2
+
+      - name: Build site
+        run: uv run mkdocs build --strict
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

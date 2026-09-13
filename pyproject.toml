@@ -1,6 +1,6 @@
 [project]
 name = "archcare"
-version = "0.3.1"
+version = "0.4.0rc0"
 description = "A simple maintenance system for Arch Linux"
 authors = [{ name = "Shayan Moosavi", email = "moosavi.shayan@gmail.com" }]
 license = "GPL-3.0-or-later"
@@ -16,6 +16,10 @@ dependencies = [
     "tomlkit (>=0.15.1, <1.0.0)",
     "types-psutil (>=7.2.1.20260116,<8.0.0.0)",
 ]
+
+[project.urls]
+Repository = "https://github.com/shayanmoosavi/archcare.git"
+Documentation = "https://shayanmoosavi.github.io/archcare/"
 
 [project.scripts]
 archcare = "archcare.cli:main"

@@ -1,3 +1,9 @@
+## v0.4.0rc0 (2026-09-13)
+
+### Feat
+
+- **executor**: improve skip message readability
+
 ## v0.3.1 (2026-08-31)
 
 ### Fix

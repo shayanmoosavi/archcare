@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
 site_name: Archcare
-site_url: https://mydomain.org/mysite
+site_url: https://shayanmoosavi.github.io/archcare/
 repo_url: https://github.com/shayanmoosavi/archcare
 
 theme:
@@ -15,6 +15,11 @@ theme:
     - navigation.instant.progress
     - navigation.instant.prefetch
     - navigation.footer
+    - navigation.tabs
+    - navigation.sections
+    - navigation.path
+    - navigation.top
+    - toc.integrate
   palette:
     # Palette toggle for light mode
     - scheme: default
@@ -32,10 +37,23 @@ theme:
         icon: material/weather-night
         name: Switch to light mode
   font:
-    text: Electrolize
+    text: Solway
     code: JetBrains Mono
 nav:
   - Home: index.md
+  - Architecture:
+      - architecture/index.md
+      - architecture/task-lifecycle.md
+      - architecture/registry-and-ports.md
+      - architecture/configuration.md
+  - Guides:
+      - guides/index.md
+      - guides/adding-a-task.md
+      - guides/contributing.md
+  - Reference:
+      - reference/index.md
+      - reference/cli.md
+      - reference/configuration-files.md
 copyright: Copyright &copy; 2026 Shayan Moosavi
 
 # Plugins and extensions
