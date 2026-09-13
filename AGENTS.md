@@ -2,6 +2,8 @@
 
 This document provides a comprehensive reference for working with the Archcare codebase. It covers architecture, key patterns, and practical guidance for common tasks.
 
+> **Global instructions**: see `~/.agents/AGENTS.md` for cross-project agent instructions (communication protocol, exploration policy, quality gates). Where the two conflict, this project file takes precedence.
+
 ---
 
 ## Project Overview
