@@ -22,16 +22,14 @@ jobs:
         with:
           # Full history is required by git-revision-date-localized plugin
           # (for last-updated). Sparse checkout limits the
-          # materialized working tree to what the build needs: docs/ (content),
-          # src/ (read by mkdocstrings), scripts/ (generates the API reference
-          # stubs), plus the composite setup action used below;
+          # materialized working tree to what the build needs (docs/ + src/ for
+          # mkdocs-autoapi) plus the composite setup action used below;
           # top-level files (e.g., pyproject.toml) are always included by
           # git's cone mode.
           fetch-depth: 0
           sparse-checkout: |
             docs
             src
-            scripts
             .github/actions/setup
 
       - name: Set up environment
@@ -46,13 +44,8 @@ jobs:
       - name: Install system deps
         run: sudo apt-get update && sudo apt-get install -y libcairo2
 
-      # Stub pages under docs/reference/api/ are gitignored; they are generated
-      # from src/ via Griffe (mkdocstrings ::: autodoc syntax) on every build.
-      - name: Generate API reference stubs
-        run: uv run python scripts/gen_api_docs.py
-
       - name: Build site
-        run: uv run zensical build --strict
+        run: uv run mkdocs build --strict
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
