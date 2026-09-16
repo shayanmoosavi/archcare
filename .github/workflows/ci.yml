@@ -31,3 +31,41 @@ jobs:
 
       - name: Type check
         run: uv run ty check
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          # Full history is required by git-revision-date-localized plugin.
+          # Same sparse checkout as docs.yml: docs/ (content), src/ (read by
+          # mkdocstrings), scripts/ (generates the API reference stubs).
+          fetch-depth: 0
+          sparse-checkout: |
+            docs
+            src
+            scripts
+            .github/actions/setup
+
+      - name: Set up environment
+        uses: ./.github/actions/setup
+        with:
+          python-version: 3.13
+          install-groups: docs
+          cache-key-suffix: ci-docs
+
+      # libcairo2 is required by mkdocs-material[imaging] (cairosvg), used by
+      # the `social` plugin for card generation.
+      - name: Install system deps
+        run: sudo apt-get update && sudo apt-get install -y libcairo2
+
+      # Stub pages under docs/reference/api/ are gitignored; they are generated
+      # from src/ via Griffe (mkdocstrings ::: autodoc syntax) on every build.
+      - name: Generate API reference stubs
+        run: uv run python scripts/gen_api_docs.py
+
+      # Keeps PRs honest: a docs build that fails strict mode breaks the build
+      # here, not only after merge when docs.yml runs.
+      - name: Build site (strict)
+        run: uv run zensical build --strict
