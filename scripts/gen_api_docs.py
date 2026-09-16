@@ -84,10 +84,11 @@ def main() -> None:
         mod_path = stub_path(module)
         mod_path.parent.mkdir(parents=True, exist_ok=True)
         lines = [
-            f"# `{module.path}`",
+            f"# ::: {module.path}",
             "",
-            f"::: {module.path}",
-            "",
+            "    options:",
+            "        show_root_heading: true",
+            "        heading_level: 1",
         ]
         mod_path.write_text("\n".join(lines))
         count += 1
