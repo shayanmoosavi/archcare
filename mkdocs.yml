@@ -11,6 +11,7 @@ theme:
     - content.footnote.tooltips
     - content.code.copy
     - content.code.annotate
+    - navigation.indexes
     - navigation.instant
     - navigation.instant.progress
     - navigation.instant.prefetch
@@ -54,6 +55,7 @@ nav:
       - reference/index.md
       - reference/cli.md
       - reference/configuration-files.md
+      - API reference: reference/api/
 copyright: Copyright &copy; 2026 Shayan Moosavi
 
 # Plugins and extensions
@@ -61,8 +63,7 @@ plugins:
   - autorefs
   - search
 
-  - mkdocs-autoapi:
-      autoapi_dir: src
+  - literate-nav
 
   - mkdocstrings:
       handlers:

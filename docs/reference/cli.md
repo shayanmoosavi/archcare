@@ -3,7 +3,7 @@
 This page is the complete inventory of Archcare's command-line interface: every command,
 option, default, and exit code, as of the current release. For how a command's work is
 carried out internally, see [Task lifecycle](../architecture/task-lifecycle.md); for the
-underlying Python API, see the [API reference](../autoapi/archcare/index.md).
+underlying Python API, see the [API reference](api/index.md).
 
 !!! tip
 
@@ -170,4 +170,4 @@ On any invocation against an uninitialized configuration, Archcare exits `1` wit
 
 - [Task lifecycle](../architecture/task-lifecycle.md) — what happens when a command runs
 - [Configuration files reference](configuration-files.md) — every key behind these commands
-- [CLI module (autoapi)](../autoapi/archcare/cli/index.md) — the implementing Python code
+- [CLI module (API)](api/cli/index.md) — the implementing Python code
