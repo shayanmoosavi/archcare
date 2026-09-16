@@ -17,7 +17,7 @@ every TOML key, every CLI command, and every public API member.
     Auto-generated, cross-referenced API documentation for every module,
     class, and function — built from the source docstrings.
 
-    [:material-book-open-page-variant: Read the docs](api/index.md){ .md-button .md-button--primary }
+    [:material-book-open-page-variant: Read the docs](../autoapi/archcare/index.md){ .md-button .md-button--primary }
 
 - :material-console:{ .lg .middle } **CLI reference**
 
