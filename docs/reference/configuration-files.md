@@ -121,4 +121,4 @@ on a skip or failure it is preserved, so an overdue task stays overdue.
 
 - [Configuration & state](../architecture/configuration.md) — loading, validation, persistence
 - [CLI reference](cli.md) — the commands that read and write these files
-- [Config module (API)](../autoapi/archcare/config/index.md) — the Pydantic models behind every key
+- [Config module (API)](api/config/index.md) — the Pydantic models behind every key

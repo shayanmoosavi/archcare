@@ -3,7 +3,7 @@
 **Audience:** task authors and contributors. This site has three layers — the
 [architecture pages](../architecture/index.md) explain _why_ the system is shaped the way it
 is, the guides here show _how_ to work within it, and the
-[API reference](../autoapi/archcare/index.md) documents the _exact shapes_ of every piece.
+[API reference](../reference/api/index.md) documents the _exact shapes_ of every piece.
 
 !!! tip "Just want to use Archcare?"
 
@@ -51,4 +51,4 @@ is, the guides here show _how_ to work within it, and the
 ## Related pages
 
 - [Architecture Overview](../architecture/index.md) — the philosophy behind the how.
-- [API reference](../autoapi/archcare/index.md) — auto-generated from the source docstrings.
+- [API reference](../reference/api/index.md) — auto-generated from the source docstrings.
