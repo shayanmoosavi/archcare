@@ -5,19 +5,19 @@ This module defines the exception hierarchy specific to the core execution layer
 providing typed errors for task registration, execution, and scheduling failures.
 
 Exception Hierarchy:
-    ```ansi
-    ArchcareError (base)
-        └── ArchcareCoreError
-            └── TaskNotRegisteredError
+    ```mermaid
+    flowchart LR
+        BASE["ArchcareError (base)"]
+        BASE --> ArchcareCoreError --> TaskNotRegisteredError
     ```
 
 These exceptions are raised by:
 
-- [TaskRegistry][] when looking up unregistered tasks
-- [TaskExecutor][archcare.core.executor.TaskExecutor] during task instantiation
+- `TaskRegistry` when looking up unregistered tasks
+- `TaskExecutor` during task instantiation
 
-All core exceptions inherit from [ArchcareCoreError][], which extends the project's root
-[ArchcareError][archcare.exceptions.ArchcareError].
+All core exceptions inherit from `ArchcareCoreError`, which extends the project's root
+[`ArchcareError`][archcare.exceptions.ArchcareError].
 This allows catching all core-layer errors with a single `except ArchcareCoreError`
 block while still distinguishing specific error types.
 
@@ -30,9 +30,11 @@ Examples:
     TaskNotRegisteredError
 
 See Also:
-    - [archcare.exceptions][]: Root exception hierarchy
-    - [archcare.core.task_registry][]: Task registry that raises these exceptions
-    - [archcare.core.executor][]: Task executor that catches and handles these errors
+    - [`ArchcareError`][]: Root exception for all Archcare exceptions
+    - [`TaskRegistry`][archcare.core.task_registry.TaskRegistry]: Task registry that raises
+        these exceptions
+    - [`TaskExecutor`][archcare.core.executor.TaskExecutor]: Task executor that catches and handles
+        these exceptions
 """
 
 from archcare.exceptions import ArchcareError
@@ -57,12 +59,11 @@ class ArchcareCoreError(ArchcareError):
 
 class TaskNotRegisteredError(ArchcareCoreError):
     """
-    Raised when a task name has no corresponding class in the
-    [TaskRegistry][].
+    Raised when a task name has no corresponding class in the [`TaskRegistry`][].
 
     This occurs when:
         - CLI requests a task not in `DEFAULT_TASK_REGISTRY` (see `cli/context.py` source code)
-        - [TaskExecutor][archcare.core.executor.TaskExecutor] tries to instantiate an unknown task
+        - [`TaskExecutor`][archcare.core.executor.TaskExecutor] tries to instantiate an unknown task
         - Configuration references a task that was removed from the registry
 
     Args:

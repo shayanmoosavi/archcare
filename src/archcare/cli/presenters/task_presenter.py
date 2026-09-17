@@ -2,15 +2,15 @@
 Presenter for the `task` command group.
 
 Owns all terminal rendering for `TaskService` results. Translates the response DTOs from
-[archcare.services.responses][] into Rich-based terminal output: result panels, schedule tables,
+[`archcare.services.responses`][] into Rich-based terminal output: result panels, schedule tables,
 task listings, and error/warning messages. Task-specific detail rendering is delegated to the
-per-task formatter classes registered in the [TaskRegistry][], and the maintenance-check report is
-delegated to [MaintenanceCheckPresenter][].
+per-task formatter classes registered in the [`TaskRegistry`][], and the maintenance-check report is
+delegated to [`MaintenanceCheckPresenter`][].
 
 See Also:
-    - [TaskService][archcare.services.task_service.TaskService]: Producer of the responses
+    - [`TaskService`][archcare.services.task_service.TaskService]: Producer of the responses
         rendered here
-    - [MaintenanceCheckPresenter][]: Renderer for the maintenance-check report
+    - [`MaintenanceCheckPresenter`][]: Renderer for the maintenance-check report
 """
 
 from rich.console import RenderableType
@@ -38,7 +38,7 @@ from .maintenance_presenter import MaintenanceCheckPresenter
 
 class TaskPresenter:
     """
-    Renders [TaskService][archcare.services.task_service.TaskService] results and errors
+    Renders [`TaskService`][archcare.services.task_service.TaskService] results and errors
     to the terminal.
 
     One public method per CLI outcome (`render_run`, `render_status`, `render_list`) plus small
@@ -52,7 +52,7 @@ class TaskPresenter:
 
         Args:
             task_registry (TaskRegistry): Task registry from which the
-                [TaskDetailFormatter][archcare.core.formatter.TaskDetailFormatter]
+                [`TaskDetailFormatter`][archcare.core.formatter.TaskDetailFormatter]
                 class for each task is looked up.
         """
         self._task_registry = task_registry
@@ -63,14 +63,15 @@ class TaskPresenter:
         """
         Renders the result of `archcare task run` to console.
 
-        For `maintenance-check` runs, the full report is delegated to [MaintenanceCheckPresenter][]
-        (unless `output_mode` is `'file'`, in which case only a pointer to the report directory is
-        shown). In all cases, a summary panel with status, message, duration, and — when `verbose`
+        For `maintenance-check` runs, the full report is delegated to
+        [`MaintenanceCheckPresenter`][] (unless `output_mode` is `'file'`, in which case only a
+        pointer to the report directory is shown). In all cases, a summary panel with status,
+        message, duration, and — when `verbose`
         — the task-specific details is printed.
 
         Args:
             response (TaskRunResponse): Run outcome from
-                [TaskService.run_task][archcare.services.task_service.TaskService.run_task]
+                [`TaskService.run_task`][archcare.services.task_service.TaskService.run_task]
                 (including interactivity of the invocation).
             settings (AppSettings): Application settings; used for the maintenance-check
                 `output_mode`, `require_acknowledgment`, and `report_dir`.
@@ -122,7 +123,7 @@ class TaskPresenter:
 
         Args:
             response (TaskStatusResponse): Status outcome from
-                [TaskService.get_task_status][archcare.services.task_service.TaskService.get_task_status]
+                [`TaskService.get_task_status`][archcare.services.task_service.TaskService.get_task_status]
                 (schedule info entries, optional summary, `due_only` flag).
         """
 
@@ -195,7 +196,7 @@ class TaskPresenter:
 
         Args:
             response (TaskListResponse): Task listing from
-                [TaskService.list_tasks][archcare.services.task_service.TaskService.list_tasks].
+                [`TaskService.list_tasks`][archcare.services.task_service.TaskService.list_tasks].
         """
         print_header("Available Tasks")
 

@@ -1,9 +1,9 @@
 """
 Desktop notification manager for the Archcare application.
 
-This module provides [NotificationManager][], which orchestrates sending desktop alerts using
+This module provides `NotificationManager`, which orchestrates sending desktop alerts using
 the system's standard `notify-send` CLI tool (part of `libnotify`). It manages standardized urgency
-levels via [NotificationUrgency][] and visual styles using [NotificationIcon][].
+levels via `NotificationUrgency` and visual styles using `NotificationIcon`.
 
 The system automatically detects if `notify-send` is available at runtime. If not,
 notifications are gracefully disabled, and warning messages are directed to standard logging.
@@ -12,15 +12,15 @@ such as systemd timers running as root, SSH sessions, or unit testing suites.
 
 Key Concepts:
     - **Availability Check**: Availability is verified on initialization.
-    - **Severity Mapping**: System maintenance alerts automatically map core [IssueSeverity][]
-      values to corresponding [NotificationUrgency][] and standard
-      desktop [NotificationIcon][] states.
+    - **Severity Mapping**: System maintenance alerts automatically map core [`IssueSeverity`][]
+      values to corresponding [`NotificationUrgency`][] and standard
+      desktop [`NotificationIcon`][] states.
     - **Robust Error Isolation**: Commands are wrapped with timeouts to prevent hanging during
       DBus/X11 environment mismatches.
 
 See Also:
-    - [archcare.utils.system][]: For subprocess wrapper execution.
-    - [archcare.core.interaction][]: The user interaction port.
+    - [`archcare.utils.system`][]: For subprocess wrapper execution.
+    - [`archcare.core.interaction`][]: The user interaction port.
 """
 
 import subprocess
@@ -71,7 +71,7 @@ class NotificationIcon(Enum):
     Standard [freedesktop.org](https://freedesktop.org) icon names for desktop notifications.
 
     Provides a standard set of stock icon names commonly available across modern
-    Linux desktop environments (such as GNOME, KDE Plasma, and XFCE).
+    Linux desktop environments (such as GNOME, KDE Plasma, or XFCE).
 
     Attributes:
         INFO (str): Standard informational icon (`'dialog-information'`).
@@ -122,8 +122,8 @@ class NotificationManager:
         True
 
     See Also:
-        - [NotificationUrgency][]: Defines standard urgency levels.
-        - [NotificationIcon][]: Defines standard icon definitions.
+        - [`NotificationUrgency`][]: Defines standard urgency levels.
+        - [`NotificationIcon`][]: Defines standard icon definitions.
     """
 
     def __init__(self):
@@ -252,7 +252,7 @@ class NotificationManager:
         """
         Send a maintenance-specific notification based on issue severity.
 
-        Maps the core's standard [IssueSeverity][] enum into low-level notification levels and
+        Maps the core's standard [`IssueSeverity`][] enum into low-level notification levels and
         appropriate alert header titles, helping the user instantly identify system state urgency.
 
         Args:

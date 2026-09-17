@@ -1,14 +1,14 @@
 """
 Custom presenter for the maintenance-check task.
 
-Provides [MaintenanceCheckPresenter][], which renders the severity-grouped issue report produced by
-[MaintenanceCheckTask][archcare.tasks.maintenance_check.MaintenanceCheckTask]:
+Provides [`MaintenanceCheckPresenter`][], which renders the severity-grouped issue report
+produced by [`MaintenanceCheckTask`][archcare.tasks.maintenance_check.MaintenanceCheckTask]:
 a "healthy" panel when no issues exist, otherwise one color-coded table per severity level (critical
 / warning / info), plus an optional interactive acknowledgment prompt for critical issues.
 
 This presenter is invoked from
-[TaskPresenter.render_run][archcare.cli.presenters.task_presenter.TaskPresenter.render_run]
-whenever a maintenance-check run produces [MaintenanceCheckDetails][].
+[`TaskPresenter.render_run`][archcare.cli.presenters.task_presenter.TaskPresenter.render_run]
+whenever a maintenance-check run produces [`MaintenanceCheckDetails`][].
 """
 
 from rich.console import Console
@@ -23,7 +23,7 @@ class MaintenanceCheckPresenter:
     """
     Renders per-severity issue tables to the terminal.
 
-    Consumes [MaintenanceCheckDetails][] and renders, in order: critical (red), warning (yellow),
+    Consumes [`MaintenanceCheckDetails`][] and renders, in order: critical (red), warning (yellow),
     and info (blue) issue tables — each listing the affected task, the issue description, and a
     recommendation. A green "healthy" panel is shown when no issues were found. Optionally blocks
     for user acknowledgment when critical issues exist (interactive runs only).

@@ -1,24 +1,26 @@
 """
 Provide system command utilities and wrappers for Archcare.
 
-This module provides safe, robust, and well-logged wrappers around `subprocess`
-for executing system-level commands, systemd/systemctl queries, journalctl log
-retrieval, file ownership management, and system status queries.
+This module provides safe, robust, and well-logged wrappers around `subprocess` for executing
+system-level commands, systemd/systemctl queries, journalctl log retrieval, file ownership
+management, and system status queries.
 
 Key Components:
 
-- **Subprocess execution**: [run_command][] and [run_command_with_sudo][] provide safe,
+- **Subprocess execution**: [`run_command`][] and [`run_command_with_sudo`][] provide safe,
     typed execution of shell commands.
-- **Systemd interaction**: [run_systemctl][], [get_systemd_failed_services][],
-    [get_service_status][], and [get_service_logs][] encapsulate interactions with systemd units.
-- **System utilities**: [format_bytes][], [get_system_uptime][], [change_ownership_to_user][],
-    and [is_valid_systemd_unit_name][] support logging, scheduling, and file permission operations.
+- **Systemd interaction**: [`run_systemctl`][], [`get_systemd_failed_services`][],
+    [`get_service_status`][], and [`get_service_logs`][] encapsulate interactions with
+    systemd units.
+- **System utilities**: [`format_bytes`][], [`get_system_uptime`][], [`change_ownership_to_user`][],
+    and [`is_valid_systemd_unit_name`][] support logging, scheduling, and file permission
+    operations.
 
 All operations are wrapped with logging via Loguru and return strongly typed result objects (e.g.,
-[CommandResult][]).
+[`CommandResult`][]).
 
 See Also:
-    [archcare.utils.hardware][]: For hardware queries (disk, CPU, memory) via `psutil`
+    [`archcare.utils.hardware`][]: For hardware queries (disk, CPU, memory) via `psutil`
 """
 
 import re
@@ -110,10 +112,9 @@ def run_command(
     """
     Run a system command and return a structured execution result.
 
-    Executes a command using Python's `subprocess.run`. It handles converting string
-    commands to argument lists, captures output, monitors timeouts, and logs execution.
-    It includes special exit-code handling for `systemctl status` queries (treating
-    exit code 3 as successful).
+    Executes a command using Python's `subprocess.run`. It handles converting string commands to
+    argument lists, captures output, monitors timeouts, and logs execution. It includes special
+    exit-code handling for `systemctl status` queries (treating exit code 3 as successful).
 
     Args:
         command (list[str] | str): The command to run as a list of arguments or a single string.
@@ -209,7 +210,7 @@ def run_command_with_sudo(
     """
     Run a command with sudo privileges if the current process is not running as root.
 
-    Wraps [run_command][] by prepending `sudo` to the command arguments if the current
+    Wraps [`run_command`][] by prepending `sudo` to the command arguments if the current
     effective user ID (EUID) is not 0 (root). If already running as root, the command
     is executed unmodified.
 
@@ -231,8 +232,8 @@ def run_command_with_sudo(
         subprocess.TimeoutExpired: If execution time exceeds the specified timeout.
 
     See Also:
-        - [run_command][]: The wrapped command used by this utility.
-        - [is_root][]: Used to determine if `sudo` prefixing is required.
+        - [`run_command`][]: The wrapped command used by this utility.
+        - [`is_root`][]: Used to determine if `sudo` prefixing is required.
     """
     # Convert string to list if needed
     if isinstance(command, str):
@@ -291,7 +292,7 @@ def run_systemctl(
     Execute a systemctl command with the specified arguments.
 
     Constructs and runs a command prefixing arguments with `systemctl`. This is a specific
-    helper wrapper around [run_command][] to simplify systemd service manager queries.
+    helper wrapper around [`run_command`][] to simplify systemd service manager queries.
 
     Args:
         args (list[str]): List of arguments to pass to `systemctl` (e.g.,
@@ -340,7 +341,7 @@ def get_systemd_failed_services() -> list[str]:
             if the query fails or if no failed units are found.
 
     See Also:
-        [run_systemctl][]: Used to query the systemd manager.
+        [`run_systemctl`][]: Used to query the systemd manager.
     """
     result = run_systemctl(["list-units", "--state=failed", "--no-pager", "--plain", "--no-legend"])
 
@@ -386,7 +387,6 @@ def _parse_active_status(line: str) -> tuple[str, bool]:
 
     Returns:
         tuple[str, bool]: A tuple containing:
-
             - `active_state` (str): The broad active state (e.g., "active", "inactive",
                 "failed", "unknown").
             - `is_running` (bool): True if the process is running, False otherwise.
@@ -456,7 +456,7 @@ def get_service_status(service_name: str) -> ServiceStatusInfo:
         ServiceStatusInfo: Data model containing detailed service status attributes.
 
     See Also:
-        [ServiceStatusInfo][archcare.utils.info_models.ServiceStatusInfo]: Data model for
+        [`ServiceStatusInfo`][archcare.utils.info_models.ServiceStatusInfo]: Data model for
             service details.
     """
     result = run_systemctl(["status", service_name, "--no-pager"])
@@ -508,10 +508,10 @@ def get_service_logs(
             Defaults to `None`.
 
     Returns:
-        list[str]: List of log entries as strings. Returns an empty list on failure.
+        (list[str]): List of log entries as strings. Returns an empty list on failure.
 
     See Also:
-        [run_command][]: Used to execute the journalctl command.
+        [`run_command`][]: Used to execute the journalctl command.
     """
     cmd = ["journalctl", "-u", service_name, "-n", str(lines), "--no-pager"]
 
@@ -648,7 +648,7 @@ def change_ownership_to_user(path: Path, user: str) -> None:
         but does not raise exceptions, ensuring calling workflows can continue gracefully.
 
     See also:
-        [UserContext.chown_if_root][archcare.config.user.UserContext.chown_if_root]:
+        [`UserContext.chown_if_root`][archcare.config.user.UserContext.chown_if_root]:
             Method that uses this utility.
     """
     import os

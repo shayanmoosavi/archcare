@@ -7,17 +7,17 @@ structured objects rather than bare dictionaries or tuples, the codebase gains t
 clear auto-completions, and robust static checking.
 
 Key Models:
-    - [ServiceStatusInfo][]: Details concerning active/inactive states of systemd services.
-    - [DiskUsageInfo][]: Disk usage statistics (total, used, percentage) for a mounted filesystem.
-    - [MemoryInfo][]: Total and active physical and swap memory metrics.
-    - [CpuInfo][]: CPU core counts, load averages, and active utilization levels.
-    - [MirrorlistInfo][]: Parsed pacman mirror lists containing mirror counts, modification dates,
+    - [`ServiceStatusInfo`][]: Details concerning active/inactive states of systemd services.
+    - [`DiskUsageInfo`][]: Disk usage statistics (total, used, percentage) for a mounted filesystem.
+    - [`MemoryInfo`][]: Total and active physical and swap memory metrics.
+    - [`CpuInfo`][]: CPU core counts, load averages, and active utilization levels.
+    - [`MirrorlistInfo`][]: Parsed pacman mirror lists containing mirror counts, modification dates,
         and protocols.
 
 See Also:
-    - [archcare.utils.hardware][]: Low-level psutil hardware querying functions.
-    - [archcare.utils.system][]: Low-level systemd service status queries.
-    - [archcare.utils.pacman][]: Mirrorlist and pacman database inspection helpers.
+    - [`archcare.utils.hardware`][]: Low-level psutil hardware querying functions.
+    - [`archcare.utils.system`][]: Low-level systemd service status queries.
+    - [`archcare.utils.pacman`][]: Mirrorlist and pacman database inspection helpers.
 """
 
 from dataclasses import dataclass, field

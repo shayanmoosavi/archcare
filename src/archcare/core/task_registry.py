@@ -3,18 +3,14 @@ Task registry for the Archcare core layer.
 
 Provides a static, immutable mapping from task names to their execution classes
 and detail formatters. The registry is built once at application startup and
-used by [TaskExecutor][archcare.core.executor.TaskExecutor] for task instantiation
+used by [`TaskExecutor`][archcare.core.executor.TaskExecutor] for task instantiation
 and by CLI presenters for rendering task details.
-
-Key Components:
-    - [TaskDescriptor][]: Immutable dataclass holding task metadata
-    - [TaskRegistry][]: Lookup service for task classes and formatters
 
 Registration:
     Tasks are registered in `DEFAULT_TASK_REGISTRY` (defined in `cli/context.py`),
     which maps each task name to a tuple of `(task_class, formatter_class)`.
     This registry is then passed to `TaskRegistry` constructor during
-    [AppContext][archcare.cli.context.AppContext] initialization.
+    [`AppContext`][archcare.cli.context.AppContext] initialization.
 
 Thread Safety:
     The registry is immutable after construction. All lookups are O(1) dict operations.
@@ -39,9 +35,10 @@ Examples:
     <class 'archcare.core.formatter.DefaultFormatter'>
 
 See Also:
-    - [archcare.cli.context][]: Where `DEFAULT_TASK_REGISTRY` is defined
-    - [archcare.core.executor][]: Uses `TaskRegistry` for task instantiation
-    - [archcare.core.formatter][]: `TaskDetailFormatter` protocol and implementations
+    - [`archcare.cli.context`][]: Where `DEFAULT_TASK_REGISTRY` is defined
+    - [`TaskExecutor`][archcare.core.executor.TaskExecutor]: Uses `TaskRegistry` for
+        task instantiation
+    - [`archcare.core.formatter`][]: `TaskDetailFormatter` protocol and implementations
 """
 
 from dataclasses import dataclass
@@ -56,18 +53,19 @@ class TaskDescriptor:
     """
     Static description of a single task: its name, execution class, and detail formatter.
 
-    This frozen dataclass serves as the registry entry for each maintenance task.
-    It bundles the task's identifier, its execution class (inheriting from
-    [BaseTask][]), and the formatter class used to render its result details in the CLI.
+    This frozen dataclass serves as the registry entry for each maintenance task. It bundles the
+    task's identifier, its execution class (inheriting from [`BaseTask`][]), and the formatter class
+    used to render its result details in the CLI.
 
     Attributes:
         name (str): Unique task identifier (e.g., "health-check",
             "mirrorlist-update"). Must match the key in `tasks.toml` and the
-            [TaskConfig][archcare.config.models.TaskConfig] name.
-        task_class (type[BaseTask]): The concrete task implementation class.
-            Must inherit from [BaseTask][].
+            [`TaskConfig`][archcare.config.models.TaskConfig] name.
+        task_class (type[BaseTask]): The concrete task implementation class. Must inherit from
+            [`BaseTask`][].
         formatter_class (type[TaskDetailFormatter]): Formatter for rendering task details.
-            Defaults to [DefaultFormatter][]. Custom formatters implement [TaskDetailFormatter][].
+            Defaults to [`DefaultFormatter`][]. Custom formatters implement
+            [`TaskDetailFormatter`][].
 
     Examples:
         >>> from archcare.core.task_registry import TaskDescriptor
@@ -88,8 +86,8 @@ class TaskDescriptor:
         <class 'archcare.core.formatter.DefaultFormatter'>
 
     See Also:
-        - [TaskRegistry][]: Registry that stores and looks up descriptors
-        - [TaskDetailFormatter][]: Formatter protocol
+        - [`TaskRegistry`][]: Registry that stores and looks up descriptors
+        - [`TaskDetailFormatter`][]: Formatter protocol
     """
 
     name: str
@@ -103,44 +101,10 @@ class TaskRegistry:
     detail formatter.
 
     The registry is constructed once during application initialization from a tuple of
-    [TaskDescriptor][] objects. It provides O(1) lookups for task classes and formatters by name.
+    [`TaskDescriptor`][] objects. It provides O(1) lookups for task classes and formatters by name.
 
     The registry is populated from `DEFAULT_TASK_REGISTRY` in `cli/context.py`, which defines all
     built-in tasks and their formatters.
-
-    Attributes:
-        _by_name (dict[str, TaskDescriptor]): Internal mapping of task name to descriptor.
-            Not intended for direct access; use the public methods instead.
-
-    Examples:
-        >>> from archcare.core.task_registry import TaskRegistry, TaskDescriptor
-        >>> from archcare.core.base_task import BaseTask
-        >>> from archcare.core.formatter import DefaultFormatter
-        >>> from archcare.core.models import TaskResult, success
-        >>>
-        >>> class TaskA(BaseTask):
-        ...     def execute(self) -> TaskResult:
-        ...         return success("A done")
-        >>> class TaskB(BaseTask):
-        ...     def execute(self) -> TaskResult:
-        ...         return success("B done")
-        >>>
-        >>> registry = TaskRegistry(
-        ...     (
-        ...         TaskDescriptor("task-a", TaskA),
-        ...         TaskDescriptor("task-b", TaskB),
-        ...     )
-        ... )
-        >>> registry.names()
-        ('task-a', 'task-b')
-        >>> registry.get_task_class("task-a")
-        <class '...TaskA'>
-        >>> registry.get_formatter_class("task-b")
-        <class 'archcare.core.formatter.DefaultFormatter'>
-
-    See Also:
-        - [archcare.core.executor.TaskExecutor][]: Consumes this registry
-        - [archcare.core.exceptions.TaskNotRegisteredError][]: Raised on failed lookups
     """
 
     def __init__(self, descriptors: tuple[TaskDescriptor, ...]):
@@ -158,13 +122,32 @@ class TaskRegistry:
         Examples:
             >>> from archcare.core.task_registry import TaskRegistry, TaskDescriptor
             >>> from archcare.core.base_task import BaseTask
+            >>> from archcare.core.formatter import DefaultFormatter
             >>> from archcare.core.models import TaskResult, success
-            >>> class T(BaseTask):
+            >>>
+            >>> class TaskA(BaseTask):
             ...     def execute(self) -> TaskResult:
-            ...         return success("ok")
-            >>> registry = TaskRegistry((TaskDescriptor("t", T),))
-            >>> len(registry._by_name)
-            1
+            ...         return success("A done")
+            >>> class TaskB(BaseTask):
+            ...     def execute(self) -> TaskResult:
+            ...         return success("B done")
+            >>>
+            >>> registry = TaskRegistry(
+            ...     (
+            ...         TaskDescriptor("task-a", TaskA),
+            ...         TaskDescriptor("task-b", TaskB),
+            ...     )
+            ... )
+            >>> registry.names()
+            ('task-a', 'task-b')
+            >>> registry.get_task_class("task-a")
+            <class '...TaskA'>
+            >>> registry.get_formatter_class("task-b")
+            <class 'archcare.core.formatter.DefaultFormatter'>
+
+        See Also:
+            - [`TaskExecutor`][archcare.core.executor.TaskExecutor]: Consumes this registry
+            - [`TaskNotRegisteredError`][]: Raised on failed lookups
         """
         self._by_name = {d.name: d for d in descriptors}
 
@@ -172,14 +155,14 @@ class TaskRegistry:
         """
         Look up the task class registered under `name`.
 
-        Retrieves the concrete [BaseTask][] subclass associated with the given task name.
+        Retrieves the concrete [`BaseTask`][] subclass associated with the given task name.
 
         Args:
             name (str): The task name to look up (e.g., "health-check").
 
         Returns:
             (type[BaseTask]): The task class for instantiation by
-                [TaskExecutor][archcare.core.executor.TaskExecutor].
+                [`TaskExecutor`][archcare.core.executor.TaskExecutor].
 
         Raises:
             TaskNotRegisteredError: If no task is registered under the given name. The error message
@@ -215,14 +198,14 @@ class TaskRegistry:
         """
         Look up the detail formatter for `name`, or DefaultFormatter if no formatter is registered.
 
-        Retrieves the [TaskDetailFormatter][] implementation for rendering the task's
+        Retrieves the [`TaskDetailFormatter`][] implementation for rendering the task's
         result details in the CLI.
 
         Args:
             name (str): The task name to look up (e.g., "health-check").
 
         Returns:
-            (type[TaskDetailFormatter]): The formatter class. Defaults to [DefaultFormatter][] if
+            (type[TaskDetailFormatter]): The formatter class. Defaults to [`DefaultFormatter`][] if
                 the descriptor didn't specify a custom formatter.
 
         Raises:

@@ -2,24 +2,24 @@
 Task detail formatters.
 
 Concrete implementations of the
-[TaskDetailFormatter][archcare.core.formatter.TaskDetailFormatter] port, each rendering one task's
+[`TaskDetailFormatter`][archcare.core.formatter.TaskDetailFormatter] port, each rendering one task's
 execution details as Rich-markup terminal output. Routing from task name to formatter class lives in
-[TaskRegistry][archcare.core.task_registry.TaskRegistry], not here — this module only supplies the
+[`TaskRegistry`][archcare.core.task_registry.TaskRegistry], not here — this module only supplies the
 CLI-specific rendering for each domain.
 
 Each formatter returns a list of Rich-markup strings, which are appended to the task result panel by
-[TaskPresenter][archcare.cli.presenters.task_presenter.TaskPresenter] in verbose mode.
+[`TaskPresenter`][archcare.cli.presenters.task_presenter.TaskPresenter] in verbose mode.
 
 Formatters provided:
 
-- [FailedServicesFormatter][]: failed systemd units, with log excerpts
-- [HealthCheckFormatter][]: health issues plus system resource summary
-- [MirrorlistUpdateFormatter][]: mirror count changes, backup path, previous update time
-- [MaintenanceCheckFormatter][]: tasks needing attention plus schedule summary
+- [`FailedServicesFormatter`][]: failed systemd units, with log excerpts
+- [`HealthCheckFormatter`][]: health issues plus system resource summary
+- [`MirrorlistUpdateFormatter`][]: mirror count changes, backup path, previous update time
+- [`MaintenanceCheckFormatter`][]: tasks needing attention plus schedule summary
 
 See Also:
-    - [archcare.core.formatter][]: The port (protocol) these implement
-    - [archcare.core.task_registry][]: Name → formatter routing
+    - [`archcare.core.formatter`][]: The port (protocol) these implement
+    - [`TaskRegistry`][archcare.core.task_registry.TaskRegistry]: Name → formatter routing
 """
 
 from archcare.core import (
@@ -43,11 +43,11 @@ class FailedServicesFormatter:
     last few journal log lines.
 
     See also:
-        - [TaskRegistry][archcare.core.task_registry.TaskRegistry]: The place where the formatters
+        - [`TaskRegistry`][archcare.core.task_registry.TaskRegistry]: The place where the formatters
             get registered
-        - [render_run][archcare.cli.presenters.task_presenter.TaskPresenter.render_run]: The method
-            which uses this presenter
-        - [FailedServicesTask][archcare.tasks.failed_services.FailedServicesTask]: The task that
+        - [`render_run`][archcare.cli.presenters.task_presenter.TaskPresenter.render_run]: The
+            method which uses this presenter
+        - [`FailedServicesTask`][archcare.tasks.failed_services.FailedServicesTask]: The task that
             this formatter renders the details for
     """
 
@@ -111,11 +111,11 @@ class HealthCheckFormatter:
     database and installed package health, and system uptime.
 
     See also:
-        - [TaskRegistry][archcare.core.task_registry.TaskRegistry]: The place where the formatters
+        - [`TaskRegistry`][archcare.core.task_registry.TaskRegistry]: The place where the formatters
             get registered
-        - [render_run][archcare.cli.presenters.task_presenter.TaskPresenter.render_run]: The method
-            which uses this presenter
-        - [HealthCheckTask][archcare.tasks.health_check.HealthCheckTask]: The task that this
+        - [`render_run`][archcare.cli.presenters.task_presenter.TaskPresenter.render_run]: The
+            method which uses this presenter
+        - [`HealthCheckTask`][archcare.tasks.health_check.HealthCheckTask]: The task that this
             formatter renders the details for
     """
 
@@ -124,7 +124,7 @@ class HealthCheckFormatter:
         Render `health-check` task details as Rich-markup lines.
 
         Args:
-            details (HealthCheckDetails): Issues/warnings lists plus the [HealthCheckSummary][]
+            details (HealthCheckDetails): Issues/warnings lists plus the [`HealthCheckSummary`][]
                 from the health-check run.
 
         Returns:
@@ -203,11 +203,11 @@ class MirrorlistUpdateFormatter:
     the output.
 
     See also:
-        - [TaskRegistry][archcare.core.task_registry.TaskRegistry]: The place where the formatters
+        - [`TaskRegistry`][archcare.core.task_registry.TaskRegistry]: The place where the formatters
             get registered
-        - [render_run][archcare.cli.presenters.task_presenter.TaskPresenter.render_run]: The method
-            which uses this presenter
-        - [MirrorlistUpdateTask][archcare.tasks.mirrorlist_update.MirrorlistUpdateTask]: The task
+        - [`render_run`][archcare.cli.presenters.task_presenter.TaskPresenter.render_run]: The
+            method which uses this presenter
+        - [`MirrorlistUpdateTask`][archcare.tasks.mirrorlist_update.MirrorlistUpdateTask]: The task
             that this formatter renders the details for
     """
 
@@ -244,14 +244,14 @@ class MaintenanceCheckFormatter:
     Renders the tasks needing attention (with severity badges: red `❗ CRITICAL` or yellow
     `⚠ WARNING`) followed by a schedule summary (total monitored tasks and counts by severity).
     This is a compact textual alternative to the full report rendered by
-    [MaintenanceCheckPresenter][archcare.cli.presenters.maintenance_presenter.MaintenanceCheckPresenter].
+    [`MaintenanceCheckPresenter`][archcare.cli.presenters.maintenance_presenter.MaintenanceCheckPresenter].
 
     See also:
-        - [TaskRegistry][archcare.core.task_registry.TaskRegistry]: The place where the formatters
+        - [`TaskRegistry`][archcare.core.task_registry.TaskRegistry]: The place where the formatters
             get registered
-        - [render_run][archcare.cli.presenters.task_presenter.TaskPresenter.render_run]: The method
-            which uses this presenter
-        - [MaintenanceCheckTask][archcare.tasks.maintenance_check.MaintenanceCheckTask]: The task
+        - [`render_run`][archcare.cli.presenters.task_presenter.TaskPresenter.render_run]: The
+            method which uses this presenter
+        - [`MaintenanceCheckTask`][archcare.tasks.maintenance_check.MaintenanceCheckTask]: The task
             that this formatter renders the details for
     """
 
@@ -261,7 +261,7 @@ class MaintenanceCheckFormatter:
 
         Args:
             details (MaintenanceCheckDetails): Tasks needing attention plus the
-                [MaintenanceCheckSummary][] from the maintenance-check run.
+                [`MaintenanceCheckSummary`][] from the maintenance-check run.
 
         Returns:
             (list[str]): Rich-markup lines with the "Tasks needing attention" section (when present)

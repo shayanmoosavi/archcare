@@ -11,7 +11,7 @@ Defines the `archcare setup` sub-app and its two commands:
     automated task. Must run via `sudo` since it touches `/etc/systemd/system/`; the target user is
     resolved from `SUDO_USER`.
 
-All terminal output is delegated to [SetupPresenter][]; commands stay thin and translate each
+All terminal output is delegated to [`SetupPresenter`][]; commands stay thin and translate each
 failure mode into a presenter call plus a non-zero exit.
 """
 
@@ -48,8 +48,8 @@ def setup_config():
     Initialize archcare configuration files.
 
     Prompts the user (via Typer) to overwrite any pre-existing TOML config files in the standard
-    config directory, then delegates to [ConfigService.initialize][] to write the defaults. The full
-    result is rendered via [SetupPresenter][].
+    config directory, then delegates to [`ConfigService.initialize`][] to write the defaults. The
+    full result is rendered via [`SetupPresenter`][].
     """
     service = ConfigService()
 
@@ -93,16 +93,16 @@ def setup_timers(
     """
     Set up systemd timers for automated task execution.
 
-    Resolves the target user via [resolve_systemd_target_user][] (raising a non-zero exit if not
+    Resolves the target user via [`resolve_systemd_target_user`][] (raising a non-zero exit if not
     root or if `SUDO_USER` is unset/invalid), then builds a fresh executor scoped to that user via
-    [executor_for_user][archcare.cli.context.AppContext.executor_for_user] and constructs a
-    [TimerService][] for the install/reload/enable pipeline. Each step is rendered by the matching
-    [SetupPresenter][] helper. The `dry_run` flag short-circuits all filesystem writes and systemctl
-    invocations, ending with the dry-run completion notice.
+    [`executor_for_user`][archcare.cli.context.AppContext.executor_for_user] and constructs a
+    [`TimerService`][] for the install/reload/enable pipeline. Each step is rendered by the matching
+    [`SetupPresenter`][] helper. The `dry_run` flag short-circuits all filesystem writes and
+    systemctl invocations, ending with the dry-run completion notice.
 
     Args:
         ctx (typer.Context): Typer context whose `obj` is an
-            [AppContext][archcare.cli.context.AppContext].
+            [`AppContext`][archcare.cli.context.AppContext].
         enable (bool): When `True`, enable+start the per-task timers after installation. Defaults
             to `True`.
         dry_run (bool): When `True`, perform no filesystem or systemctl writes; just print what

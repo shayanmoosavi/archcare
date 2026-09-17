@@ -2,18 +2,18 @@
 Debug service - business logic for the `debug` command group.
 
 Currently provides a single capability: sending a test desktop notification
-([DebugService.test_notification][]) so users can verify that `notify-send`/libnotify works before
-archcare relies on it during task runs ([NotificationManager][]).
+([`DebugService.test_notification`][]) so users can verify that `notify-send`/libnotify works before
+archcare relies on it during task runs ([`NotificationManager`][]).
 
 Severity presets (`critical`, `warning`, `info`) are defined in the module-level `_SEVERITY_CONFIG`
 mapping, which pairs each severity with a notification urgency, icon, and title template.
 
-All methods return response DTOs from [archcare.services.responses][] so the CLI layer never
+All methods return response DTOs from [`archcare.services.responses`][] so the CLI layer never
 handles raw business state.
 
 See Also:
-    - [archcare.services.exceptions][]: Service-layer error hierarchy used here
-    - [archcare.cli.commands.debug][]: CLI commands delegating to this service
+    - [`archcare.services.exceptions`][]: Service-layer error hierarchy used here
+    - [`archcare.cli.commands.debug`][]: CLI commands delegating to this service
 """
 
 from typing import Any
@@ -59,10 +59,6 @@ class DebugService:
     Wraps the notification subsystem for diagnostics: validates the requested severity, checks that
     desktop notifications are available on this system, and sends a sample notification — surfacing
     each failure mode as a distinct, user-actionable exception.
-
-    Attributes:
-        notification_manager (NotificationManager): Manager used to probe availability and dispatch
-            the test notification.
     """
 
     def __init__(self, notification_manager: NotificationManager):
@@ -99,14 +95,6 @@ class DebugService:
 
         Side Effects:
             Displays a desktop notification on the user's session via `notify-send`.
-
-        Examples:
-            ```python
-            response = DebugService(NotificationManager()).test_notification()
-            # -> NotificationTestResponse(
-            #        severity="warning", title="Testing severity `warning`"
-            #    )
-            ```
         """
         config = _SEVERITY_CONFIG.get(severity)
         if config is None:

@@ -1,18 +1,18 @@
 """
 Low-level hardware metrics collection for Archcare.
 
-Provides psutil-based helpers to query disk, memory, and CPU statistics.
-All functions return frozen dataclasses from [archcare.utils.info_models][]:
-[DiskUsageInfo][], [MemoryInfo][], and [CpuInfo][].
+Provides psutil-based helpers to query disk, memory, and CPU statistics. All functions return frozen
+dataclasses from [`archcare.utils.info_models`][]: [`DiskUsageInfo`][], [`MemoryInfo`][],
+and [`CpuInfo`][].
 
 Each function handles psutil failures gracefully by logging an error and
 returning a zero-initialized instance of the corresponding dataclass, so
 callers never need to catch exceptions.
 
 See Also:
-    - [archcare.utils.info_models][]: Structured return types for all queries.
-    - [archcare.utils.system][]: Systemd/service-level queries.
-    - [HealthCheckTask][archcare.tasks.health_check.HealthCheckTask]: Task that
+    - [`archcare.utils.info_models`][]: Structured return types for all queries.
+    - [`archcare.utils.system`][]: Systemd/service-level queries.
+    - [`HealthCheckTask`][archcare.tasks.health_check.HealthCheckTask]: Task that
         composes these into a health check.
 """
 
@@ -28,7 +28,7 @@ def get_disk_usage(path: str = "/") -> DiskUsageInfo:
     """
     Get disk usage statistics for a filesystem mount point.
 
-    Wraps `psutil.disk_usage` to return a structured [DiskUsageInfo][]
+    Wraps `psutil.disk_usage` to return a structured [`DiskUsageInfo`][]
     instance with total, used, free bytes, and percentage utilization.
 
     Args:
@@ -58,7 +58,7 @@ def get_memory_info() -> MemoryInfo:
     Get system memory (RAM and swap) usage statistics.
 
     Wraps `psutil.virtual_memory` and `psutil.swap_memory` to return a
-    structured [MemoryInfo][] instance with physical and swap memory metrics.
+    structured [`MemoryInfo`][] instance with physical and swap memory metrics.
 
     Returns:
         MemoryInfo: Memory metrics including total/available/used bytes and
@@ -89,7 +89,7 @@ def get_cpu_info() -> CpuInfo:
     Get CPU utilization and load average information.
 
     Wraps `psutil.cpu_percent`, `psutil.cpu_count`, and `os.getloadavg`
-    to return a structured [CpuInfo][] instance. The CPU percent is measured
+    to return a structured [`CpuInfo`][] instance. The CPU percent is measured
     over a 1-second interval.
 
     Returns:

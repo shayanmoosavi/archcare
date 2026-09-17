@@ -166,7 +166,7 @@ for a non-CLI frontend; it is documented in detail on the [ports page](registry-
 
 Task name → execution class → detail formatter is resolved in exactly one place:
 [`TaskRegistry`][archcare.core.task_registry.TaskRegistry], populated by the
-`DEFAULT_TASK_REGISTRY` constant in [`archcare.cli.context`][archcare.cli.context]. Adding a task
+`DEFAULT_TASK_REGISTRY` constant in [`archcare.cli.context`][]. Adding a task
 is a registration, not a scattering of changes — see the
 [adding-a-task guide](../guides/adding-a-task.md).
 

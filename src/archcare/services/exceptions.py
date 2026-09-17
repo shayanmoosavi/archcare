@@ -1,8 +1,8 @@
 """
 Domain exceptions for the Archcare service layer.
 
-This module defines the exception hierarchy for [archcare.services][]. All exceptions derive from
-[ArchcareServiceError][], which in turn derives from the global [ArchcareError][] root. This lets
+This module defines the exception hierarchy for [`archcare.services`][]. All exceptions derive from
+`ArchcareServiceError`, which in turn derives from the global [`ArchcareError`][] root. This lets
 the CLI catch all service-layer failures with a single `except ArchcareError` clause while still
 allowing precise per-exception handling where needed.
 
@@ -10,26 +10,35 @@ Exception map:
 
 |            Exception                |                     Raised when                      |
 | ----------------------------------- | ---------------------------------------------------- |
-| [TaskNotFoundError][]               | A task name isn't present in tasks.toml              |
-| [InvalidTasksFileError][]           | The tasks file is empty                              |
-| [InvalidTaskTypeError][]            | A `--type` filter isn't 'automated' or 'manual'      |
-| [NotRootError][]                    | A sudo-required command runs without root            |
-| [UserDetectionError][]              | Target user can't be resolved during systemd setup   |
-| [SystemdReloadError][]              | `systemctl daemon-reload` fails                      |
-| [ConfigNotInitializedError][]       | Configuration doesn't exist yet (no tasks.toml)      |
-| [InvalidSeverityError][]            | A severity argument isn't critical/warning/info      |
-| [NotificationUnavailableError][]    | `notify-send`/libnotify is missing                   |
-| [NotificationSendError][]           | A test notification fails to send                    |
+| [`TaskNotFoundError`][]             | A task name isn't present in tasks.toml              |
+| [`InvalidTasksFileError`][]         | The tasks file is empty                              |
+| [`InvalidTaskTypeError`][]          | A `--type` filter isn't 'automated' or 'manual'      |
+| [`NotRootError`][]                  | A sudo-required command runs without root            |
+| [`UserDetectionError`][]            | Target user can't be resolved during systemd setup   |
+| [`SystemdReloadError`][]            | `systemctl daemon-reload` fails                      |
+| [`ConfigNotInitializedError`][]     | Configuration doesn't exist yet (no tasks.toml)      |
+| [`InvalidSeverityError`][]          | A severity argument isn't critical/warning/info      |
+| [`NotificationUnavailableError`][]  | `notify-send`/libnotify is missing                   |
+| [`NotificationSendError`][]         | A test notification fails to send                    |
 
 Exceptions carrying contextual data (e.g., the offending task name or severity) expose it as public
 attributes so callers can build richer messages.
 
+Exception Hierarchy:
+    ```mermaid
+    flowchart LR
+    BASE["ArchcareError (base)"]
+    SVC[ArchcareServiceError]
+
+    BASE --> SVC --> A[Errors in this module]
+    ```
+
 See Also:
-    - [ArchcareError][]: Global exception root
-    - [TaskService][archcare.services.task_service.TaskService]: Primary raiser of
+    - [`ArchcareError`][]: Root exception for all Archcare exceptions
+    - [`TaskService`][archcare.services.task_service.TaskService]: Primary raiser of
         task-related errors
-    - [archcare.services.setup_service][]: Raises setup/systemd-related errors
-    - [archcare.services.debug_service][]: Raises notification-related errors
+    - [`archcare.services.setup_service`][]: Raises setup/systemd-related errors
+    - [`archcare.services.debug_service`][]: Raises notification-related errors
 """
 
 from archcare.exceptions import ArchcareError
@@ -40,7 +49,7 @@ class ArchcareServiceError(ArchcareError):
     Base class for all service-layer errors.
 
     Subclasses of this exception represent recoverable, user-facing failures in the services layer.
-    Deriving from [ArchcareError][] means the CLI can catch the entire application error domain
+    Deriving from [`ArchcareError`][] means the CLI can catch the entire application error domain
     uniformly.
     """
 
@@ -115,7 +124,7 @@ class UserDetectionError(ArchcareServiceError):
     which user's systemd units to manage.
 
     See Also:
-        - [UserContext][archcare.config.user.UserContext]: Resolves the target user
+        - [`UserContext`][archcare.config.user.UserContext]: Resolves the target user
     """
 
 
@@ -171,7 +180,7 @@ class NotificationUnavailableError(ArchcareServiceError):
     Raised when notify-send/libnotify isn't available on this system.
 
     Detected by the lazy availability check in
-    [NotificationManager][archcare.core.notifications.NotificationManager];
+    [`NotificationManager`][archcare.core.notifications.NotificationManager];
     prevents attempting to send notifications on headless or minimal systems.
     """
 

@@ -1,28 +1,28 @@
 """
 Response data transfer objects (DTOs) returned by the Archcare service layer.
 
-These frozen-in-practice dataclasses are the contract between [archcare.services][] (business logic)
-and [archcare.cli][] (presentation). Service methods build and return these responses; CLI
+These frozen-in-practice dataclasses are the contract between [`archcare.services`][] (business
+logic) and [`archcare.cli`][] (presentation). Service methods build and return these responses; CLI
 presenters consume them and render terminal output. Keeping presentation concerns out of the
 services layer preserves the ability to swap in a GUI frontend that consumes the same DTOs.
 
 Response families:
 
-- **Task operations** ([TaskRunResponse][], [TaskListResponse][], [TaskStatusResponse][]): returned
-    by `TaskService` for running, listing, and checking task schedules.
-- **Setup operations** ([ConfigInitResponse][], [InstallTemplatesResponse][],
-    [ReloadSystemdResponse][], [TimerEnableResponse][], [TimerSetupResponse][]): returned by
-    [ConfigService][archcare.services.setup_service.ConfigService] and
-    [TimerService][archcare.services.setup_service.TimerService] for configuration creation and
+- **Task operations** ([`TaskRunResponse`][], [`TaskListResponse`][], [`TaskStatusResponse`][]):
+    returned by `TaskService` for running, listing, and checking task schedules.
+- **Setup operations** ([`ConfigInitResponse`][], [`InstallTemplatesResponse`][],
+    [`ReloadSystemdResponse`][], [`TimerEnableResponse`][], [`TimerSetupResponse`][]): returned by
+    [`ConfigService`][archcare.services.setup_service.ConfigService] and
+    [`TimerService`][archcare.services.setup_service.TimerService] for configuration creation and
     systemd timer installation.
-- **Debug operations** ([NotificationTestResponse][]): returned by `DebugService` for
+- **Debug operations** ([`NotificationTestResponse`][]): returned by `DebugService` for
     notification testing.
 
 See Also:
-    - [TaskService][archcare.services.task_service.TaskService]: Producer of
+    - [`TaskService`][archcare.services.task_service.TaskService]: Producer of
         task-operation responses
-    - [archcare.services.setup_service][]: Producer of setup-operation responses
-    - [archcare.services.debug_service][]: Producer of debug-operation responses
+    - [`archcare.services.setup_service`][]: Producers of setup-operation responses
+    - [`DebugService`][archcare.services.debug_service]: Producer of debug-operation responses
 """
 
 from dataclasses import dataclass
@@ -46,9 +46,10 @@ class TaskRunResponse:
             rich vs. quiet output formatting.
 
     See also:
-        - [run_task][archcare.services.task_service.TaskService.run_task]: Producer of this response
-        - [render_run][archcare.cli.presenters.task_presenter.TaskPresenter.render_run]: Consumer of
-            this response
+        - [`run_task`][archcare.services.task_service.TaskService.run_task]: Producer
+            of this response
+        - [`render_run`][archcare.cli.presenters.task_presenter.TaskPresenter.render_run]: Consumer
+            of this response
     """
 
     task_name: str
@@ -68,10 +69,10 @@ class TaskListResponse:
             (`"automated"`, `"manual"`), or `None` when unfiltered.
 
     See also:
-        - [list_tasks][archcare.services.task_service.TaskService.list_tasks]: Producer of
+        - [`list_tasks`][archcare.services.task_service.TaskService.list_tasks]: Producer of
             this response
-        - [render_list][archcare.cli.presenters.task_presenter.TaskPresenter.render_list]: Consumer
-            of this response
+        - [`render_list`][archcare.cli.presenters.task_presenter.TaskPresenter.render_list]:
+            Consumer of this response
     """
 
     tasks: dict[str, TaskConfig]
@@ -87,15 +88,15 @@ class TaskStatusResponse:
         schedule_info (list[TaskScheduleInfo]): Per-task schedule details (last run, next due,
             days overdue) from the scheduler.
         summary (dict[str, int] | None): Aggregate maintenance counts by category (as computed by
-            [TaskScheduler.get_maintenance_summary][archcare.core.scheduler.TaskScheduler.get_maintenance_summary]),
+            [`TaskScheduler.get_maintenance_summary`][archcare.core.scheduler.TaskScheduler.get_maintenance_summary]),
             or `None` when a single task was queried.
         due_only (bool): Whether the query was restricted to due tasks (`--due` flag), which
             suppresses not-yet-due entries.
 
     See also:
-        - [get_task_status][archcare.services.task_service.TaskService.get_task_status]: Producer of
-            this response
-        - [render_status][archcare.cli.presenters.task_presenter.TaskPresenter.render_status]:
+        - [`get_task_status`][archcare.services.task_service.TaskService.get_task_status]: Producer
+            of this response
+        - [`render_status`][archcare.cli.presenters.task_presenter.TaskPresenter.render_status]:
             Consumer of this response
     """
 
@@ -117,9 +118,9 @@ class ConfigInitResponse:
             untouched to preserve user customizations.
 
     See also:
-        - [initialize][archcare.services.setup_service.ConfigService.initialize]: Producer of
+        - [`initialize`][archcare.services.setup_service.ConfigService.initialize]: Producer of
             this response
-        - [SetupPresenter][archcare.cli.presenters.setup_presenter.SetupPresenter]: Consumer of
+        - [`SetupPresenter`][archcare.cli.presenters.setup_presenter.SetupPresenter]: Consumer of
             this response (`render_config_init()`)
     """
 
@@ -139,9 +140,9 @@ class InstallTemplatesResponse:
         dry_run (bool): `True` when only the planned paths were reported without writing any files.
 
     See also:
-        - [install_templates][archcare.services.setup_service.TimerService.install_templates]:
+        - [`install_templates`][archcare.services.setup_service.TimerService.install_templates]:
             Producer of this response
-        - [SetupPresenter][archcare.cli.presenters.setup_presenter.SetupPresenter]: Consumer of
+        - [`SetupPresenter`][archcare.cli.presenters.setup_presenter.SetupPresenter]: Consumer of
             this response (`render_template_installation()`)
     """
 
@@ -159,9 +160,9 @@ class ReloadSystemdResponse:
         dry_run (bool): `True` when `systemctl daemon-reload` was skipped and only reported.
 
     See also:
-        - [reload][archcare.services.setup_service.TimerService.reload]: Producer of
+        - [`reload`][archcare.services.setup_service.TimerService.reload]: Producer of
             this response
-        - [SetupPresenter][archcare.cli.presenters.setup_presenter.SetupPresenter]: Consumer of
+        - [`SetupPresenter`][archcare.cli.presenters.setup_presenter.SetupPresenter]: Consumer of
             this response (`render_systemd_reload()`)
     """
 
@@ -173,7 +174,7 @@ class TimerEnableResponse:
     """
     Outcome of `systemctl enable --now` for a single timer.
 
-    Used by [TimerService.setup_timers][archcare.services.setup_service.TimerService.setup_timers]
+    Used by [`TimerService.setup_timers`][archcare.services.setup_service.TimerService.setup_timers]
     to aggregate the results of each individual installed systemd timer.
 
     Attributes:
@@ -182,7 +183,7 @@ class TimerEnableResponse:
         enabled (bool): Whether the enable-and-start operation succeeded.
 
     See also:
-        [TimerSetupResponse][]: The aggregator of this response
+        [`TimerSetupResponse`][]: The aggregator of this response
     """
 
     timer_name: str
@@ -206,9 +207,9 @@ class TimerSetupResponse:
             were not enabled.
 
     See also:
-        - [setup_timers][archcare.services.setup_service.TimerService.setup_timers]: Producer of
+        - [`setup_timers`][archcare.services.setup_service.TimerService.setup_timers]: Producer of
             this response
-        - [SetupPresenter][archcare.cli.presenters.setup_presenter.SetupPresenter]: Consumer of
+        - [`SetupPresenter`][archcare.cli.presenters.setup_presenter.SetupPresenter]: Consumer of
             this response (`render_timer_setup()`)
     """
 
@@ -227,9 +228,9 @@ class NotificationTestResponse:
         title (str): Title text of the notification that was sent.
 
     See also:
-        - [test_notification][archcare.services.debug_service.DebugService.test_notification]:
+        - [`test_notification`][archcare.services.debug_service.DebugService.test_notification]:
             Producer of this response
-        - [DebugPresenter][archcare.cli.presenters.debug_presenter.DebugPresenter]: Consumer of
+        - [`DebugPresenter`][archcare.cli.presenters.debug_presenter.DebugPresenter]: Consumer of
             this response (`render_test_notification()`)
     """
 

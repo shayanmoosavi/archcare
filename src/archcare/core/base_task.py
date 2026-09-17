@@ -15,10 +15,11 @@ Key features:
     - Real-time task progress reporting hook integration
 
 See Also:
-    - [TaskExecutor][archcare.core.executor.TaskExecutor]: Coordinates the lifecycle
+    - [`archcare.tasks`][]: Concrete implementations of `BaseTask`
+    - [`TaskExecutor`][archcare.core.executor.TaskExecutor]: Coordinates the lifecycle
         and execution of tasks
-    - [TaskResult][]: Schema representation of task run outcomes
-    - [TaskProgress][]: Protocol used to report execution milestones
+    - [`TaskResult`][]: Schema representation of task run outcomes
+    - [`TaskProgress`][]: Protocol used to report execution milestones
 """
 
 import time
@@ -80,6 +81,7 @@ class BaseTask(ABC):
         self.settings = settings
         self.notification_manager = notification_manager
         self.progress = progress or NoOpProgress()
+        # TODO: Check whether `name` should be a public attribute.
         self.name = config.name
         self._start_time: int | float = 0.0
 
@@ -258,11 +260,11 @@ class BaseTask(ABC):
             - Performs filesystem and/or ownership state mutations depending on subclasses.
 
         See Also:
-            - [pre_check][]: Prerequisite verification hook
-            - [should_run][]: Dynamic execution requirement hook
-            - [execute][]: Core logic hook
-            - [post_execute][]: Post-run hook
-            - [rollback][]: Error recovery hook
+            - [`pre_check`][]: Prerequisite verification hook
+            - [`should_run`][]: Dynamic execution requirement hook
+            - [`execute`][]: Core logic hook
+            - [`post_execute`][]: Post-run hook
+            - [`rollback`][]: Error recovery hook
         """
         self.set_start_time()
 

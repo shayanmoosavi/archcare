@@ -3,7 +3,7 @@ Per-task detail schemas for Archcare.
 
 Concrete dataclasses describing the `details` payload each task produces.
 Tasks construct one of these explicitly and pass it to a
-[TaskResult][] factory
+[`TaskResult`][] factory
 (`success`, `failed`, `skipped`, `partial`).
 
 Each task type has a dedicated details class:
@@ -27,14 +27,8 @@ Examples:
     1
 
 See Also:
-    - [TaskResult][archcare.core.models.TaskResult]: Generic result container using these details
-    - [FailedServicesTask][archcare.tasks.failed_services.FailedServicesTask]:
-        Produces `FailedServicesDetails`
-    - [HealthCheckTask][archcare.tasks.health_check.HealthCheckTask]: Produces `HealthCheckDetails`
-    - [MirrorlistUpdateTask][archcare.tasks.mirrorlist_update.MirrorlistUpdateTask]:
-        Produces `MirrorlistUpdateDetails`
-    - [MaintenanceCheckTask][archcare.tasks.maintenance_check.MaintenanceCheckTask]:
-        Produces `MaintenanceCheckDetails`
+    - [`TaskResult`][archcare.core.models.TaskResult]: Generic result container using these details
+    - [`archcare.tasks`][]: Concrete task implementations that use these details
 """
 
 from dataclasses import dataclass, field
@@ -51,7 +45,7 @@ class FailedServiceInfo:
 
     Captures the state of a failed unit as reported by `systemctl show`
     and journal logs. Used as list items in `failed_services` attribute
-    of [FailedServicesDetails][].
+    of [`FailedServicesDetails`][].
 
     Attributes:
         service (str): The systemd unit name (e.g., "nginx.service").
@@ -80,8 +74,8 @@ class FailedServiceInfo:
         'failed'
 
     See Also:
-        - [FailedServicesDetails][]: Container for multiple services
-        - [FailedServicesTask][archcare.tasks.failed_services.FailedServicesTask]:
+        - [`FailedServicesDetails`][]: Container for multiple services
+        - [`FailedServicesTask`][archcare.tasks.failed_services.FailedServicesTask]:
             Task that produces this
     """
 
@@ -132,9 +126,9 @@ class FailedServicesDetails:
         1
 
     See Also:
-        - [FailedServiceInfo][]: Individual service details
-        - [FailedServicesTask][archcare.tasks.failed_services.FailedServicesTask]: Producer task
-        - [IgnoredServicesConfig][archcare.config.models.IgnoredServicesConfig]:
+        - [`FailedServiceInfo`][]: Individual service details
+        - [`FailedServicesTask`][archcare.tasks.failed_services.FailedServicesTask]: Producer task
+        - [`IgnoredServicesConfig`][archcare.config.models.IgnoredServicesConfig]:
             Ignore list configuration
     """
 
@@ -148,7 +142,7 @@ class FailedServicesDetails:
 @dataclass(frozen=True)
 class MaintenanceCheckSummary:
     """
-    The `summary` sub-structure within [MaintenanceCheckDetails][].
+    The `summary` sub-structure within [`MaintenanceCheckDetails`][].
 
     Provides aggregated counts of issues by severity and computed properties
     for quick status checks and human-readable messages.
@@ -181,8 +175,8 @@ class MaintenanceCheckSummary:
         'All maintenance tasks are up to date!'
 
     See Also:
-        - [MaintenanceCheckDetails][]: Parent container
-        - [MaintenanceCheckSettings][archcare.config.models.MaintenanceCheckSettings]:
+        - [`MaintenanceCheckDetails`][]: Parent container
+        - [`MaintenanceCheckSettings`][archcare.config.models.MaintenanceCheckSettings]:
             Threshold configuration
     """
 
@@ -259,7 +253,7 @@ class MaintenanceCheckSummary:
 class MaintenanceCheckDetails:
     """
     Details produced by
-    [MaintenanceCheckTask.execute][archcare.tasks.maintenance_check.MaintenanceCheckTask.execute].
+    [`MaintenanceCheckTask.execute`][archcare.tasks.maintenance_check.MaintenanceCheckTask.execute].
 
     Contains categorized lists of overdue tasks by severity level, plus a
     computed summary for quick status assessment.
@@ -299,9 +293,9 @@ class MaintenanceCheckDetails:
         1
 
     See Also:
-        - [MaintenanceCheckSummary][]: Summary sub-structure
-        - [MaintenanceIssue][]: Individual issue details
-        - [MaintenanceCheckTask][archcare.tasks.maintenance_check.MaintenanceCheckTask]:
+        - [`MaintenanceCheckSummary`][]: Summary sub-structure
+        - [`MaintenanceIssue`][]: Individual issue details
+        - [`MaintenanceCheckTask`][archcare.tasks.maintenance_check.MaintenanceCheckTask]:
             Producer task
     """
 
@@ -368,7 +362,7 @@ class MaintenanceCheckDetails:
 @dataclass(frozen=True)
 class HealthCheckSummary:
     """
-    The `summary` sub-structure within [HealthCheckDetails][].
+    The `summary` sub-structure within [`HealthCheckDetails`][].
 
     Aggregates key system health metrics into a single snapshot for quick
     assessment and display.
@@ -403,8 +397,8 @@ class HealthCheckSummary:
         45.5
 
     See Also:
-        - [HealthCheckDetails][]: Parent container with issues/warnings
-        - [HealthCheckTask][archcare.tasks.health_check.HealthCheckTask]: Producer task
+        - [`HealthCheckDetails`][]: Parent container with issues/warnings
+        - [`HealthCheckTask`][archcare.tasks.health_check.HealthCheckTask]: Producer task
     """
 
     disk_usage_percent: float = 0.0
@@ -448,8 +442,8 @@ class HealthCheckDetails:
         5
 
     See Also:
-        - [HealthCheckSummary][]: Metrics summary
-        - [HealthCheckTask][archcare.tasks.health_check.HealthCheckTask]: Producer task
+        - [`HealthCheckSummary`][]: Metrics summary
+        - [`HealthCheckTask`][archcare.tasks.health_check.HealthCheckTask]: Producer task
     """
 
     issues: list[str] = field(default_factory=list)
@@ -462,7 +456,7 @@ class HealthCheckDetails:
 class MirrorlistUpdateDetails:
     """
     Details produced by
-    [MirrorlistUpdateTask.execute][archcare.tasks.mirrorlist_update.MirrorlistUpdateTask.execute].
+    [`MirrorlistUpdateTask.execute`][archcare.tasks.mirrorlist_update.MirrorlistUpdateTask.execute].
 
     Captures the before/after state of the pacman mirrorlist, including
     the backup path for potential rollback.
@@ -505,9 +499,10 @@ class MirrorlistUpdateDetails:
         '/etc/pacman.d/mirrorlist.backup.20240115'
 
     See Also:
-        - [archcare.utils.info_models.MirrorlistInfo][]: Mirrorlist metadata
-        - [archcare.tasks.mirrorlist_update.MirrorlistUpdateTask][]: Producer task
-        - [archcare.utils.mirrorlist][]: Mirrorlist parsing and reflector invocation
+        - [`MirrorlistInfo`][]: Mirrorlist metadata
+        - [`MirrorlistUpdateTask`][archcare.tasks.mirrorlist_update.MirrorlistUpdateTask]: Producer
+            task
+        - [`archcare.utils.mirrorlist`][]: Mirrorlist parsing and reflector invocation utilities
     """
 
     old_mirrors: int | None = None

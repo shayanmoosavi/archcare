@@ -37,7 +37,7 @@ listing the names that _are_ registered — which makes a typo self-diagnosing.
 ### Where the registry lives
 
 The production registry is the module-level `DEFAULT_TASK_REGISTRY` constant in
-[`archcare.cli.context`][archcare.cli.context]:
+[`archcare.cli.context`][]:
 
 ```python
 DEFAULT_TASK_REGISTRY = TaskRegistry(

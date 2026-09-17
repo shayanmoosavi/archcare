@@ -1,13 +1,13 @@
 """
-CLI adapter for [TaskExecutor][archcare.core.executor.TaskExecutor]'s progress port.
+CLI adapter for [`TaskExecutor`][archcare.core.executor.TaskExecutor]'s progress port.
 
-Wires [TaskProgress][archcare.core.progress.TaskProgress]'s `start()`, `advance()`, `spinner()`,
+Wires [`TaskProgress`][archcare.core.progress.TaskProgress]'s `start()`, `advance()`, `spinner()`,
 and `stop()` calls to a single Rich `Progress` instance — `total=None` renders as a spinner +
 elapsed time, `total=N` renders as a determinate bar, so one widget covers both cases.
 
 See Also:
-    - [TaskProgress][archcare.core.progress.TaskProgress]: The port this adapter implements
-    - [TaskExecutor][archcare.core.executor.TaskExecutor]: Primary consumer, reporting task step
+    - [`TaskProgress`][archcare.core.progress.TaskProgress]: The port this adapter implements
+    - [`TaskExecutor`][archcare.core.executor.TaskExecutor]: Primary consumer, reporting task step
         progress during runs
 """
 
@@ -29,7 +29,7 @@ from archcare.core import TaskStep
 
 class RichProgress:
     """
-    Terminal implementation of [TaskProgress][archcare.core.progress.TaskProgress] built on a
+    Terminal implementation of [`TaskProgress`][archcare.core.progress.TaskProgress] built on a
     single Rich `Progress` instance.
 
     Supports two display modes: a determinate bar (when `start()` is given a step `total`) and an

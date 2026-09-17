@@ -1,8 +1,8 @@
 """
 Health check task implementation for archcare.
 
-This module provides [HealthCheckTask][], a maintenance task that runs a suite of system health
-checks and aggregates the results into a single report. It is registered in the static task registry
+This module provides `HealthCheckTask`, a maintenance task that runs a suite of system health checks
+and aggregates the results into a single report. It is registered in the static task registry
 and exposed to users as the `health-check` command.
 
 Checks performed (in order):
@@ -31,10 +31,10 @@ Severity semantics:
     integrity check so an interactive sudo password prompt can be displayed cleanly.
 
 See Also:
-    - [BaseTask][]: Abstract workflow this task implements
-    - [TaskResult][]: The structured result object that the task returns
-    - [HealthCheckDetails][]: Details schema produced by this task
-    - [HealthCheckSummary][]: Aggregated metrics snapshot within the details
+    - [`BaseTask`][]: Abstract workflow this task implements
+    - [`TaskResult`][]: The structured result object that the task returns
+    - [`HealthCheckDetails`][]: Details schema produced by this task
+    - [`HealthCheckSummary`][]: Aggregated metrics snapshot within the details
 """
 
 import dataclasses
@@ -70,7 +70,8 @@ class HealthCheckTask(BaseTask):
 
     The task runs seven independent checks — disk space, memory/swap, CPU load, filesystem errors,
     pacman database health, package file integrity, and uptime — and aggregates both the raw metrics
-    (into a [HealthCheckSummary][]) and the categorized findings (into a [HealthCheckDetails][]).
+    (into a [`HealthCheckSummary`][]) and the categorized findings (into a
+    [`HealthCheckDetails`][]).
 
     Severity thresholds:
 
@@ -86,13 +87,13 @@ class HealthCheckTask(BaseTask):
     | Package files          | —                                | unhealthy          |
     | System uptime          | —                                | — (informational)  |
 
-    This task follows the [BaseTask][] Template Method contract. Unlike some tasks, it does not
+    This task follows the [`BaseTask`][] Template Method contract. Unlike some tasks, it does not
     override `pre_check()` or `should_run()`: all checks are read-only queries that are always safe
     to perform, so the task runs whenever scheduled or forced.
 
     Attributes:
         _CHECK_COUNT (int): *(class-level)* Number of individual checks performed, derived from the
-            field count of [HealthCheckSummary][]. Used as the progress bar total and reported as
+            field count of [`HealthCheckSummary`][]. Used as the progress bar total and reported as
             `total_checks` in the result details.
     """
 
@@ -104,7 +105,7 @@ class HealthCheckTask(BaseTask):
 
         Executes each check in sequence, appending critical findings to the `issues` list and
         non-critical findings to the `warnings` list, while advancing the progress bar between
-        checks. Finally, builds a [HealthCheckSummary][] snapshot and selects the outcome:
+        checks. Finally, builds a [`HealthCheckSummary`][] snapshot and selects the outcome:
 
         - `FAILURE` when any critical issue was found
         - `PARTIAL` when only warnings were found
@@ -112,7 +113,7 @@ class HealthCheckTask(BaseTask):
 
         Returns:
             (TaskResult[HealthCheckDetails]):
-                Result whose `details` is a [HealthCheckDetails][] containing the categorized
+                Result whose `details` is a `HealthCheckDetails` containing the categorized
                 `issues`/`warnings` lists, the number of checks performed (`total_checks`), and the
                 metrics `summary`.
 

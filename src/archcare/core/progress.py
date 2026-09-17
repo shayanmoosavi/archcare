@@ -1,27 +1,28 @@
 """
 Progress reporting port for the Archcare core layer.
 
-This module defines the progress reporting interface ([TaskProgress][]) and its
-default null implementation ([NoOpProgress][]). It establishes the boundary (port)
+This module defines the progress reporting interface ([`TaskProgress`][]) and its
+default null implementation ([`NoOpProgress`][]). It establishes the boundary (port)
 between task execution in the core layer and user interface representation in the
 CLI/presentation layer.
 
 Tasks report real-time execution increments (e.g., individual steps or durations)
-by interacting with a [TaskProgress][] instance. This allows the core engine to
+by interacting with a [`TaskProgress`][] instance. This allows the core engine to
 remain agnostic of the terminal environment, while allowing CLI runners to plug
 in rich, interactive displays (like spinners or determinate bars).
 
 Key Concepts:
-    - **Port**: The [TaskProgress][] protocol defines the interface that any progress
-      reporter must implement.
+    - **Port**: The [`TaskProgress`][] protocol defines the interface that any progress
+        reporter must implement.
     - **Adapter**: CLI progress reporting (e.g., using `rich.progress`) acts as an adapter
-      implementing this port.
+        implementing this port.
     - **No-Op Mode**: When running without an interactive TTY (e.g., in a systemd timer
-      or testing environment), the system falls back to [NoOpProgress][].
+        or testing environment), the system falls back to [`NoOpProgress`][].
 
 See Also:
-    - [TaskStep][]: The data structure representing progress increments.
-    - [archcare.cli.progress][]: CLI-specific progress display implementation.
+    - [`TaskStep`][]: The data structure representing progress increments.
+    - [`RichProgress`][archcare.cli.progress.RichProgress]: CLI-specific progress display
+        implementation.
 """
 
 from contextlib import AbstractContextManager, nullcontext
@@ -38,7 +39,7 @@ class TaskProgress(Protocol):
     operations (where the total number of steps is known) and indeterminate operations
     (where duration is unpredictable or steps are not quantifiable).
 
-    By implementing this protocol, any GUI) can provide appropriate visual feedback during
+    By implementing this protocol, any frontend can provide appropriate visual feedback during
     system maintenance tasks.
 
     Examples:
@@ -81,7 +82,7 @@ class TaskProgress(Protocol):
         Progress stopped
 
     See Also
-        - [RichProgress][archcare.cli.progress.RichProgress]: CLI implementation of this protocol.
+        - [`RichProgress`][archcare.cli.progress.RichProgress]: CLI implementation of this protocol.
     """
 
     def start(self, total: int | None = None) -> None:
@@ -97,7 +98,7 @@ class TaskProgress(Protocol):
                 an indeterminate spinner instead). Defaults to `None`.
 
         See Also:
-            [stop][]: Ends the progress display.
+            [`stop`][]: Ends the progress display.
         """
         ...
 
@@ -136,7 +137,7 @@ class TaskProgress(Protocol):
                 details like the step's name, status, and optional details.
 
         See Also:
-            [TaskStep][]: The representation of a single progress increment.
+            [`TaskStep`][]: The representation of a single progress increment.
         """
         ...
 
@@ -176,7 +177,7 @@ class TaskProgress(Protocol):
         by runners) after `start()` has been called.
 
         See Also:
-            [start][]: Begins the progress display.
+            [`start`][]: Begins the progress display.
         """
         ...
 
@@ -186,7 +187,7 @@ class NoOpProgress:
     Default progress reporter used when none is supplied.
 
     This class serves as a "null object" or "no-op" implementation of the
-    [TaskProgress][] protocol. It silently ignores all progress updates,
+    [`TaskProgress`][] protocol. It silently ignores all progress updates,
     which is appropriate for:
 
     - Unattended automated runs (e.g., systemd timers)
@@ -210,7 +211,7 @@ class NoOpProgress:
         >>> progress.stop()
 
     See Also:
-        [TaskProgress][]: Protocol describing the full progress interface.
+        [`TaskProgress`][]: Protocol describing the full progress interface.
     """
 
     def start(self, total: int | None = None) -> None:

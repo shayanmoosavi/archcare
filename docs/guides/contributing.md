@@ -208,9 +208,9 @@ Docstrings follow the
 [Google style](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings):
 `Attributes:` sections on classes and dataclasses, `Args:`/`Returns:`/`Raises:` on functions and
 methods, and `Examples:` for behavior best shown by example. Cross-reference other API objects
-with mkdocstrings syntax — `[TaskResult][]` in module docstrings (if the module imports it), or the
-explicit `[TaskResult][archcare.core.models.TaskResult]` form elsewhere — rather than backticks, so
-the reference pages link up automatically.
+with mkdocstrings syntax — ``[`TaskResult`][]`` in module docstrings (if the module imports it), or
+the explicit</br> ``[`TaskResult`][archcare.core.models.TaskResult]`` form elsewhere — rather than
+backticks, so the reference pages link up automatically.
 
 Because `merge_init_into_class` is set in `mkdocs.yml`, `__init__` docstrings render as part of
 the class docstring — document constructor arguments there (see
