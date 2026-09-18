@@ -369,6 +369,25 @@ require_acknowledgment = false
         assert settings.maintenance_check.output_mode == "file"
         assert settings.maintenance_check.require_acknowledgment is False
 
+    def test_invalid_maintenance_check_thresholds_fall_back_to_defaults(
+        self, loader: ConfigLoader, config_dir: Path
+    ):
+        """The cross-field rule (warning < critical) is enforced by a model
+        validator; a section violating it must fall back to full defaults."""
+        _w(
+            config_dir / "settings.toml",
+            """\
+[maintenance_check]
+critical_threshold_days = 7
+warning_threshold_days = 7
+""",
+        )
+
+        settings = loader.load_settings()
+        default_settings = loader.load_default_settings()
+
+        assert settings == default_settings
+
     def test_updates_cached_settings_after_loading(self, loader: ConfigLoader, config_dir: Path):
         _w(config_dir / "settings.toml", "log_retention_days = 99\n")
         loader.load_settings()
