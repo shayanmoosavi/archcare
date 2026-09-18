@@ -358,6 +358,24 @@ class TestCreateResult:
 
 
 # -----------------------------------------------------------------------------
+# name property
+# -----------------------------------------------------------------------------
+
+
+class TestNameProperty:
+    def test_name_mirrors_config_name(self, automated_task, app_settings):
+        task = DummyTask(automated_task, app_settings, TaskContext())
+
+        assert task.name == automated_task.name
+
+    def test_name_is_read_only(self, automated_task, app_settings):
+        task = DummyTask(automated_task, app_settings, TaskContext())
+
+        with pytest.raises(AttributeError):
+            task.name = "renamed-task"  # ty:ignore[invalid-assignment]
+
+
+# -----------------------------------------------------------------------------
 # String representations
 # -----------------------------------------------------------------------------
 
