@@ -45,6 +45,7 @@ nav:
   - Home: index.md
   - Architecture:
       - architecture/index.md
+      - architecture/class-relationships.md
       - architecture/task-lifecycle.md
       - architecture/registry-and-ports.md
       - architecture/configuration.md

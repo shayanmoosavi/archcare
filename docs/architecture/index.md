@@ -8,6 +8,15 @@ below for the other pages of this section.
 
 <div class="grid cards" markdown>
 
+- :material-graph-outline:{ .lg .middle } **Class relationships**
+
+    ***
+
+    Static class diagrams: inheritance, composition, delegation, and port implementation
+    across **CORE**, **CLI**, **CONF**, and **SVC**.
+
+    [:material-graph: View the structure](class-relationships.md){ .md-button .md-button--primary }
+
 - :material-engine-outline:{ .lg .middle } **Task execution lifecycle**
 
     ***
