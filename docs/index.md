@@ -7,9 +7,10 @@ maintenance tasks are due, on demand or fully unattended via systemd timers.
 
 !!! tip "Looking to install or use Archcare?"
 
-    The [README](https://github.com/shayanmoosavi/archcare#readme) covers
-    installation, quick start, command usage, and configuration examples.
-    This site is the technical companion: architecture, design decisions,
+    Start with the [Getting started guide](guides/getting-started.md) for a step-by-step
+    walkthrough of setup, first runs, and automation. The
+    [README](https://github.com/shayanmoosavi/archcare#readme) covers installation specifics.
+    Beyond that, this site is the technical companion: architecture, design decisions,
     extension guides, and exhaustive reference material.
 
 ---
