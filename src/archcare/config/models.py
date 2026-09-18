@@ -683,6 +683,8 @@ class MaintenanceCheckSettings(BaseModel):
         - `notification_level` must be one of: "critical", "warning", "info"
         - `critical_threshold_days` >= 0
         - `report_retention_days` >= 1 (at least 1 day)
+        - `warning_threshold_days` must be strictly less than `critical_threshold_days`
+          (enforced by a cross-field model validator)
 
     State Tracking:
         - Reports saved to `~/.local/state/archcare/reports/maintenance-check-YYYY-MM-DD.txt`
@@ -693,7 +695,6 @@ class MaintenanceCheckSettings(BaseModel):
     critical_threshold_days: int = Field(
         default=7, ge=0, description="Days overdue before task is considered critical"
     )
-    # TODO: add lt=critical_threshold_days validator
     warning_threshold_days: int = Field(
         default=0, ge=0, description="Days overdue before task is considered warning"
     )
@@ -769,6 +770,29 @@ class MaintenanceCheckSettings(BaseModel):
         if v not in valid_levels:
             raise ValueError(f"notification_level must be one of: {', '.join(valid_levels)}")
         return v
+
+    @model_validator(mode="after")
+    def validate_thresholds(self) -> Self:
+        """
+        Ensure the warning threshold is strictly below the critical threshold.
+
+        Cross-field validation: `Field(lt=...)` cannot reference a sibling field,
+        so the comparison is done here after both fields have passed their own
+        field-level validation.
+
+        Returns:
+            Self: The validated model instance.
+
+        Raises:
+            ValueError: If `warning_threshold_days` is greater than or equal to
+                `critical_threshold_days`.
+        """
+        if self.warning_threshold_days >= self.critical_threshold_days:
+            raise ValueError(
+                f"warning_threshold_days ({self.warning_threshold_days}) must be less than "
+                f"critical_threshold_days ({self.critical_threshold_days})"
+            )
+        return self
 
 
 class AppSettings(BaseModel):
