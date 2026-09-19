@@ -283,16 +283,49 @@ uv run cz commit
 
 ---
 
+## Just task runner (local dev workflow only)
+
+`just` (no args) runs the first recipe (`sync`). `just --list` shows all recipes. Install: `sudo pacman -S just` or `cargo install just`.
+
+Key recipes (mirroring CI commands):
+
+```bash
+# Sync all dependency groups
+just sync
+
+# Lint + format check (same order as CI)
+just lint
+
+# Static type check
+just type-check
+
+# Run full CI gate: lint -> tests -> type check
+just check
+
+# Run test suite
+just test
+
+# Run unit / integration tests only
+just test-unit  # or: just test-integration
+
+# Run doctests
+just doctest
+```
+
+`just` recipes wrap `uv` commands; no venv activation needed. The `build` and `commit` recipes map to `uv sync --group build && scripts/build.sh` and `cz commit` respectively. `just clean` and `just clean-cache` remove build artifacts and caches.
+
+---
+
 ## Documentation (Zensical)
 
 ### Site Structure (4 sections, 11 hand-written pages + generated API stubs)
 
-| Section      | Pages                                                                     |
-| ------------ | ------------------------------------------------------------------------- |
-| Home         | `docs/index.md` - hero + "Where to go next" cards to the 3 sections       |
-| Architecture | `architecture/{index,task-lifecycle,registry-and-ports,configuration}.md` |
-| Guides       | `guides/{index,adding-a-task,contributing}.md`                            |
-| Reference    | `reference/{index,cli,configuration-files}.md`                            |
+| Section       | Pages                                                                                                          |
+| ------------- | -------------------------------------------------------------------------------------------------------------- |
+| Home          | `docs/index.md` - hero + "Where to go next" cards to the 3 sections                                            |
+| Architecture  | `architecture/{index,task-lifecycle,registry-and-ports,configuration}.md`                                      |
+| Guides        | `guides/{index,adding-a-task,contributing}.md`                                                                 |
+| Reference     | `reference/{index,cli,configuration-files}.md`                                                                 |
 | Reference API | `reference/api/**` - auto-generated mkdocstrings stubs (gitignored; regenerate with `scripts/gen_api_docs.py`) |
 
 ### Config Essentials (`mkdocs.yml`)
