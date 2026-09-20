@@ -60,6 +60,9 @@ jobs:
       - name: Install system deps
         run: sudo apt-get update && sudo apt-get install -y libcairo2
 
+      - name: Doctest the API reference
+        run: uv run pytest --doctest-modules src/archcare
+
       # Stub pages under docs/reference/api/ are gitignored; they are generated
       # from src/ via Griffe (mkdocstrings ::: autodoc syntax) on every build.
       - name: Generate API reference stubs
