@@ -3,11 +3,10 @@
 A system maintenance CLI for Arch Linux — checks for failed services, runs health checks, keeps
 your mirrorlist fresh, and tracks which maintenance tasks are due, all from one command.
 
-!!! info "Documentation"
-
-    The [documentation site](https://shayanmoosavi.github.io/archcare/) holds architecture
-    details, contributing guides, and exhaustive CLI/config reference. For installation and
-    quick-start steps, continue below.
+> [!NOTE]
+> The [documentation site](https://shayanmoosavi.github.io/archcare/) holds architecture
+> details, contributing guides, and exhaustive CLI/config reference. For installation and
+> quick-start steps, continue below.
 
 ## Why this exists
 
@@ -316,12 +315,11 @@ failed-unit check itself isn't type-restricted).
 
 ## Architecture
 
-!!! note "Technical documentation"
-
-    This section is only an overview, to see the entire architecture decisions including the
-    class relationships, task execution lifecycle, and more, see the
-    [Architecture](https://shayanmoosavi.github.io/archcare/architecture) section of the
-    documentation.
+> [!NOTE]
+> This section is only an overview, to see the entire architecture decisions including the
+> class relationships, task execution lifecycle, and more, see the
+> [Architecture](https://shayanmoosavi.github.io/archcare/architecture) section of the
+> documentation.
 
 Archcare is organized in a layered architecture as illustrated below:
 
