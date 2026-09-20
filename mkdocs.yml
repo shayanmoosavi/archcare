@@ -5,17 +5,15 @@
 site_name: Archcare
 site_url: https://shayanmoosavi.github.io/archcare/
 repo_url: https://github.com/shayanmoosavi/archcare
-repo_name: shayanmoosavi/archcare
 
 theme:
-  variant: modern
+  name: material
   icon:
     annotation: material/help-circle
   features:
     - content.footnote.tooltips
     - content.code.copy
     - content.code.annotate
-    - navigation.indexes
     - navigation.instant
     - navigation.instant.progress
     - navigation.instant.prefetch
@@ -31,7 +29,7 @@ theme:
       primary: teal
       accent: indigo
       toggle:
-        icon: lucide/sun
+        icon: material/weather-sunny
         name: Switch to dark mode
 
     # Palette toggle for dark mode
@@ -39,7 +37,7 @@ theme:
       primary: teal
       accent: indigo
       toggle:
-        icon: lucide/moon
+        icon: material/weather-night
         name: Switch to light mode
   font:
     text: Solway
@@ -60,7 +58,6 @@ nav:
       - reference/index.md
       - reference/cli.md
       - reference/configuration-files.md
-      - API reference: reference/api/
 copyright: Copyright &copy; 2026 Shayan Moosavi
 
 # Plugins and extensions
@@ -68,7 +65,8 @@ plugins:
   - autorefs
   - search
 
-  - literate-nav
+  - mkdocs-autoapi:
+      autoapi_dir: src
 
   - mkdocstrings:
       handlers:
@@ -112,8 +110,8 @@ markdown_extensions:
   - pymdownx.betterem
 
   - pymdownx.emoji:
-      emoji_index: !!python/name:zensical.extensions.emoji.twemoji
-      emoji_generator: !!python/name:zensical.extensions.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
 
   - pymdownx.highlight:
       anchor_linenums: true
