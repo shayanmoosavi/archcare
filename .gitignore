@@ -18,6 +18,7 @@
 
 # Static built documentation site
 site/
+docs/reference/api/
 
 # Hermes agent
 .hermes/
