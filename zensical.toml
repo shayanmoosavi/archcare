@@ -139,6 +139,7 @@ Architecture = [
 [[nav]]
 Guides = [
     "guides/index.md",
+    "guides/getting-started.md",
     "guides/adding-a-task.md",
     "guides/contributing.md"
 ]
