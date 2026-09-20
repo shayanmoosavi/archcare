@@ -1,0 +1,152 @@
+[project]
+site_url = "https://shayanmoosavi.github.io/archcare/"
+site_name = "Archcare"
+site_description = "A simple maintenance system for Arch Linux"
+site_author = "Shayan Moosavi"
+
+copyright = "Copyright &copy; 2026 Shayan Moosavi"
+
+repo_url = "https://github.com/shayanmoosavi/archcare"
+repo_name = "shayanmoosavi/archcare"
+
+[project.theme]
+variant = "modern"
+language = "en"
+features = [
+    "announce.dismiss",
+    "content.code.annotate",
+    "content.code.copy",
+    "content.code.select",
+    "content.footnote.tooltips",
+    "content.tabs.link",
+    "content.tooltips",
+    "navigation.footer",
+    "navigation.indexes",
+    "navigation.instant",
+    "navigation.instant.prefetch",
+    "navigation.instant.progress",
+    "navigation.path",
+    "navigation.sections",
+    "navigation.tabs",
+    "navigation.top",
+    "navigation.tracking",
+    "search.highlight",
+    "toc.follow",
+    "toc.integrate",
+]
+
+[project.theme.icon]
+annotation = "material/help-circle"
+
+[project.theme.font]
+text = "Solway"
+code = "JetBrains Mono"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme)"
+toggle.icon = "lucide/sun-moon"
+toggle.name = "Switch to light mode"
+primary = "teal"
+accent = "indigo"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+primary = "teal"
+accent = "indigo"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to system preference"
+primary = "teal"
+accent = "indigo"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/shayanmoosavi"
+
+[project.plugins]
+autorefs = {}
+git-revision-date-localized = { enable_creation_date = true }
+search = {}
+literate-nav = {}
+
+[project.plugins.mkdocstrings]
+handlers.python.paths = ["src"]
+
+[project.plugins.mkdocstrings.handlers.python.options]
+modernize_annotations = true
+relative_crossrefs = true
+scoped_crossrefs = true
+separate_signature = true
+show_docstring_other_parameters = true
+show_signature_annotations = true
+show_signature_type_parameters = false
+show_symbol_type_heading = true
+show_symbol_type_toc = true
+docstring_section_style = "spacy"
+docstring_options = { ignore_init_summary = true }
+merge_init_into_class = true
+
+[project.markdown_extensions]
+abbr = {}
+admonition = {}
+attr_list = {}
+def_list = {}
+footnotes = {}
+md_in_html = {}
+toc.permalink = true
+pymdownx.arithmatex.generic = true
+pymdownx.betterem = {}
+pymdownx.caret = {}
+pymdownx.details = {}
+pymdownx.emoji.emoji_generator = "zensical.extensions.emoji.to_svg"
+pymdownx.emoji.emoji_index = "zensical.extensions.emoji.twemoji"
+pymdownx.highlight.anchor_linenums = true
+pymdownx.highlight.line_spans = "__span"
+pymdownx.highlight.pygments_lang_class = true
+pymdownx.inlinehilite = {}
+pymdownx.keys = {}
+pymdownx.magiclink = {}
+pymdownx.mark = {}
+pymdownx.smartsymbols = {}
+pymdownx.tabbed.alternate_style = true
+pymdownx.tabbed.combine_header_slug = true
+pymdownx.tasklist.custom_checkbox = true
+pymdownx.tilde = {}
+
+[[project.markdown_extensions.pymdownx.superfences.custom_fences]]
+name = "mermaid"
+class = "mermaid"
+format = "pymdownx.superfences.fence_code_format"
+
+[[nav]]
+Home = "index.md"
+
+[[nav]]
+Architecture = [
+    "architecture/index.md",
+    "architecture/class-relationships.md",
+    "architecture/task-lifecycle.md",
+    "architecture/registry-and-ports.md",
+    "architecture/configuration.md"
+]
+
+[[nav]]
+Guides = [
+    "guides/index.md",
+    "guides/adding-a-task.md",
+    "guides/contributing.md"
+]
+
+[[nav]]
+References = [
+    "reference/index.md",
+    "reference/cli.md",
+    "reference/configuration-files.md",
+    { "API Reference" = "reference/api/" }
+]

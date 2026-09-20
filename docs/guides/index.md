@@ -1,19 +1,28 @@
 # Guides
 
-**Audience:** task authors and contributors. This site has three layers — the
+**Audience:** new users, task authors, and contributors. This site has three layers — the
 [architecture pages](../architecture/index.md) explain _why_ the system is shaped the way it
 is, the guides here show _how_ to work within it, and the
 [API reference](../autoapi/archcare/index.md) documents the _exact shapes_ of every piece.
 
 !!! tip "Just want to use Archcare?"
 
-    Installation, quick start, and command usage live in the
-    [README](https://github.com/shayanmoosavi/archcare#readme). These guides are for changing
-    the tool, not running it.
+    Start with the [Getting started guide](getting-started.md) — it walks through setup, first
+    runs, and automation. The [README](https://github.com/shayanmoosavi/archcare#readme) covers
+    installation specifics. The remaining guides are for changing the tool, not running it.
 
 ## What's in this section
 
 <div class="grid cards" markdown>
+
+- :material-rocket-launch:{ .lg .middle } **Getting started**
+
+    ***
+
+    From install to automated maintenance: create the configuration, run your
+    first tasks, and set up systemd timers.
+
+    [:material-flag-checkered: Set up Archcare](getting-started.md){ .md-button .md-button--primary }
 
 - :material-plus-circle:{ .lg .middle } **Adding a new task**
 

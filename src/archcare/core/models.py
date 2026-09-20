@@ -7,22 +7,22 @@ serves as the foundation for communicating task status and results throughout
 the archcare application.
 
 Module Overview:
-    - [TaskResult][]: Encapsulates complete results from task execution
-    - [TaskStep][]: Represents granular progress updates during task execution
-    - [IssueSeverity][]: Enum defining severity levels for maintenance issues
-    - [MaintenanceIssue][]: Data model for individual maintenance issues
+    - [`TaskResult`][]: Encapsulates complete results from task execution
+    - [`TaskStep`][]: Represents granular progress updates during task execution
+    - [`IssueSeverity`][]: Enum defining severity levels for maintenance issues
+    - [`MaintenanceIssue`][]: Data model for individual maintenance issues
     - Helper functions: Factory functions for creating `TaskResult` instances
 
 Key Features:
     - Status tracking with multiple states (SUCCESS, FAILURE, SKIPPED, PARTIAL).
-        See [TaskStatus][].
+        See [`TaskStatus`][].
     - Detailed error tracking and exception handling
     - Real-time progress reporting through TaskStep objects
     - Maintenance issue classification by severity
     - Conversion utilities between different result formats
 
 See Also:
-    [archcare.config.models][]: Task status enums and configuration data models
+    [`archcare.config.models`][]: Task status enums and configuration data models
 """
 
 from dataclasses import dataclass, field
@@ -37,10 +37,10 @@ class TaskResult[TDetails]:
     """
     Complete result of a task execution encapsulating status, messages, and metadata.
 
-    This dataclass is returned by every task's `execute()` method and provides
-    comprehensive information about what happened during execution. It combines
-    status tracking, error information, timing data, and contextual details
-    (generic `TDetails`) into a single, structured response object.
+    This dataclass is returned by every task's `execute()` method and provides comprehensive
+    information about what happened during execution. It combines status tracking, error
+    information, timing data, and contextual details (generic `TDetails`) into a single,
+    structured response object.
 
     Attributes:
         status (TaskStatus): The final outcome of task execution.
@@ -49,7 +49,7 @@ class TaskResult[TDetails]:
             the error. For skipped tasks, describes why skipping occurred.
         details (TDetails | None): Optional structured data providing
             additional context about the execution - a typed dataclass
-            specific to the task that produced it (see [archcare.core.task_details][]),
+            specific to the task that produced it (see [`archcare.core.task_details`][]),
             or `None` if there's nothing to report.
         error (str | None): The error message for the failure, defaults
             to `None` for successful or skipped tasks.
@@ -94,9 +94,9 @@ class TaskResult[TDetails]:
         ...     )
 
     See Also:
-        - [TaskStatus][]: Enumeration of possible task statuses
-        - [SkipReason][]: Enumeration of reasons why a task might be skipped
-        - [TaskStep][]: For reporting granular progress during execution
+        - [`TaskStatus`][]: Enumeration of possible task statuses
+        - [`SkipReason`][]: Enumeration of reasons why a task might be skipped
+        - [`TaskStep`][]: For reporting granular progress during execution
     """
 
     status: TaskStatus
@@ -224,13 +224,13 @@ class TaskStep:
 
     Tasks can report progress by creating TaskStep instances during execution.
     These steps are consumed by progress reporters
-    (e.g., [RichProgress][archcare.cli.progress.RichProgress])
+    (e.g., [`RichProgress`][archcare.cli.progress.RichProgress])
     to provide real-time feedback in the CLI. Each step captures the operation name,
     its current status, and an optional descriptive message.
 
     This class is used by
-    [BaseTask.report_progress][archcare.core.base_task.BaseTask.report_progress]
-    and implements the [TaskProgress][archcare.core.progress.TaskProgress] protocol
+    [`BaseTask.report_progress`][archcare.core.base_task.BaseTask.report_progress]
+    and implements the [`TaskProgress`][archcare.core.progress.TaskProgress] protocol
     for progress tracking.
 
     Attributes:
@@ -263,11 +263,12 @@ class TaskStep:
         'Pacman database check: Database lock file exists'
 
     See Also:
-        - [TaskResult][]: Complete task execution result containing multiple steps
-        - [BaseTask.report_progress][archcare.core.base_task.BaseTask.report_progress]: Method that
-            emits `TaskStep` instances
-        - [TaskProgress][archcare.core.progress.TaskProgress]: Protocol for progress reporters
-        - [RichProgress][archcare.cli.progress.RichProgress]: CLI implementation using Rich library
+        - [`TaskResult`][]: Complete task execution result containing multiple steps
+        - [`BaseTask.report_progress`][archcare.core.base_task.BaseTask.report_progress]: Method
+            that emits `TaskStep` instances
+        - [`TaskProgress`][archcare.core.progress.TaskProgress]: Protocol for progress reporters
+        - [`RichProgress`][archcare.cli.progress.RichProgress]: CLI implementation using
+            Rich library
     """
 
     name: str
@@ -447,7 +448,7 @@ def success[TDetails](message: str, details: TDetails | None = None) -> TaskResu
     """
     Create a success result.
 
-    A convenience factory function for creating a [TaskResult][] with `SUCCESS` status.
+    A convenience factory function for creating a [`TaskResult`][] with `SUCCESS` status.
     This is the standard way to report successful task completion.
 
     Args:
@@ -456,7 +457,7 @@ def success[TDetails](message: str, details: TDetails | None = None) -> TaskResu
             Examples: "System updated successfully", "Cleanup completed",
              "All checks passed".
 
-        details (TDetails | None): Same as [failed][].
+        details (TDetails | None): Same as [`failed`][].
 
     Returns:
         (TaskResult[TDetails]): A new `TaskResult` instance with `SUCCESS` status,
@@ -484,9 +485,9 @@ def success[TDetails](message: str, details: TDetails | None = None) -> TaskResu
         'Cache cleared'
 
     See Also:
-        - [failed][]: Create a failure result
-        - [skipped][]: Create a skipped result
-        - [partial][]: Create a partial result
+        - [`failed`][]: Create a failure result
+        - [`skipped`][]: Create a skipped result
+        - [`partial`][]: Create a partial result
     """
     return TaskResult(
         status=TaskStatus.SUCCESS,
@@ -501,7 +502,7 @@ def failed[TDetails](
     """
     Create a failure result.
 
-    A convenience factory function for creating a [TaskResult][] with `FAILURE` status.
+    A convenience factory function for creating a [`TaskResult`][] with `FAILURE` status.
     This is the standard way to report task execution failures, optionally including
     the error message of the exception that caused the failure for debugging
     and error tracking.
@@ -514,7 +515,7 @@ def failed[TDetails](
         error (str | None): The error message of the exact exception
             that caused the failure.
         details (TDetails | None): A dataclass instance describing task-specific structured
-            details (see [core.task_details][archcare.core.task_details] for per-task schemas),
+            details (see [`archcare.core.task_details`][] for per-task schemas),
             or `None` if there's nothing to report.
 
     Returns:
@@ -565,9 +566,9 @@ def failed[TDetails](
         '[FAILURE] Backup failed Error: Disk full'
 
     See Also:
-        - [success][]: Create a success result
-        - [skipped][]: Create a skipped result
-        - [partial][]: Create a partial result
+        - [`success`][]: Create a success result
+        - [`skipped`][]: Create a skipped result
+        - [`partial`][]: Create a partial result
     """
     return TaskResult(
         status=TaskStatus.FAILURE,
@@ -583,7 +584,7 @@ def skipped[TDetails](
     """
     Create a skipped result.
 
-    A convenience factory function for creating a [TaskResult][] with `SKIPPED` status.
+    A convenience factory function for creating a [`TaskResult`][] with `SKIPPED` status.
     This is the standard way to report tasks that were not executed, including the
     enumerated reason why they were skipped (e.g., disabled, dependency failed).
 
@@ -596,7 +597,7 @@ def skipped[TDetails](
 
         skip_reason (SkipReason | None): Enumerated reason for skipping task execution,
             or `None` if no specific reason applies.
-        details (TDetails | None): Same as [failed][].
+        details (TDetails | None): Same as [`failed`][].
 
     Returns:
         (TaskResult[TDetails]): A new `TaskResult` instance with `SKIPPED` status, provided
@@ -619,10 +620,10 @@ def skipped[TDetails](
         True
 
     See Also:
-        - [success][]: Create a success result
-        - [failed][]: Create a failure result
-        - [partial][]: Create a partial result
-        - [SkipReason][SkipReason]: Enumeration of skip reason types
+        - [`success`][]: Create a success result
+        - [`failed`][]: Create a failure result
+        - [`partial`][]: Create a partial result
+        - [`SkipReason`][]: Enumeration of skip reason types
     """
     return TaskResult(
         status=TaskStatus.SKIPPED,
@@ -636,7 +637,7 @@ def partial[TDetails](message: str, details: TDetails | None = None) -> TaskResu
     """
     Create a partial result.
 
-    A convenience factory function for creating a [TaskResult][] with `PARTIAL` status.
+    A convenience factory function for creating a [`TaskResult`][] with `PARTIAL` status.
     Use this when a task makes progress but does not fully complete or fully succeed,
     such as when some checks pass while others fail.
 
@@ -648,7 +649,7 @@ def partial[TDetails](message: str, details: TDetails | None = None) -> TaskResu
                 "3 of 5 checks passed", "Found 3 failed service(s) requiring attention",
                 "Health check found 2 warning(s)".
 
-        details (TDetails | None): Same as [failed][].
+        details (TDetails | None): Same as [`failed`][].
 
     Returns:
         (TaskResult[TDetails]): A new `TaskResult` instance with `PARTIAL` status,
@@ -660,9 +661,9 @@ def partial[TDetails](message: str, details: TDetails | None = None) -> TaskResu
         True
 
     See Also:
-        success: Create a success result
-        failed: Create a failure result
-        skipped: Create a skipped result
+        - [`success`][]: Create a success result
+        - [`failed`][]: Create a failure result
+        - [`skipped`][]: Create a skipped result
     """
     return TaskResult(
         status=TaskStatus.PARTIAL,

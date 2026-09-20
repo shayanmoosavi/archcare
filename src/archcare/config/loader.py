@@ -12,9 +12,9 @@ Key responsibilities:
     - Provide default configurations for first-time setup
 
 See Also:
-    - [archcare.config.models][]: Pydantic models for configuration
-    - [archcare.config.defaults][]: Default TOML document builders
-    - [archcare.core.scheduler][]: TaskScheduler that consumes persisted state
+    - [`archcare.config.models`][]: Pydantic models for configuration
+    - [`archcare.config.defaults`][]: Default TOML document builders
+    - [`archcare.core.scheduler`][]: TaskScheduler that consumes persisted state
 """
 
 import json
@@ -43,8 +43,8 @@ def _load_document(path: Path, default_builder: Callable[[], TOMLDocument]) -> T
     """
     Load a TOML document from `path`, or build a default if the file doesn't exist.
 
-    This preserves comments and formatting in existing files by using `tomlkit.parse`
-    instead of replacing the file entirely.
+    This preserves comments and formatting in existing files by using `tomlkit.parse` instead of
+    replacing the file entirely.
 
     Args:
         path (pathlib.Path): Path to the TOML file to load.
@@ -136,10 +136,10 @@ class ConfigLoader:
             OSError: If the config directory cannot be created.
 
         See Also:
-            - [AppSettings][]: Global application settings model
-            - [AppState][]: Runtime state model
-            - [create_default_config_files][]: Bootstrap helper for new installations
-            - [AppSettings.config_dir][]: Default directory resolution
+            - [`AppSettings`][]: Global application settings model
+            - [`AppState`][]: Runtime state model
+            - [`create_default_config_files`][]: Bootstrap helper for new installations
+            - [`AppSettings.config_dir`][]: Default directory resolution
         """
         # Use default settings to get config_dir if not provided
         self.user = user
@@ -163,8 +163,8 @@ class ConfigLoader:
 
         See Also:
             - [save_tasks][]: Persist task configurations
-            - [TaskConfig][]: Individual task schema
-            - [TasksConfig][]: Container for all tasks
+            - [`TaskConfig`][]: Individual task schema
+            - [`TasksConfig`][]: Container for all tasks
         """
         tasks_path = tasks_file or self.config_dir / "tasks.toml"
 
@@ -209,9 +209,8 @@ class ConfigLoader:
         """
         Save task configurations to `tasks.toml`.
 
-        Updates the existing TOML document in place using `_patch_document`,
-        preserving comments and formatting. Creates the file from defaults if
-        it doesn't exist.
+        Updates the existing TOML document in place using `_patch_document`, preserving comments and
+        formatting. Creates the file from defaults if it doesn't exist.
 
         Args:
             tasks_config (TasksConfig): Task configurations to persist.
@@ -254,10 +253,10 @@ class ConfigLoader:
                 failed-services checks. Empty if file missing/invalid.
 
         See Also:
-            - [save_ignored_services][]: Persist ignored services list
-            - [IgnoredServicesConfig][]: Schema for ignored services
-            - [FailedServicesTask][archcare.tasks.failed_services.FailedServicesTask]:
-                Consumer of this config
+            - [`save_ignored_services`][]: Persist ignored services list
+            - [`IgnoredServicesConfig`][]: Schema for ignored services
+            - [`FailedServicesTask`][archcare.tasks.failed_services.FailedServicesTask]: Consumer of
+                this config
         """
         services_path = services_file or self.config_dir / "ignored-services.toml"
 
@@ -306,7 +305,7 @@ class ConfigLoader:
             OSError: If the file cannot be written.
 
         See Also:
-            [load_ignored_services][]: Load ignored services
+            [`load_ignored_services`][]: Load ignored services
         """
         services_path = services_file or self.config_dir / "ignored-services.toml"
         doc = _load_document(services_path, defaults.build_ignored_services_toml)
@@ -320,9 +319,9 @@ class ConfigLoader:
         """
         Load application settings from `settings.toml`.
 
-        Merges file-based settings with defaults. Handles missing/invalid files
-        gracefully by falling back to `load_default_settings()`. Caches the
-        result in `self._settings` for subsequent calls.
+        Merges file-based settings with defaults. Handles missing/invalid files gracefully by
+        falling back to `load_default_settings()`. Caches the result in `self._settings` for
+        subsequent calls.
 
         Args:
             settings_file (pathlib.Path | None): Path to `settings.toml`. Defaults
@@ -332,9 +331,9 @@ class ConfigLoader:
             AppSettings: Merged settings (file + defaults)
 
         See Also:
-            - [load_default_settings][]: Get default settings without file I/O
-            - [save_settings][]: Persist settings
-            - [AppSettings][]: Settings schema
+            - [`load_default_settings`][]: Get default settings without file I/O
+            - [`save_settings`][]: Persist settings
+            - [`AppSettings`][]: Settings schema
         """
 
         settings_path = settings_file or self.config_dir / "settings.toml"
@@ -405,8 +404,8 @@ class ConfigLoader:
             AppSettings: Fresh settings instance with defaults applied.
 
         See Also:
-            - [AppSettings][]: Default values defined in model
-            - [load_settings][]: Load settings from file with fallback to defaults
+            - [`AppSettings`][]: Default values defined in model
+            - [`load_settings`][]: Load settings from file with fallback to defaults
         """
         settings = AppSettings(user=self.user)
         settings.ensure_directories()
@@ -428,7 +427,7 @@ class ConfigLoader:
             OSError: If the file cannot be written.
 
         See Also:
-            [load_settings][]: Load settings from file
+            [`load_settings`][]: Load settings from file
         """
         settings_path = settings_file or self.config_dir / "settings.toml"
 
@@ -456,10 +455,10 @@ class ConfigLoader:
             AppState: Parsed state. Fresh instance if file missing/invalid.
 
         See Also:
-            - [save_state][]: Persist state
-            - [AppState][]: State schema
-            - [TaskState][]: Per-task state schema
-            - [TaskScheduler][archcare.core.scheduler.TaskScheduler]: Consumer of persisted state
+            - [`save_state`][]: Persist state
+            - [`AppState`][]: State schema
+            - [`TaskState`][]: Per-task state schema
+            - [`TaskScheduler`][archcare.core.scheduler.TaskScheduler]: Consumer of persisted state
         """
         state_path = state_file or self._settings.state_file
 
@@ -544,11 +543,10 @@ def create_default_config_files(
         (3, 0)
 
     See Also:
-        - [build_settings_toml][archcare.config.defaults.build_settings_toml]:
-            Default settings template
-        - [build_tasks_toml][archcare.config.defaults.build_tasks_toml]:
-            Default tasks template
-        - [build_ignored_services_toml][archcare.config.defaults.build_ignored_services_toml]:
+        - [`build_settings_toml`][archcare.config.defaults.build_settings_toml]: Default
+            settings template
+        - [`build_tasks_toml`][archcare.config.defaults.build_tasks_toml]: Default tasks template
+        - [`build_ignored_services_toml`][archcare.config.defaults.build_ignored_services_toml]:
             Default ignored services template
     """
 

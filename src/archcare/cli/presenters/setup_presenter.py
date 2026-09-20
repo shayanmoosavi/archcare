@@ -2,14 +2,14 @@
 Presenter for the `setup` command group.
 
 Owns all terminal rendering for the setup services
-([ConfigService][archcare.services.setup_service.ConfigService] and
-[TimerService][archcare.services.setup_service.TimerService]): configuration initialization output,
-systemd template installation progress, timer setup results, follow-up command hints, and error
-messages. All methods are static — the presenter is stateless.
+([`ConfigService`][archcare.services.setup_service.ConfigService] and
+[`TimerService`][archcare.services.setup_service.TimerService]): configuration initialization
+output, systemd template installation progress, timer setup results, follow-up command hints, and
+error messages. All methods are static — the presenter is stateless.
 
 See Also:
-    - [archcare.services.setup_service][]: Producer of the responses and errors rendered here
-    - [archcare.cli.presenters.task_presenter][]: Renderer for the `task` command group
+    - [`archcare.services.setup_service`][]: Producer of the responses and errors rendered here
+    - [`archcare.cli.presenters.task_presenter`][]: Renderer for the `task` command group
 """
 
 from pathlib import Path
@@ -77,7 +77,7 @@ class SetupPresenter:
 
         Args:
             response (ConfigInitResponse): Initialization outcome from
-                [ConfigService.initialize][archcare.services.setup_service.ConfigService.initialize].
+                [`ConfigService.initialize`][archcare.services.setup_service.ConfigService.initialize].
         """
         if response.created_files:
             print_success("Configuration files created:")
@@ -105,7 +105,7 @@ class SetupPresenter:
 
         Args:
             response (InstallTemplatesResponse): Installation outcome from
-                [TimerService.install_templates][archcare.services.setup_service.TimerService.install_templates].
+                [`TimerService.install_templates`][archcare.services.setup_service.TimerService.install_templates].
         """
         verb = "Would create" if response.dry_run else "Created"
         print_info(f"Installing service template: {response.service_file}")
@@ -120,7 +120,7 @@ class SetupPresenter:
 
         Args:
             response (ReloadSystemdResponse): Reload outcome from
-                [TimerService.reload][archcare.services.setup_service.TimerService.reload];
+                [`TimerService.reload`][archcare.services.setup_service.TimerService.reload];
                 dry-run is phrased as "Would reload".
         """
         print_info("Reloading systemd daemon...")
@@ -145,7 +145,7 @@ class SetupPresenter:
 
         Args:
             response (TimerSetupResponse): Timer setup outcome from
-                [TimerService.setup_timers][archcare.services.setup_service.TimerService.setup_timers].
+                [`TimerService.setup_timers`][archcare.services.setup_service.TimerService.setup_timers].
         """
         console.print()
         print_info("Available automated tasks:")

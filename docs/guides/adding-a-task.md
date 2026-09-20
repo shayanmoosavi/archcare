@@ -93,7 +93,7 @@ class MyTask(BaseTask):
     Count error-level journal entries since the current boot and save a report.
 
     Deliberately minimal teaching example: every
-    [BaseTask][archcare.core.base_task.BaseTask] hook is exercised, and the only
+    [`BaseTask`][archcare.core.base_task.BaseTask] hook is exercised, and the only
     OS boundary is `archcare.utils.system`.
     """
 
@@ -198,7 +198,7 @@ class MyTaskFormatter:
     Formats details for the `my-task` task.
 
     See also:
-        - [FailedServicesTask][archcare.tasks.failed_services.FailedServicesTask]:
+        - [`FailedServicesTask`][archcare.tasks.failed_services.FailedServicesTask]:
             a production formatter for reference
     """
 
@@ -250,7 +250,7 @@ imports.
 
 ## Step 5 — register in the registry
 
-Edit `DEFAULT_TASK_REGISTRY` in [`archcare.cli.context`][archcare.cli.context] — the single static
+Edit `DEFAULT_TASK_REGISTRY` in [`archcare.cli.context`][] — the single static
 [`TaskRegistry`][archcare.core.task_registry.TaskRegistry] mapping each name to its class and CLI
 formatter. Add it to the end of the tuple, like so:
 

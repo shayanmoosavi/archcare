@@ -16,19 +16,19 @@ Each builder returns a `tomlkit.TOMLDocument` that can be written directly to di
 The documents include extensive inline comments explaining each field and valid values.
 
 Key Components:
-    - [build_tasks_toml][]: Creates `tasks.toml` with automated and manual task definitions
-    - [build_settings_toml][]: Creates `settings.toml` with global and task-specific settings
-    - [build_ignored_services_toml][]: Creates `ignored-services.toml` with default ignore list
+    - [`build_tasks_toml`][]: Creates `tasks.toml` with automated and manual task definitions
+    - [`build_settings_toml`][]: Creates `settings.toml` with global and task-specific settings
+    - [`build_ignored_services_toml`][]: Creates `ignored-services.toml` with default ignore list
 
 Configuration Files:
     Generated files are written to `~/.config/archcare/` (or the target user's
     config directory when run via systemd timer as root).
 
 See Also:
-    - [ConfigLoader][]: Loads and saves these configurations
-    - [TaskConfig][]: Task configuration model
-    - [AppSettings][]: Application settings model
-    - [create_default_config_files][]: Function that uses these builders
+    - [`ConfigLoader`][]: Loads and saves these configurations
+    - [`TaskConfig`][]: Task configuration model
+    - [`AppSettings`][]: Application settings model
+    - [`create_default_config_files`][]: Function that uses these builders
 """
 
 from typing import Any
@@ -132,8 +132,8 @@ def build_tasks_toml() -> TOMLDocument:
         TOMLDocument: The default tasks configuration document.
 
     See Also:
-        - [ConfigLoader][]: Loads and saves these configurations
-        - [create_default_config_files][]: Function that creates the default config files
+        - [`ConfigLoader`][]: Loads and saves these configurations
+        - [`create_default_config_files`][]: Function that creates the default config files
 
     Examples:
         >>> from archcare.config.defaults import build_tasks_toml
@@ -236,8 +236,8 @@ def build_settings_toml() -> TOMLDocument:
         TOMLDocument: The default settings configuration document.
 
     See Also:
-        - [ConfigLoader][]: Loads and saves these configurations
-        - [create_default_config_files][]: Function that creates the default config files
+        - [`ConfigLoader`][]: Loads and saves these configurations
+        - [`create_default_config_files`][]: Function that creates the default config files
 
     Examples:
         >>> from archcare.config.defaults import build_settings_toml
@@ -292,8 +292,8 @@ def build_ignored_services_toml() -> TOMLDocument:
         TOMLDocument: The default ignored services configuration document.
 
     See Also:
-        - [ConfigLoader][]: Loads and saves these configurations
-        - [create_default_config_files][]: Function that creates the default config files
+        - [`ConfigLoader`][]: Loads and saves these configurations
+        - [`create_default_config_files`][]: Function that creates the default config files
 
     Examples:
         >>> from archcare.config.defaults import build_ignored_services_toml

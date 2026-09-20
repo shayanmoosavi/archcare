@@ -364,6 +364,27 @@ class TestMaintenanceCheckSettings:
         with pytest.raises(ValidationError):
             MaintenanceCheckSettings(notification_level="debug")
 
+    @pytest.mark.parametrize(("critical", "warning"), [(7, 0), (10, 5), (1, 0), (30, 29)])
+    def test_valid_threshold_combinations_accepted(self, critical, warning):
+        settings = MaintenanceCheckSettings(
+            critical_threshold_days=critical, warning_threshold_days=warning
+        )
+        assert settings.critical_threshold_days == critical
+        assert settings.warning_threshold_days == warning
+
+    def test_default_thresholds_satisfy_constraint(self):
+        settings = MaintenanceCheckSettings()
+        assert settings.warning_threshold_days < settings.critical_threshold_days
+
+    @pytest.mark.parametrize(("critical", "warning"), [(7, 7), (5, 10), (0, 1)])
+    def test_warning_not_below_critical_raises(self, critical, warning):
+        """Cross-field rule: warning_threshold_days must be strictly below
+        critical_threshold_days (equal or reversed values are rejected)."""
+        with pytest.raises(ValidationError, match="must be less than"):
+            MaintenanceCheckSettings(
+                critical_threshold_days=critical, warning_threshold_days=warning
+            )
+
 
 # ---------------------------------------------------------------------------
 # Private helpers

@@ -15,10 +15,11 @@ Key features:
     - Real-time task progress reporting hook integration
 
 See Also:
-    - [TaskExecutor][archcare.core.executor.TaskExecutor]: Coordinates the lifecycle
+    - [`archcare.tasks`][]: Concrete implementations of `BaseTask`
+    - [`TaskExecutor`][archcare.core.executor.TaskExecutor]: Coordinates the lifecycle
         and execution of tasks
-    - [TaskResult][]: Schema representation of task run outcomes
-    - [TaskProgress][]: Protocol used to report execution milestones
+    - [`TaskResult`][]: Schema representation of task run outcomes
+    - [`TaskProgress`][]: Protocol used to report execution milestones
 """
 
 import time
@@ -44,6 +45,7 @@ class BaseTask(ABC):
     overriding `pre_check()`, `should_run()`, `post_execute()`, and `rollback()`.
 
     Methods:
+        name: *(property)* Task identifier, derived from `config.name` (read-only).
         set_start_time: Set the task start timestamp.
         execute: *(abstract)* Execute the primary task maintenance logic.
         pre_check: Verify that all hard prerequisites for task execution are satisfied.
@@ -80,8 +82,20 @@ class BaseTask(ABC):
         self.settings = settings
         self.notification_manager = notification_manager
         self.progress = progress or NoOpProgress()
-        self.name = config.name
         self._start_time: int | float = 0.0
+
+    @property
+    def name(self) -> str:
+        """
+        Task identifier.
+
+        Derived from `self.config.name` on every access, so there is no duplicated state that could
+        drift from the underlying configuration. Read-only by design.
+
+        Returns:
+            str: The unique task identifier (matches the `TaskConfig` key).
+        """
+        return self.config.name
 
     def set_start_time(self, start_time: int | float | None = None):
         """
@@ -258,11 +272,11 @@ class BaseTask(ABC):
             - Performs filesystem and/or ownership state mutations depending on subclasses.
 
         See Also:
-            - [pre_check][]: Prerequisite verification hook
-            - [should_run][]: Dynamic execution requirement hook
-            - [execute][]: Core logic hook
-            - [post_execute][]: Post-run hook
-            - [rollback][]: Error recovery hook
+            - [`pre_check`][]: Prerequisite verification hook
+            - [`should_run`][]: Dynamic execution requirement hook
+            - [`execute`][]: Core logic hook
+            - [`post_execute`][]: Post-run hook
+            - [`rollback`][]: Error recovery hook
         """
         self.set_start_time()
 

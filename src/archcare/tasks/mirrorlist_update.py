@@ -1,20 +1,20 @@
 """
 Mirrorlist update task implementation for Archcare.
 
-This module provides [MirrorlistUpdateTask][], a maintenance task that refreshes the pacman
-mirrorlist using [reflector](https://wiki.archlinux.org/title/Reflector). It is registered in the
-static task registry and exposed to users as the `mirrorlist-update` command.
+This module provides `MirrorlistUpdateTask`, a maintenance task that refreshes the pacman mirrorlist
+using [reflector](https://wiki.archlinux.org/title/Reflector). It is registered in the static task
+registry and exposed to users as the `mirrorlist-update` command.
 
 Workflow:
-    1. `pre_check()` verifies that `reflector` is installed and the configured
-        mirrorlist file exists.
+    1. `pre_check()` verifies that `reflector` is installed and the configured mirrorlist
+        file exists.
     2. `execute()` snapshots the current mirrorlist metadata, creates a timestamped backup, runs
         `reflector` with the parameters from
-        [MirrorlistSettings][archcare.config.models.MirrorlistSettings] (country, protocol, recency,
-        mirror count, sort order), validates the resulting mirrorlist, and records before/after
-        metrics in a [MirrorlistUpdateDetails][] payload.
+        [`MirrorlistSettings`][archcare.config.models.MirrorlistSettings] (country, protocol,
+        recency, mirror count, sort order), validates the resulting mirrorlist, and records
+        before/after metrics in a [`MirrorlistUpdateDetails`][] payload.
     3. If anything goes wrong (reflector failure or invalid output), the raised exception triggers
-        [BaseTask.rollback][], which restores the mirrorlist from the backup.
+        [`BaseTask.rollback`][], which restores the mirrorlist from the backup.
     4. `post_execute()` prunes old backups after a successful update, keeping only the 5
         most recent.
 
@@ -24,10 +24,10 @@ Workflow:
     the backup location for manual restoration.
 
 See Also:
-    - [BaseTask][]: Abstract workflow this task implements
-    - [TaskResult][]: The structured result object that the task returns
-    - [MirrorlistUpdateDetails][]: Details schema produced by this task
-    - [archcare.utils.mirrorlist][]: Mirrorlist parsing and reflector invocation
+    - [`BaseTask`][]: Abstract workflow this task implements
+    - [`TaskResult`][]: The structured result object that the task returns
+    - [`MirrorlistUpdateDetails`][]: Details schema produced by this task
+    - [`archcare.utils.mirrorlist`][]: Mirrorlist parsing and reflector invocation utilities
 """
 
 from pathlib import Path
@@ -51,10 +51,10 @@ class MirrorlistUpdateTask(BaseTask):
     Update the pacman mirrorlist using `reflector` with backup/rollback safety.
 
     The task backs up the current mirrorlist, regenerates it with the fastest mirrors according to
-    [MirrorlistSettings][archcare.config.models.MirrorlistSettings], validates the new file, and
+    [`MirrorlistSettings`][archcare.config.models.MirrorlistSettings], validates the new file, and
     rolls back to the backup if validation or the update itself fails.
 
-    This task follows the [BaseTask][] Template Method contract:
+    This task follows the [`BaseTask`][] Template Method contract:
 
     - `pre_check()`: requires `reflector` in `PATH` and an existing mirrorlist file
     - `execute()`: backup → reflector → validate → report
@@ -69,7 +69,7 @@ class MirrorlistUpdateTask(BaseTask):
             `rollback()` and `post_execute()`.
         mirrorlist_path (Path): Absolute path of the mirrorlist file being
             managed, taken from
-            [MirrorlistSettings.path][archcare.config.models.MirrorlistSettings].
+            [`MirrorlistSettings.path`][archcare.config.models.MirrorlistSettings].
     """
 
     def __init__(self, backup_path: Path | None = None, *args, **kwargs):
@@ -104,7 +104,7 @@ class MirrorlistUpdateTask(BaseTask):
 
                 - `can_run` (`bool`): `True` if all prerequisites are satisfied, `False` otherwise.
                 - `reason` (`str`): Explanation when a prerequisite fails — including the
-                    `pacman -S reflector` install hint or the missing file path (empty string
+                    `sudo pacman -S reflector` install hint or the missing file path (empty string
                     on success).
         """
         # Check if reflector is installed
@@ -123,13 +123,12 @@ class MirrorlistUpdateTask(BaseTask):
 
         Process:
             1. Snapshot current mirrorlist metadata (mirror count, protocols, last modified) via
-                [get_mirrorlist_info][].
+                [`get_mirrorlist_info`][].
             2. Create a timestamped backup of the mirrorlist. If the backup fails, return a
                 `FAILURE` result immediately (no update is attempted without a safety net).
             3. Run `reflector` with parameters from
-                [MirrorlistSettings][archcare.config.models.MirrorlistSettings]
-                (`country`, `protocol`, `latest`, `number`, `sort`) while showing
-                a progress spinner.
+                [`MirrorlistSettings`][archcare.config.models.MirrorlistSettings] (`country`,
+                `protocol`, `latest`, `number`, `sort`) while showing a progress spinner.
             4. Validate the new mirrorlist. A `RuntimeError` is raised on reflector failure or
                 invalid output, which triggers automatic `rollback()` from `BaseTask.run()`.
             5. Snapshot the new mirrorlist metadata and return a `SUCCESS` result with before/after
@@ -137,7 +136,7 @@ class MirrorlistUpdateTask(BaseTask):
 
         Returns:
             (TaskResult[MirrorlistUpdateDetails]):
-                Result whose `details` is a [MirrorlistUpdateDetails][]:
+                Result whose `details` is a `MirrorlistUpdateDetails`:
 
                 - `success` with `old_mirrors`/`new_mirrors` counts, parsed `old_info`/`new_info`
                     metadata, and the `backup_path`.
@@ -268,7 +267,7 @@ class MirrorlistUpdateTask(BaseTask):
         """
         Restore the mirrorlist from the backup if the update fails.
 
-        Invoked automatically by [BaseTask.run][] when `execute()` raises (e.g., reflector failure
+        Invoked automatically by [`BaseTask.run`][] when `execute()` raises (e.g., reflector failure
         or failed validation). If the restoration itself fails, logs a `critical` message pointing
         at the backup so the user can restore manually.
 

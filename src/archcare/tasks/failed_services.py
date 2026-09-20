@@ -1,17 +1,17 @@
 """
 Failed services task implementation for Archcare.
 
-This module provides [FailedServicesTask][], a maintenance task that detects failed systemd units
+This module provides `FailedServicesTask`, a maintenance task that detects failed systemd units
 and collects diagnostic information for each one. It is registered in the static task registry and
 exposed to users as the `failed-services` command.
 
 Workflow:
     1. `pre_check()` verifies that `systemctl` is available (i.e., the system runs systemd).
-    2. `should_run()` lists failed units via [get_systemd_failed_services][], filters out services
+    2. `should_run()` lists failed units via [`get_systemd_failed_services`][], filters out services
         listed in `ignored-services.toml`, and skips the task if nothing actionable
         remains (`SkipReason.NO_WORK_NEEDED`).
     3. `execute()` gathers per-service diagnostics from `systemctl show` and recent journal logs via
-        [get_service_logs][], and aggregates them into a [FailedServicesDetails][] payload.
+        [`get_service_logs`][], and aggregates them into a [`FailedServicesDetails`][] payload.
 
 Status semantics:
     - No failed units (or all failed units ignored): the task returns a
@@ -25,10 +25,10 @@ Status semantics:
     never affect the task outcome.
 
 See Also:
-    - [BaseTask][]: Abstract workflow this task implements
-    - [TaskResult][]: The structured result object that the task returns
-    - [FailedServicesDetails][]: Details schema produced by this task
-    - [TaskExecutor][archcare.core.executor.TaskExecutor]: Coordinates task lifecycle
+    - [`BaseTask`][]: Abstract workflow this task implements
+    - [`TaskResult`][]: The structured result object that the task returns
+    - [`FailedServicesDetails`][]: Details schema produced by this task
+    - [`TaskExecutor`][archcare.core.executor.TaskExecutor]: Coordinates task lifecycle
 """
 
 from loguru import logger
@@ -61,9 +61,9 @@ class FailedServicesTask(BaseTask):
     - The unit's status (description, active state, main PID) via `systemctl show`
     - The last 10 journal log lines to help diagnose the issue
 
-    This task follows the [BaseTask][] Template Method contract: `pre_check()` validates systemd
+    This task follows the [`BaseTask`][] Template Method contract: `pre_check()` validates systemd
     availability, `should_run()` decides whether there is actual work, and `execute()` produces the
-    [FailedServicesDetails][] payload.
+    [`FailedServicesDetails`][] payload.
 
     Example:
         ```toml title="ignored-services.toml"
@@ -114,7 +114,7 @@ class FailedServicesTask(BaseTask):
                 - `reason` (`str`): Human-readable summary of the situation,
                     e.g. `"Found 2 failed service(s)"` or
                     `"No failed services found"`.
-                - `skip_reason` ([SkipReason][archcare.config.SkipReason] | None):
+                - `skip_reason` ([`SkipReason`][archcare.config.SkipReason] | None):
                     `SkipReason.NO_WORK_NEEDED` when there is nothing to do,
                     `None` when the task should run.
         """
@@ -143,7 +143,7 @@ class FailedServicesTask(BaseTask):
 
         Returns:
             (TaskResult[FailedServicesDetails]):
-                Result whose `details` is a [FailedServicesDetails][]:
+                Result whose `details` is a `FailedServicesDetails`:
 
                 - `success` when no non-ignored services are failed (the defensive branch —
                     `should_run()` normally prevents reaching `execute()` in this case).

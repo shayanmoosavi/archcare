@@ -1,4 +1,7 @@
 # yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
+# NOTE (DEPRECATED): This config is kept as a fallback for cases when zensical doesn't work
+# as expected. Refer to `zensical.toml` for the actual configuration.
+
 site_name: Archcare
 site_url: https://shayanmoosavi.github.io/archcare/
 repo_url: https://github.com/shayanmoosavi/archcare
@@ -43,6 +46,7 @@ nav:
   - Home: index.md
   - Architecture:
       - architecture/index.md
+      - architecture/class-relationships.md
       - architecture/task-lifecycle.md
       - architecture/registry-and-ports.md
       - architecture/configuration.md

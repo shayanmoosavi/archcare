@@ -2,13 +2,13 @@
 Shared base exception for all domain-specific errors raised anywhere in archcare.
 
 Every layer (`core`, `config`, `services`) defines its own exceptions rooted in
-[ArchcareError][], so callers can catch any archcare-specific failure with a single
+[`ArchcareError`][], so callers can catch any archcare-specific failure with a single
 `except ArchcareError` while still handling specific cases with the layer-local classes.
 
 See Also:
-    - [archcare.core.exceptions][]: Core-layer exception hierarchy
-    - [archcare.config.exceptions][]: Config-layer exception hierarchy
-    - [archcare.services.exceptions][]: Service-layer exception hierarchy
+    - [`archcare.core.exceptions`][]: Core-layer exception hierarchy
+    - [`archcare.config.exceptions`][]: Config-layer exception hierarchy
+    - [`archcare.services.exceptions`][]: Service-layer exception hierarchy
 """
 
 

@@ -1,13 +1,13 @@
 """
 Maintenance check task for Archcare.
 
-This module provides [MaintenanceCheckTask][], a scheduler-aware task that monitors the status of
-all enabled maintenance tasks and reports which ones need attention. It is registered in the static
-task registry and exposed to users as the `maintenance-check` command.
+This module provides `MaintenanceCheckTask`, a scheduler-aware task that monitors the status of all
+enabled maintenance tasks and reports which ones need attention. It is registered in the static task
+registry and exposed to users as the `maintenance-check` command.
 
 Unlike other tasks, this task does not perform maintenance itself. Instead it inspects task
-configuration and persistent state (via [TaskScheduler][]) and emits categorized
-[MaintenanceIssue][] findings:
+configuration and persistent state (via [`TaskScheduler`][]) and emits categorized
+[`MaintenanceIssue`][] findings:
 
 - **Critical**: automated tasks severely overdue past the timer threshold (frequency × 1.5 days) —
     the systemd timer is likely broken or disabled.
@@ -27,11 +27,11 @@ older than `report_retention_days`.
     self-referential "overdue" report.
 
 See Also:
-    - [BaseTask][]: Abstract workflow this task implements
-    - [TaskScheduler][]: Computes due/overdue status
-    - [TaskResult][]: The structured result object that the task returns
-    - [MaintenanceCheckDetails][]: Details schema produced by this task
-    - [MaintenanceCheckSettings][archcare.config.models.MaintenanceCheckSettings]:
+    - [`BaseTask`][]: Abstract workflow this task implements
+    - [`TaskScheduler`][]: Computes due/overdue status
+    - [`TaskResult`][]: The structured result object that the task returns
+    - [`MaintenanceCheckDetails`][]: Details schema produced by this task
+    - [`MaintenanceCheckSettings`][archcare.config.models.MaintenanceCheckSettings]:
         Thresholds, notification, and report settings
 """
 
@@ -71,18 +71,18 @@ class MaintenanceCheckTask(BaseTask):
     - Tasks that have never been run
 
     Findings are categorized into `info`, `warning`, and `critical` buckets (see `self._check_task`
-    in source code) and aggregated into a [MaintenanceCheckSummary][].
+    in source code) and aggregated into a [`MaintenanceCheckSummary`][].
 
     !!! note "Fresh state"
-        Unlike most tasks, `MaintenanceCheckTask` builds its own [ConfigLoader][] at instantiation
+        Unlike most tasks, `MaintenanceCheckTask` builds its own [`ConfigLoader`][] at instantiation
         time and loads tasks/state eagerly, rather than deferring to the
         executor. This guarantees the report reflects the latest on-disk state
         even when other tasks have run in the same invocation.
 
     See Also:
-        - [MaintenanceCheckSettings][archcare.config.models.MaintenanceCheckSettings]: Configurable
-            thresholds (`critical_threshold_days`, `warning_threshold_days`), notification, and
-            report options
+        - [`MaintenanceCheckSettings`][archcare.config.models.MaintenanceCheckSettings]:
+            Configurable thresholds (`critical_threshold_days`, `warning_threshold_days`),
+            notification, and report options
     """
 
     def __init__(
@@ -95,14 +95,14 @@ class MaintenanceCheckTask(BaseTask):
         """
         Initialize the maintenance check task and load current schedule state.
 
-        Sets up empty issue accumulator lists and eagerly constructs a [ConfigLoader][] (bound to
-        the target user) plus a [TaskScheduler][] seeded with the freshly loaded tasks configuration
-        and persisted state.
+        Sets up empty issue accumulator lists and eagerly constructs a [`ConfigLoader`][] (bound to
+        the target user) plus a [`TaskScheduler`][] seeded with the freshly loaded tasks
+        configuration and persisted state.
 
         Args:
             config (TaskConfig): Task-specific configuration (e.g., enabled, frequency).
             settings (AppSettings): Application-wide settings, including the
-                [MaintenanceCheckSettings][archcare.config.models.MaintenanceCheckSettings]
+                [`MaintenanceCheckSettings`][archcare.config.models.MaintenanceCheckSettings]
                 thresholds and the target `user`.
 
         Other Args:
@@ -141,8 +141,8 @@ class MaintenanceCheckTask(BaseTask):
 
         Returns:
             (TaskResult[MaintenanceCheckDetails]):
-                Result whose `details` is a [MaintenanceCheckDetails][] containing the categorized
-                issue lists, a [MaintenanceCheckSummary][] (counts plus `total_tasks_monitored`),
+                Result whose `details` is a `MaintenanceCheckDetails` containing the categorized
+                issue lists, a [`MaintenanceCheckSummary`][] (counts plus `total_tasks_monitored`),
                 and a human-readable message from `summary.summary_message`.
 
         Side Effects:
@@ -215,7 +215,7 @@ class MaintenanceCheckTask(BaseTask):
         Bucket issues into the per-severity accumulator lists.
 
         Dispatches each issue to `self._critical_issues`, `self._warning_issues`, or
-        `self._info_issues` according to its [IssueSeverity][].
+        `self._info_issues` according to its `IssueSeverity`.
 
         Args:
             issues (list[MaintenanceIssue]): Issues found for a single task,
@@ -553,7 +553,7 @@ class MaintenanceCheckTask(BaseTask):
         Post-execution actions: send desktop notification and save report file.
 
         Runs after `execute()` regardless of outcome. Two optional side effects are triggered based
-        on [MaintenanceCheckSettings][archcare.config.models.MaintenanceCheckSettings]:
+        on [`MaintenanceCheckSettings`][archcare.config.models.MaintenanceCheckSettings]:
 
         - A desktop notification when `show_notifications` is enabled (further filtered by
             `notification_level`, see `self._send_notification` in the source code).
@@ -600,8 +600,7 @@ class MaintenanceCheckTask(BaseTask):
 
         Side Effects:
             - Emits Loguru log messages at `debug` level when suppressed.
-            - Sends a desktop notification via
-                [NotificationManager.send_maintenance_notification][archcare.core.notifications.NotificationManager.send_maintenance_notification]
+            - Sends a desktop notification via `NotificationManager.send_maintenance_notification`
                 when the threshold is met and a notification manager is available.
         """
 

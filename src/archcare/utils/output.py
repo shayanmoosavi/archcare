@@ -5,16 +5,16 @@ This module encapsulates formatting and presentation helpers to ensure the CLI e
 clear, and visually appealing output. It configures a global `rich.console.Console` instance and
 offers functions for:
 
-- **Status reporting**: [print_success][], [print_error][], [print_warning][], and [print_info][]
-    using standard iconography and color codes.
-- **Layout structures**: [print_header][], [print_panel][], and [print_table][] for presenting dense
-    or structured information (such as task tables or details).
-- **Environment adaptive muting**: [configure_console][] automatically mutes outputs globally in
+- **Status reporting**: [`print_success`][], [`print_error`][], [`print_warning`][], and
+    [`print_info`][] using standard iconography and color codes.
+- **Layout structures**: [`print_header`][], [`print_panel`][], and [`print_table`][] for
+    presenting dense or structured information (such as task tables or details).
+- **Environment adaptive muting**: [`configure_console`][] automatically mutes outputs globally in
     non-interactive environments (e.g., systemd timers).
 
 See Also:
-    - [archcare.cli.app][]: The main CLI application where the `Console` instance gets configured.
-    - [archcare.cli.presenters][]: The CLI presenters that use these utilities.
+    - [`archcare.cli.app`][]: The main CLI application where the `Console` instance gets configured.
+    - [`archcare.cli.presenters`][]: The CLI presenters that use these utilities.
 """
 
 from typing import Literal
@@ -37,9 +37,8 @@ def configure_console(is_interactive: bool = True) -> None:
     This removes the need to manually check interactive status flags at every print statement.
 
     Args:
-        is_interactive (bool): If True, enables beautiful terminal output. If False,
-            sets the global console's quiet mode to True, suppressing all prints.
-            Defaults to `True`.
+        is_interactive (bool): If True, enables beautiful terminal output. If False, sets the global
+            console's quiet mode to True, suppressing all prints. Defaults to `True`.
 
     Examples:
         >>> from archcare.utils.output import configure_console, console

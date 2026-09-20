@@ -1,8 +1,8 @@
 """
 Interaction port for the Archcare core layer.
 
-This module defines the user interaction interface ([TaskInteraction][]) and its
-default non-interactive implementation ([NonInteractive][]). It establishes the boundary
+This module defines the user interaction interface ([`TaskInteraction`][]) and its
+default non-interactive implementation ([`NonInteractive`][]). It establishes the boundary
 (port) between core task execution logic and direct user communication, such as displaying
 desktop notifications or asking for confirmation during potentially destructive actions.
 
@@ -11,16 +11,17 @@ By using this boundary, core task execution remains decoupled from the specific 
 how messages and confirmation questions are surfaced to the user.
 
 Key Concepts:
-    - **Port**: The [TaskInteraction][] protocol defines the interface for raising alerts
+    - **Port**: The [`TaskInteraction`][] protocol defines the interface for raising alerts
       and prompting for user input.
     - **Adapter**: Interactive presenters (like `CliInteraction` or desktop notification scripts)
       act as adapters implementing this port.
     - **Non-Interactive Mode**: For non-interactive environments (e.g., testing or automated runs
-      via systemd), the system falls back to [NonInteractive][].
+      via systemd), the system falls back to [`NonInteractive`][].
 
 See Also:
-    - [archcare.cli.interaction][]: CLI-specific interactive implementation.
-    - [archcare.core.notifications][]: Desktop notifications system using standard protocols.
+    - [`CliInteraction`][archcare.cli.interaction.CliInteraction]: CLI-specific interactive
+      implementation.
+    - [`archcare.core.notifications`][]: Desktop notifications system using standard protocols.
 """
 
 from typing import Protocol
@@ -57,7 +58,7 @@ class TaskInteraction(Protocol):
         True
 
     See Also:
-        [NonInteractive][]: The default non-interactive implementation of this protocol.
+        [`NonInteractive`][]: The default non-interactive implementation of this protocol.
     """
 
     def notify(self, message: str, level: str = "info") -> None:
@@ -96,7 +97,7 @@ class NonInteractive:
     Default interaction used when none is supplied.
 
     This class serves as a "null object" or "no-op" implementation of the
-    [TaskInteraction][archcare.core.interaction.TaskInteraction] protocol. It silently ignores
+    [`TaskInteraction`][archcare.core.interaction.TaskInteraction] protocol. It silently ignores
     all notifications and automatically declines all user prompts. This is suitable for:
 
     - Running tasks automatically via background daemons or cron jobs (e.g., systemd timers)
@@ -111,7 +112,7 @@ class NonInteractive:
         False
 
     See Also:
-        [TaskInteraction][]: Protocol describing the full interaction interface.
+        [`TaskInteraction`][]: Protocol describing the full interaction interface.
     """
 
     def notify(self, message: str, level: str = "info") -> None:

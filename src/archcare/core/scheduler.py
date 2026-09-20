@@ -1,10 +1,10 @@
 """
 Task scheduling manager for the Archcare core layer.
 
-This module provides [TaskScheduler][], which evaluates task configurations ([TasksConfig][])
-and current execution history ([AppState][]) to calculate schedule states, overdue time periods,
+This module provides [`TaskScheduler`][], which evaluates task configurations ([`TasksConfig`][])
+and current execution history ([`AppState`][]) to calculate schedule states, overdue time periods,
 and next-due schedules for recurrences. It maps scheduling evaluations to
-[TaskScheduleInfo][] structures.
+[`TaskScheduleInfo`][] structures.
 
 Scheduling decisions are evaluated dynamically by contrasting execution logs with task frequency
 settings. This decouples individual automated scripts from managing recurrence state or
@@ -17,8 +17,8 @@ Key Concepts:
         operations, sorted dynamically by those most overdue.
 
 See Also:
-    - [TaskConfig][archcare.config.models.TaskConfig]: Configuration defining execution intervals.
-    - [AppState][]: State model tracking execution timestamps.
+    - [`TaskConfig`][archcare.config.models.TaskConfig]: Configuration defining execution intervals.
+    - [`AppState`][]: State model tracking execution timestamps.
 """
 
 from datetime import datetime, timedelta
@@ -61,63 +61,6 @@ class TaskScheduler:
     Maintains orchestrating queries over the collection of all tasks to assess their
     due status, remaining intervals, and priority queues, facilitating dashboard queries,
     system state reports, and execution filtering.
-
-    Attributes:
-        tasks_config (TasksConfig): Source task definitions containing name, frequency,
-            and enable statuses.
-        state (AppState): Live application execution history containing timestamps of previous runs.
-
-    Examples:
-        >>> from datetime import datetime, timedelta
-        >>> from archcare.config import (
-        ...     TasksConfig,
-        ...     TaskConfig,
-        ...     AppState,
-        ...     TaskState,
-        ...     TaskType,
-        ...     TaskStatus,
-        ... )
-        >>> from archcare.core.scheduler import TaskScheduler
-        >>>
-        >>> # Setup dummy task configurations
-        >>> tasks_config = TasksConfig(
-        ...     tasks={
-        ...         "health-check": TaskConfig(
-        ...             name="health-check",
-        ...             type=TaskType.AUTOMATED,
-        ...             frequency=7,
-        ...             description="Core system health",
-        ...             enabled=True,
-        ...         )
-        ...     }
-        ... )
-        >>>
-        >>> # Setup fresh empty state
-        >>> state = AppState(tasks={})
-        >>> scheduler = TaskScheduler(tasks_config, state)
-        >>>
-        >>> # Retrieve schedule for task never executed
-        >>> info = scheduler.get_schedule_info("health-check")
-        >>> info.is_due
-        True
-        >>> info.reason
-        'Never run before'
-        >>>
-        >>> # Simulate a task run that occurred 2 days ago (not due yet)
-        >>> now = datetime.now()
-        >>> last_run = now - timedelta(days=2)
-        >>> next_due = last_run + timedelta(days=7)
-        >>> state.tasks["health-check"] = TaskState(
-        ...     last_run=last_run, next_due=next_due, last_status=TaskStatus.SUCCESS, run_count=1
-        ... )
-        >>> info = scheduler.get_schedule_info("health-check")
-        >>> info.is_due
-        False
-        >>> info.days_overdue
-        0
-
-    See Also:
-        - [TaskScheduleInfo][]: Named tuple detailing a single task's schedule.
     """
 
     def __init__(self, tasks_config: TasksConfig, state: AppState):
@@ -125,8 +68,65 @@ class TaskScheduler:
         Initialize the task scheduler.
 
         Args:
-            tasks_config (TasksConfig): Complete task configurations dictionary.
-            state (AppState): Application state tracking execution history.
+            tasks_config (TasksConfig): Source task definitions containing name, frequency,
+                and enable statuses.
+            state (AppState): Live application execution history containing timestamps of
+                previous runs.
+
+        Examples:
+            >>> from datetime import datetime, timedelta
+            >>> from archcare.config import (
+            ...     TasksConfig,
+            ...     TaskConfig,
+            ...     AppState,
+            ...     TaskState,
+            ...     TaskType,
+            ...     TaskStatus,
+            ... )
+            >>> from archcare.core.scheduler import TaskScheduler
+            >>>
+            >>> # Setup dummy task configurations
+            >>> tasks_config = TasksConfig(
+            ...     tasks={
+            ...         "health-check": TaskConfig(
+            ...             name="health-check",
+            ...             type=TaskType.AUTOMATED,
+            ...             frequency=7,
+            ...             description="Core system health",
+            ...             enabled=True,
+            ...         )
+            ...     }
+            ... )
+            >>>
+            >>> # Setup fresh empty state
+            >>> state = AppState(tasks={})
+            >>> scheduler = TaskScheduler(tasks_config, state)
+            >>>
+            >>> # Retrieve schedule for task never executed
+            >>> info = scheduler.get_schedule_info("health-check")
+            >>> info.is_due
+            True
+            >>> info.reason
+            'Never run before'
+            >>>
+            >>> # Simulate a task run that occurred 2 days ago (not due yet)
+            >>> now = datetime.now()
+            >>> last_run = now - timedelta(days=2)
+            >>> next_due = last_run + timedelta(days=7)
+            >>> state.tasks["health-check"] = TaskState(
+            ...     last_run=last_run,
+            ...     next_due=next_due,
+            ...     last_status=TaskStatus.SUCCESS,
+            ...     run_count=1,
+            ... )
+            >>> info = scheduler.get_schedule_info("health-check")
+            >>> info.is_due
+            False
+            >>> info.days_overdue
+            0
+
+        See Also:
+            [`TaskScheduleInfo`][]: Named tuple detailing a single task's schedule.
         """
         self.tasks_config = tasks_config
         self.state = state
@@ -147,7 +147,7 @@ class TaskScheduler:
 
         Raises:
             UnknownTaskError: If the specified `task_name` is not defined in `tasks_config`.
-                (propagated from [TasksConfig.get_task][]).
+                (propagated from [`TasksConfig.get_task`][]).
         """
         task_config = self.tasks_config.get_task(task_name)
 
@@ -253,7 +253,7 @@ class TaskScheduler:
                 - `'due'`: Count of tasks currently due/overdue for execution.
                 - `'overdue'`: Count of tasks specifically overdue by 1 or more days.
                 - `'upcoming'`: Count of tasks currently not due but scheduling recurrence
-                  falls within the next 7 days.
+                    falls within the next 7 days.
         """
         all_info = self.get_all_schedule_info()
 

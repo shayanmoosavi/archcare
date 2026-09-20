@@ -13,10 +13,10 @@ All enums inherit from `enum.Enum` and implement `__str__` to return their
 string value, enabling direct serialization to TOML/JSON configuration files.
 
 These enums are used by:
-    - [AppSettings][] for logging configuration
-    - [TaskConfig][] for task definitions
-    - [TaskState][] for runtime state tracking
-    - [ConfigLoader][] for validation
+    - [`AppSettings`][] for logging configuration
+    - [`TaskConfig`][] for task definitions
+    - [`TaskState`][] for runtime state tracking
+    - [`ConfigLoader`][] for validation
 
 Examples:
     >>> from archcare.config.enums import LogLevel, TaskType, TaskStatus, SkipReason
@@ -30,8 +30,8 @@ Examples:
     <SkipReason.NOT_DUE: 'not_due'>
 
 See Also:
-    - [archcare.config.models][]: Pydantic models that use these enums
-    - [archcare.config.loader][]: Configuration loading with enum validation
+    - [`archcare.config.models`][]: Pydantic models that use these enums
+    - [`archcare.config.loader`][]: Configuration loading with enum validation
 """
 
 from enum import Enum
@@ -67,7 +67,7 @@ class LogLevel(Enum):
         'INFO'
 
     See Also:
-        [AppSettings][archcare.config.models.AppSettings]: App-wide settings where this log level
+        [`AppSettings`][archcare.config.models.AppSettings]: App-wide settings where this log level
             is applied
     """
 
@@ -123,7 +123,8 @@ class TaskType(Enum):
         'automated'
 
     See Also:
-        [TaskConfig][archcare.config.models.TaskConfig]: Configuration where task type is specified
+        [`TaskConfig`][archcare.config.models.TaskConfig]: Configuration where task type
+        is specified
     """
 
     AUTOMATED = "automated"
@@ -148,9 +149,9 @@ class TaskStatus(Enum):
     """
     Represent the execution outcome for a completed task run.
 
-    Tracks whether a task was successful, failed, skipped, or had partial success.
-    The resulting status is persisted in the application state to track history
-    and make future scheduling decisions.
+    Tracks whether a task was successful, failed, skipped, or had partial success. The resulting
+    status is persisted in the application state to track history and make future scheduling
+    decisions.
 
     Attributes:
         SUCCESS (str): Task completed without errors, accomplishing all work.
@@ -166,7 +167,8 @@ class TaskStatus(Enum):
         'success'
 
     See Also:
-        [TaskState][archcare.config.models.TaskState]: State model containing task execution status
+        [`TaskState`][archcare.config.models.TaskState]: State model containing task
+        execution status
     """
 
     SUCCESS = "success"
@@ -213,8 +215,8 @@ class SkipReason(Enum):
         'disabled'
 
     See Also:
-        [TaskExecutor][archcare.core.executor.TaskExecutor]: Coordinates task handling and schedule
-            state updates
+        [`TaskExecutor`][archcare.core.executor.TaskExecutor]: Coordinates task handling
+            and schedule state updates
     """
 
     NO_WORK_NEEDED = "no_work_needed"

@@ -1,20 +1,19 @@
 """
-Configuration models for Archcare using Pydantic
+Configuration models for Archcare using [Pydantic](https://pydantic.dev/)
 
 This module defines the data contracts for Archcare's configuration system, which is built
 around three main concepts:
 
-1. **Task Configuration** ([TaskConfig][TaskConfig], [TasksConfig][TasksConfig]):
-    Defined in `tasks.toml`, specifies which maintenance tasks to run, their frequency,
-    type (automated vs manual), and enabled state.
+1. **Task Configuration** ([`TaskConfig`][], [`TasksConfig`][]): Defined in `tasks.toml`, specifies
+    which maintenance tasks to run, their frequency, execution type (automated vs manual), and
+    enabled state.
 
-2. **Application Settings** ([AppSettings][AppSettings]): Defined in `settings.toml`,
-    controls global behavior like logging, confirmations, and task-specific options
-    (mirrorlist, maintenance check).
+2. **Application Settings** ([`AppSettings`][]): Defined in `settings.toml`, controls
+    global behavior like logging, confirmations, and task-specific options (e.g.,
+    `mirrorlist-update`, `maintenance-check`, etc.).
 
-3. **Runtime State** ([TaskState][TaskState], [AppState][AppState]): Persisted in `state.json`,
-    tracks task execution history (last run, next due, run count, errors) to
-    enable scheduling decisions.
+3. **Runtime State** ([`TaskState`][], [`AppState`][]): Persisted in `state.json`, tracks task
+    execution history (last run, next due, run count, errors) to enable scheduling decisions.
 
 All models use Pydantic's validation framework to ensure type safety and provide clear error
 messages on configuration errors.
@@ -51,7 +50,7 @@ class TaskConfig(BaseModel):
     Configuration for a single maintenance task
 
     Defines how a task should behave: its name, execution type (automated vs manual),
-    frequency, description, and enabled state. Aggregated by [TasksConfig][].
+    frequency, description, and enabled state. Aggregated by [`TasksConfig`][].
 
     Attributes:
         name (str): Unique identifier for the task (alphanumeric, hyphens, underscores)
@@ -105,9 +104,9 @@ class TaskConfig(BaseModel):
         actual runs (`last_run`, `last_status`, `next_due`).
 
     See also:
-        - [TasksConfig][]: collection of all task configurations
-        - [AppState][]: runtime state including task execution history
-        - [TaskState][]: per-task execution state (last run, next due, last status)
+        - [`TasksConfig`][]: collection of all task configurations
+        - [`AppState`][]: runtime state including task execution history
+        - [`TaskState`][]: per-task execution state (last run, next due, last status)
     """
 
     name: str = Field(..., description="Unique task identifier")
@@ -316,7 +315,7 @@ class TasksConfig(BaseModel):
             name (str): Exact task name (must exist)
 
         Returns:
-            (TaskConfig): The configuration for the requested task
+            TaskConfig: The configuration for the requested task
 
         Raises:
             UnknownTaskError: If the task does not exist.
@@ -355,13 +354,13 @@ class IgnoredServicesConfig(BaseModel):
     """
     Configuration for services to ignore in `failed-services` task
 
-    Part of tasks configuration; allows users to exclude specific systemd services
-    from the `failed-services` task. Useful for services that are expected to fail or
-    restart frequently and don't need monitoring.
+    Part of tasks configuration; allows users to exclude specific systemd services from the
+    `failed-services` task. Useful for services that are expected to fail or restart frequently and
+    don't need monitoring.
 
     Attributes:
-        services (list[str]): List of systemd service names to ignore during the check.
-                 Empty list means no services are ignored (all are monitored)
+        services (list[str]): List of systemd service names to ignore during the check. Empty list
+            means no services are ignored (all are monitored)
 
     Validation:
         - Each service name must be a valid systemd unit name (alphanumeric, dots, hyphens)
@@ -432,7 +431,7 @@ class IgnoredServicesConfig(BaseModel):
             service_name (str): Systemd unit name
 
         Returns:
-            (bool): True if service is in ignore list, False otherwise
+            bool: True if service is in ignore list, False otherwise
 
         Examples:
             >>> ignored_cfg = IgnoredServicesConfig(services=["watchdog.service"])
@@ -449,14 +448,13 @@ class MirrorlistSettings(BaseModel):
     """
     Settings for `mirrorlist-update` task
 
-    Configures how the `mirrorlist-update` task downloads and ranks Arch Linux
-    package mirrors. Uses [Reflector](https://wiki.archlinux.org/title/Reflector)
-    behind the scenes to fetch and rank mirrors based on country, protocol, and
-    sync recency.
+    Configures how the `mirrorlist-update` task downloads and ranks Arch Linux package mirrors. Uses
+    [Reflector](https://wiki.archlinux.org/title/Reflector) behind the scenes to fetch and rank
+    mirrors based on country, protocol, and sync recency.
 
     Attributes:
-        path (pathlib.Path): Path to write the updated mirrorlist file.
-            Defaults to `/etc/pacman.d/mirrorlist`.
+        path (pathlib.Path): Path to write the updated mirrorlist file. Defaults to
+            `/etc/pacman.d/mirrorlist`.
 
         country (str | list[str]): Country/countries for mirror selection (single string or list).
             Supports ISO 3166 country codes (e.g., "DE" for Germany). Defaults to "Germany".
@@ -685,6 +683,8 @@ class MaintenanceCheckSettings(BaseModel):
         - `notification_level` must be one of: "critical", "warning", "info"
         - `critical_threshold_days` >= 0
         - `report_retention_days` >= 1 (at least 1 day)
+        - `warning_threshold_days` must be strictly less than `critical_threshold_days`
+          (enforced by a cross-field model validator)
 
     State Tracking:
         - Reports saved to `~/.local/state/archcare/reports/maintenance-check-YYYY-MM-DD.txt`
@@ -695,7 +695,6 @@ class MaintenanceCheckSettings(BaseModel):
     critical_threshold_days: int = Field(
         default=7, ge=0, description="Days overdue before task is considered critical"
     )
-    # TODO: add lt=critical_threshold_days validator
     warning_threshold_days: int = Field(
         default=0, ge=0, description="Days overdue before task is considered warning"
     )
@@ -772,6 +771,29 @@ class MaintenanceCheckSettings(BaseModel):
             raise ValueError(f"notification_level must be one of: {', '.join(valid_levels)}")
         return v
 
+    @model_validator(mode="after")
+    def validate_thresholds(self) -> Self:
+        """
+        Ensure the warning threshold is strictly below the critical threshold.
+
+        Cross-field validation: `Field(lt=...)` cannot reference a sibling field,
+        so the comparison is done here after both fields have passed their own
+        field-level validation.
+
+        Returns:
+            Self: The validated model instance.
+
+        Raises:
+            ValueError: If `warning_threshold_days` is greater than or equal to
+                `critical_threshold_days`.
+        """
+        if self.warning_threshold_days >= self.critical_threshold_days:
+            raise ValueError(
+                f"warning_threshold_days ({self.warning_threshold_days}) must be less than "
+                f"critical_threshold_days ({self.critical_threshold_days})"
+            )
+        return self
+
 
 class AppSettings(BaseModel):
     """
@@ -782,7 +804,7 @@ class AppSettings(BaseModel):
     for state, logs, config, and reports directories.
 
     Attributes:
-        user (str): The username. Set by [UserContext][] and used to resolve
+        user (str): The username. Set by [`UserContext`][] and used to resolve
             the home directory at runtime.
 
         log_retention_days (int): Age threshold for log file cleanup. (Default: 30)
@@ -791,9 +813,8 @@ class AppSettings(BaseModel):
 
         dry_run (bool): Simulate operations without making changes
 
-        mirrorlist (MirrorlistSettings): Mirrorlist settings (see class for details)
+        mirrorlist (MirrorlistSettings): Mirrorlist settings
         maintenance_check (MaintenanceCheckSettings): Maintenance check settings
-            (see class for details)
 
     Methods:
         home_dir: *(property)* User's home directory
@@ -838,6 +859,10 @@ class AppSettings(BaseModel):
         INFO
         >>> print(settings.mirrorlist.protocol)
         https
+
+    See also:
+        - [`MirrorlistSettings`][]: Mirrorlist-specific settings
+        - [`MaintenanceCheckSettings`][]: Maintenance check-specific settings
     """
 
     # Global settings
@@ -904,8 +929,7 @@ class AppSettings(BaseModel):
             Path to the user's home directory.
 
         Raises:
-            HomeDirectoryResolutionError: If the user does not exist or
-                home cannot be resolved.
+            HomeDirectoryResolutionError: If the user does not exist or home cannot be resolved.
 
         Examples:
             >>> from archcare.config.models import AppSettings
@@ -932,7 +956,7 @@ class AppSettings(BaseModel):
 
         Location: `~/.local/state/archcare/logs`
 
-        Created by [ensure_directories][ensure_directories] if missing. Contains task-specific
+        Created by [`ensure_directories`][] if missing. Contains task-specific
         and Archcare master log files. Old logs cleaned up based on `log_retention_days` setting.
 
         Example:
@@ -956,9 +980,9 @@ class AppSettings(BaseModel):
 
         Location: `~/.local/state/archcare/state.json`
 
-        Persists [AppState][AppState] for app state management. Created by
-        [ConfigLoader][archcare.config.loader.ConfigLoader] and updated after
-        each task execution. Enables scheduling decisions.
+        Persists [`AppState`][] for app state management. Created by
+        [`ConfigLoader`][archcare.config.loader.ConfigLoader] and updated after each task execution.
+        Enables scheduling decisions.
 
         Example content:
             ```json title="state.json"
@@ -985,9 +1009,8 @@ class AppSettings(BaseModel):
 
         Location: `~/.config/archcare`
 
-        Created by [ensure_directories][ensure_directories] if missing.
-        Default config files are created with
-        [create_default_config_files][archcare.config.loader.create_default_config_files].
+        Created by [`ensure_directories`][] if missing. Default config files are created with
+        [`create_default_config_files`][archcare.config.loader.create_default_config_files].
 
         Example:
             ```ansi
@@ -1006,9 +1029,8 @@ class AppSettings(BaseModel):
 
         Location: `~/.local/state/archcare/reports`
 
-        Created by [ensure_directories][ensure_directories] if missing.
-        Stores `maintenance-check` task timestamped reports.
-        Old reports auto-cleaned per `report_retention_days`.
+        Created by [`ensure_directories`][] if missing. Stores `maintenance-check` task timestamped
+        reports. Old reports auto-cleaned per `report_retention_days`.
 
         Example:
             ```ansi
@@ -1029,7 +1051,7 @@ class AppSettings(BaseModel):
             - Paths are absolute (not relative)
             - Paths are syntactically valid (resolvable without requiring existence)
 
-        Does NOT create directories; [ensure_directories][ensure_directories] handles that.
+        Does NOT create directories; [`ensure_directories`][] handles that.
 
         Raises:
             ValueError: If any path is relative or malformed
@@ -1112,9 +1134,9 @@ class TaskState(BaseModel):
     """
     Runtime state for a task
 
-    Tracks the execution history of a single task. One `TaskState` exists per
-    task (same key as [TaskConfig][TaskConfig] in the registry) and is persisted
-    in `state.json`. Aggregated by [AppState][AppState].
+    Tracks the execution history of a single task. One `TaskState` exists per task (same key as
+    [`TaskConfig`][] in the registry) and is persisted in `state.json`. Aggregated
+    by [`AppState`][].
 
     Attributes:
         last_run (datetime.datetime | None): Timestamp of most recent execution attempt
@@ -1125,10 +1147,10 @@ class TaskState(BaseModel):
         next_due (datetime.datetime | None): Timestamp when task should run next or
             `None` if never calculated (task never run or disabled).
 
-            Calculated as: `last_run` + frequency days (from [TaskConfig][TaskConfig])
+            Calculated as: `last_run` + frequency days (from [`TaskConfig`][])
 
         run_count (int): Total number of times task has been executed. Incremented by
-            [TaskExecutor][archcare.core.executor.TaskExecutor] after each run.
+            [`TaskExecutor`][archcare.core.executor.TaskExecutor] after each run.
 
         last_error (str | None): Error message from most recent failed run or
             `None` if `last_status` is not `FAILURE`.
@@ -1138,7 +1160,7 @@ class TaskState(BaseModel):
             is not `SKIPPED`.
 
     JSON Persistence:
-        Stored in `~/.local/state/archcare/state.json` as part of [AppState][AppState].
+        Stored in `~/.local/state/archcare/state.json` as part of [`AppState`][].
         Serialized with datetime objects converted to ISO 8601 strings.
         Deserialized on app startup to restore history.
 
@@ -1173,18 +1195,16 @@ class AppState(BaseModel):
     """
     Application state tracking task execution history
 
-    Master state object persisted in `~/.local/state/archcare/state.json`.
-    Combines [TaskState][TaskState] for all registered tasks; reconstructed
-    on app startup from the JSON file. Updated by
-    [TaskExecutor][archcare.core.executor.TaskExecutor] after each task run.
+    Master state object persisted in `~/.local/state/archcare/state.json`. Combines [`TaskState`][]
+    for all registered tasks; reconstructed on app startup from the JSON file. Updated by
+    [`TaskExecutor`][archcare.core.executor.TaskExecutor] after each task run.
 
     Attributes:
-        tasks (dict[str, TaskState]): Dict mapping task names (str) to `TaskState` objects.
-            One entry per registered task (from [TaskConfig][TaskConfig])
-            `TaskState` created lazily on first access via [get_task_state][get_task_state].
+        tasks (dict[str, TaskState]): Dict mapping task names (str) to `TaskState` objects. One
+            entry per registered task (from [`TaskConfig`][]). `TaskState` created lazily on first
+            access via [`get_task_state`][].
 
-        last_updated: Timestamp of last state modification Auto-updated by
-            [update_task_state][update_task_state].
+        last_updated: Timestamp of last state modification Auto-updated by [`update_task_state`][].
 
     Methods:
         get_task_state: Get state for a task, creating if it doesn't exist.
@@ -1228,7 +1248,7 @@ class AppState(BaseModel):
         Get state for a task, creating if it doesn't exist
 
         Args:
-            task_name (str): Name of the task (must match [TaskConfig][TaskConfig] key)
+            task_name (str): Name of the task (must match [`TaskConfig`][] key)
 
         Returns:
             Corresponding `TaskState` object, lazily created if it doesn't exist

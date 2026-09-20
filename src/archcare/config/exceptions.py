@@ -1,17 +1,38 @@
 """
 Domain exceptions for the Archcare config layer.
 
-Defines custom exceptions used for error handling and validation failures
-during configuration loading, parsing, and modification. All exceptions
-root back to [ArchcareError][archcare.exceptions.ArchcareError].
+Defines custom exceptions used for error handling and validation failures during configuration
+loading, parsing, and modification. All exceptions root back to
+[`ArchcareError`][archcare.exceptions.ArchcareError].
 
-Certain exception classes deliberately subclass both [ArchcareConfigError][]
-and `ValueError` so that they propagate correctly through Pydantic validators
-(which wrap standard `ValueError` instances in `ValidationError`).
+Certain exception classes deliberately subclass both [`ArchcareConfigError`][] and `ValueError` so
+that they propagate correctly through Pydantic validators (which wrap standard `ValueError`
+instances in `ValidationError`).
+
+Exception Hierarchy:
+    ```mermaid
+    flowchart
+        BASE["ArchcareError (base)"]
+        CONF[ArchcareConfigError]
+        VAL[ValueError]
+        UNK[UnknownTaskError]
+        HOME[HomeDirectoryResolutionError]
+        UNIT[InvalidUnitNameError]
+
+        BASE --> CONF
+        CONF --> InvalidTaskTypeFilterError
+        CONF --> HOME
+        VAL --> HOME
+        CONF --> UNIT
+        VAL --> UNIT
+        CONF --> UNK
+        VAL --> UNK
+    ```
 
 See Also:
-    - [archcare.exceptions][]: Base application exception definitions
-    - [archcare.config.loader][]: Config loader that handles and logs these exceptions
+    - [`ArchcareError`][]: Root exception for all Archcare exceptions
+    - [`ConfigLoader`][archcare.config.loader.ConfigLoader]: Config loader that handles and logs
+        these exceptions
 """
 
 from archcare.exceptions import ArchcareError
@@ -29,7 +50,7 @@ class ArchcareConfigError(ArchcareError):
 
 class UnknownTaskError(ArchcareConfigError, ValueError):
     """
-    Raised when a task name doesn't exist in [TasksConfig][].
+    Raised when a task name doesn't exist in [`TasksConfig`][].
 
     Subclasses `ValueError` to propagate correctly through any higher-level
     validation code.
@@ -53,7 +74,7 @@ class UnknownTaskError(ArchcareConfigError, ValueError):
             'Task not found: invalid-task'
 
         See Also:
-            [TasksConfig][]: The task configurations container
+            [`TasksConfig`][]: The task configurations container
         """
         self.task_name = task_name
         super().__init__(f"Task not found: {task_name}")
@@ -63,7 +84,7 @@ class InvalidTaskTypeFilterError(ArchcareConfigError):
     """
     Raised when filtering tasks with an invalid type.
 
-    Occurs when [TasksConfig.get_tasks_by_type][]
+    Occurs when [`TasksConfig.get_tasks_by_type`][]
     is given a value other than 'automated' or 'manual'.
 
     Attributes:
@@ -85,8 +106,8 @@ class InvalidTaskTypeFilterError(ArchcareConfigError):
             "task_type must be 'automated' or 'manual'"
 
         See Also:
-            - [TasksConfig.get_tasks_by_type][]: Method raising this error
-            - [TaskType][]: Enumeration of valid task types
+            - [`TasksConfig.get_tasks_by_type`][]: Method raising this error
+            - [`TaskType`][]: Enumeration of valid task types
         """
         self.task_type = task_type
         super().__init__("task_type must be 'automated' or 'manual'")
@@ -133,7 +154,7 @@ class InvalidUnitNameError(ArchcareConfigError, ValueError):
     Raised when a systemd unit name is malformed.
 
     Must inherit from `ValueError` because it is raised from within a Pydantic
-    `field_validator` in [IgnoredServicesConfig][].
+    `field_validator` in [`IgnoredServicesConfig`][].
 
     Attributes:
         invalid_names (list[str]): List of malformed systemd unit names.
@@ -146,7 +167,7 @@ class InvalidUnitNameError(ArchcareConfigError, ValueError):
         Invalid systemd unit name(s) in ignored-services config: ['bad-name@', 'no-extension']
 
     See Also:
-        [IgnoredServicesConfig][]: Validates ignored service names
+        [`IgnoredServicesConfig`][]: Validates ignored service names
     """
 
     def __init__(self, invalid_names: list[str]) -> None:

@@ -1,7 +1,7 @@
 """
 Task execution coordinator for the Archcare core layer.
 
-This module provides [TaskExecutor][], which coordinates task instantiation, controls execution
+This module provides `TaskExecutor`, which coordinates task instantiation, controls execution
 lifecycles, and manages dynamic execution updates over persistent status states. It interfaces with
 configuration loader, scheduler, task registry, and various ports (for user interactions, progress
 tracking, and notifications).
@@ -15,9 +15,9 @@ Key Concepts:
         system status maps, saves changes to disk, and corrects file permissions.
 
 See Also:
-    - [TaskScheduler][]: Checks task schedule timelines.
-    - [TaskRegistry][]: Name-to-class mapping consumed here.
-    - [BaseTask][]: Abstract interface for task classes.
+    - [`TaskScheduler`][]: Checks task schedule timelines.
+    - [`TaskRegistry`][]: Name-to-class mapping consumed here.
+    - [`BaseTask`][]: Abstract interface for task classes.
 """
 
 from datetime import datetime, timedelta
@@ -90,7 +90,8 @@ class TaskExecutor:
         True
 
     See Also:
-        - [BaseTask][]: Base task implementation structure.
+        - [`BaseTask`][]: Base task implementation structure.
+        - [`TaskRegistry`][]: Task registry that maps tasks to their implementations.
     """
 
     def __init__(
@@ -113,13 +114,13 @@ class TaskExecutor:
             state (AppState): Application state for tracking execution history.
             task_registry (TaskRegistry): Static registry of task names mapped to their classes.
             interaction (TaskInteraction | None): User notification and confirmation adapter.
-                Defaults to [NonInteractive][].
+                Defaults to [`NonInteractive`][].
             notification_manager (NotificationManager | None): Desktop notifications sender.
                 If `None`, it is lazily constructed on first access.
             user_context (UserContext | None): System user context resolution. If `None`, eagerly
                 retrieved from active environment variables.
             progress (TaskProgress | None): Visual progress tracking adapter.
-                Defaults to [NoOpProgress][].
+                Defaults to [`NoOpProgress`][].
         """
         self.config_loader = config_loader
         self.settings = settings

@@ -42,7 +42,7 @@ def logs(
 
     Args:
         ctx (typer.Context): Typer context whose `obj` is an
-            [AppContext][archcare.cli.context.AppContext].
+            [`AppContext`][archcare.cli.context.AppContext].
         task_name (str | None): Optional task name to show logs for; when `None`, shows the main
             `archcare.log`. Defaults to `None`.
         lines (int): Number of trailing log lines to show. Defaults to `50`.

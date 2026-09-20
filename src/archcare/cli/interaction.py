@@ -1,14 +1,14 @@
 """
 CLI adapter for TaskExecutor's interaction port.
 
-Wires [TaskInteraction][archcare.core.interaction.TaskInteraction]'s
+Wires [`TaskInteraction`][archcare.core.interaction.TaskInteraction]'s
 `notify()` and `confirm()` calls to the existing Rich-based output helpers
 and Typer's confirmation prompt, letting core task code interact with the
 user without depending on the CLI layer.
 
 See Also:
-    - [archcare.core.interaction][]: The port this adapter implements
-    - [archcare.core.interaction.NonInteractive][]: The non-interactive
+    - [`archcare.core.interaction`][]: The port this adapter implements
+    - [`NonInteractive`][archcare.core.interaction.NonInteractive]: The non-interactive
         counterpart used for systemd timer runs
 """
 
@@ -19,11 +19,11 @@ from archcare.utils import print_info, print_warning
 
 class CliInteraction:
     """
-    Terminal implementation of [TaskInteraction][archcare.core.interaction.TaskInteraction].
+    Terminal implementation of [`TaskInteraction`][archcare.core.interaction.TaskInteraction].
 
     Notifies via Rich-styled info/warning helpers and confirms via Typer's interactive yes/no
     prompt. Not usable when stdin isn't a TTY (e.g., systemd timer runs) — those use
-    [NonInteractive][archcare.core.interaction.NonInteractive] implementation instead.
+    [`NonInteractive`][archcare.core.interaction.NonInteractive] implementation instead.
     """
 
     def notify(self, message: str, level: str = "info") -> None:

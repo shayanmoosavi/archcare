@@ -2,15 +2,15 @@
 Task related Typer commands for Archcare.
 
 Defines the `archcare task` sub-app and its three commands — `run`, `status`, `list` — each one a
-thin shell that constructs a fresh [TaskService][] from the shared
-[AppContext][archcare.cli.context.AppContext] and delegates rendering to [TaskPresenter][].
+thin shell that constructs a fresh [`TaskService`][] from the shared
+[`AppContext`][archcare.cli.context.AppContext] and delegates rendering to [`TaskPresenter`][].
 
 The same exception set (`InvalidTasksFileError`, `TaskNotFoundError`, `InvalidTaskTypeError`,
 `typer.Abort`) recurs in every command, so the presenter's per-error helpers (`empty`, `not_found`,
 `invalid_task_type`, `aborted`) are reused across all three.
 
 See also:
-    [archcare.services.exceptions][]: The domain exceptions handled by these Typer commands
+    [`archcare.services.exceptions`][]: The domain exceptions handled by these Typer commands
 """
 
 from typing import Annotated
@@ -72,15 +72,16 @@ def run(
     """
     Run a specific maintenance task.
 
-    Sets up logging, then delegates to [TaskService.run_task][] and renders the resulting
-    [TaskRunResponse][archcare.services.responses.TaskRunResponse] via [TaskPresenter.render_run][].
-    Catches `InvalidTasksFileError` (empty file), `TaskNotFoundError`, `typer.Abort`, and a generic
-    fallback — each rendered via the matching presenter helper and converted into a non-zero exit.
-    The final exit code reflects the task outcome: `0` for success/partial/skipped, `1` for failure.
+    Sets up logging, then delegates to [`TaskService.run_task`][] and renders the resulting
+    [`TaskRunResponse`][archcare.services.responses.TaskRunResponse] via
+    [`TaskPresenter.render_run`][]. Catches `InvalidTasksFileError` (empty file),
+    `TaskNotFoundError`, `typer.Abort`, and a generic fallback — each rendered via the matching
+    presenter helper and converted into a non-zero exit. The final exit code reflects the task
+    outcome: `0` for success/partial/skipped, `1` for failure.
 
     Args:
         ctx (typer.Context): Typer context whose `obj` is an
-            [AppContext][archcare.cli.context.AppContext].
+            [`AppContext`][archcare.cli.context.AppContext].
         task_name (str): Name of the task to run.
         force (bool): Run even if not due. Defaults to `False`.
         verbose (bool): Show detailed (per-task formatter) output. Defaults to `False`.
@@ -132,15 +133,15 @@ def status(
     """
     Show status and schedule for tasks.
 
-    Sets up logging, then delegates to [TaskService.get_task_status][] and renders the resulting
-    [TaskStatusResponse][archcare.services.responses.TaskStatusResponse] via
-    [TaskPresenter.render_status][]. Catches `InvalidTasksFileError` and `TaskNotFoundError` (the
+    Sets up logging, then delegates to [`TaskService.get_task_status`][] and renders the resulting
+    [`TaskStatusResponse`][archcare.services.responses.TaskStatusResponse] via
+    [`TaskPresenter.render_status`][]. Catches `InvalidTasksFileError` and `TaskNotFoundError` (the
     latter coerced to an empty string when no `task_name` was given) and routes them to the matching
     presenter helper, exiting with status 1.
 
     Args:
         ctx (typer.Context): Typer context whose `obj` is an
-            [AppContext][archcare.cli.context.AppContext].
+            [`AppContext`][archcare.cli.context.AppContext].
         task_name (str | None): Specific task to check; when `None` (default), shows status for
             all tasks.
         due_only (bool): When `True`, show only due tasks. Ignored in single-task mode. Defaults
@@ -184,14 +185,14 @@ def list_tasks(
     """
     List all available and enabled tasks.
 
-    Sets up logging, then delegates to [TaskService.list_tasks][] and renders the resulting
-    [TaskListResponse][archcare.services.responses.TaskListResponse] via
-    [TaskPresenter.render_list][]. Catches `InvalidTasksFileError` and `InvalidTaskTypeError` and
+    Sets up logging, then delegates to [`TaskService.list_tasks`][] and renders the resulting
+    [`TaskListResponse`][archcare.services.responses.TaskListResponse] via
+    [`TaskPresenter.render_list`][]. Catches `InvalidTasksFileError` and `InvalidTaskTypeError` and
     routes them to the matching presenter helper, exiting with status 1.
 
     Args:
         ctx (typer.Context): Typer context whose `obj` is an
-            [AppContext][archcare.cli.context.AppContext].
+            [`AppContext`][archcare.cli.context.AppContext].
         task_type (str | None): Filter by type — `automated`, `manual`, or `None` for all enabled
             tasks. Defaults to `None`.
     """

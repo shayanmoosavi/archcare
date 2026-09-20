@@ -1,10 +1,10 @@
 """
 Task implementations for Archcare.
 
-Concrete maintenance task classes that inherit from [BaseTask][archcare.core.base_task.BaseTask] and
-implement the system maintenance operations exposed through the CLI. Each task produces a typed
-[TaskResult][archcare.core.models.TaskResult] with a per-task details payload from
-[archcare.core.task_details][].
+Concrete maintenance task classes that inherit from [`BaseTask`][archcare.core.base_task.BaseTask]
+and implement the system maintenance operations exposed through the CLI. Each task produces a typed
+[`TaskResult`][archcare.core.models.TaskResult] with a per-task details payload from
+[`archcare.core.task_details`][].
 
 This package is the *tasks* layer of the architecture: it orchestrates the `utils/` OS-boundary
 helpers according to the workflow defined in `core/`, without depending on `cli/` or `services/`.
@@ -23,14 +23,14 @@ Available tasks:
     broken systemd timers, with notification and report-file support.
 
 Public API:
-    - [FailedServicesTask][]: Failed systemd service detection and diagnostics
-    - [HealthCheckTask][]: Comprehensive system health checks
-    - [MirrorlistUpdateTask][]: Reflector-based mirrorlist refresh with rollback
-    - [MaintenanceCheckTask][]: Task schedule/overdue monitoring
+    - [`FailedServicesTask`][]: Failed systemd service detection and diagnostics
+    - [`HealthCheckTask`][]: Comprehensive system health checks
+    - [`MirrorlistUpdateTask`][]: Reflector-based mirrorlist refresh with rollback
+    - [`MaintenanceCheckTask`][]: Task schedule/overdue monitoring
 
 See Also:
-    - [BaseTask][archcare.core.base_task.BaseTask]: Abstract task contract and execution workflow
-    - [archcare.core.task_details][]: Details dataclasses each task produces
+    - [`BaseTask`][archcare.core.base_task.BaseTask]: Abstract task contract and execution workflow
+    - [`archcare.core.task_details`][]: Details dataclasses each task produces
 """
 
 from .failed_services import FailedServicesTask

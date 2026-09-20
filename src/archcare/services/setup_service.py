@@ -3,26 +3,26 @@ Setup service - business logic for `setup config` and `setup timers`.
 
 This module contains the two services behind archcare's first-run setup:
 
-- [ConfigService][]: `setup config` — checks for existing TOML configuration files and writes
-    bundled defaults (via [create_default_config_files][]).
-- [TimerService][]: `setup timers` — generates systemd template units (`archcare@.service` /
+- [`ConfigService`][]: `setup config` — checks for existing TOML configuration files and writes
+    bundled defaults (via [`create_default_config_files`][]).
+- [`TimerService`][]: `setup timers` — generates systemd template units (`archcare@.service` /
     `archcare@.timer`), installs them into `/etc/systemd/system`, reloads the daemon, and
     optionally enables+starts one timer per automated task.
 
-The module also provides [resolve_systemd_target_user][], which determines the non-root user that
+The module also provides [`resolve_systemd_target_user`][], which determines the non-root user that
 timer units should execute as (via `SUDO_USER`), and the private `_generate_systemd_templates`
 helper producing the unit file contents.
 
 !!! warning "Root requirement"
     Everything in `TimerService` targets system-level systemd units, so `setup timers` must run
-    under `sudo`; otherwise [NotRootError][] is raised.
+    under `sudo`; otherwise [`NotRootError`][] is raised.
 
-All methods return response DTOs from [archcare.services.responses][] so the CLI layer never handles
-raw business state.
+All methods return response DTOs from [`archcare.services.responses`][] so the CLI layer never
+handles raw business state.
 
 See Also:
-    - [archcare.services.exceptions][]: Service-layer error hierarchy used here
-    - [archcare.cli.commands.setup][]: CLI commands delegating to these services
+    - [`archcare.services.exceptions`][]: Service-layer error hierarchy used here
+    - [`archcare.cli.commands.setup`][]: CLI commands delegating to these services
 """
 
 import pwd
@@ -48,9 +48,9 @@ from archcare.utils import is_root, run_systemctl
 
 def resolve_systemd_target_user() -> tuple[str, str]:
     """
-    Determine the (user, home_dir) that systemd units should run as.
+    Determine the target user and home directory that systemd units should run as.
 
-    Must be called under `sudo`: reads `SUDO_USER` (set by sudo to the invoking user's name) and
+    Must be called under `sudo`: reads `SUDO_USER` (set by `sudo` to the invoking user's name) and
     resolves their home directory via `pwd`.
 
     Returns:
@@ -129,7 +129,7 @@ class ConfigService:
         """
         Write default configuration files.
 
-        Delegates to [create_default_config_files][], which creates missing files and — depending
+        Delegates to [`create_default_config_files`][], which creates missing files and — depending
         on `force` — either skips or overwrites existing ones.
 
         Args:
@@ -163,7 +163,7 @@ class TimerService:
         SYSTEMD_DIR (Path): *(class-level)* Systemd unit directory units are installed to
             (`/etc/systemd/system`).
         user (str): The target (non-root) user timers run as, resolved via
-            [resolve_systemd_target_user][].
+            [`resolve_systemd_target_user`][].
         home_dir (str): The target user's home directory.
         service_file (Path): Full path of the installed `archcare@.service`.
         timer_file (Path): Full path of the installed `archcare@.timer`.
@@ -177,7 +177,8 @@ class TimerService:
 
         Args:
             executor (TaskExecutor): Shared executor providing the
-                [ConfigLoader][archcare.config.loader.ConfigLoader] used to look up automated tasks.
+                [`ConfigLoader`][archcare.config.loader.ConfigLoader] used to look up
+                automated tasks.
             user (str): Target (non-root) user name for the units.
             home_dir (str): Target user's home directory, embedded into the generated unit templates
                 (`WorkingDirectory`, `ExecStart`, `ReadWritePaths`).
@@ -271,7 +272,7 @@ class TimerService:
 
         Args:
             automated_tasks (dict[str, TaskConfig]): Automated tasks to set up timers for, keyed by
-                task name (from [get_automated_tasks][]).
+                task name (from [`get_automated_tasks`][]).
             dry_run (bool): When `True`, skip all systemctl invocations.
             enable (bool): Whether to enable+start the timers; when `False`, the response is
                 returned with empty results.

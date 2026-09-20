@@ -119,10 +119,11 @@ against a fixed allowlist), the `latest` / `number_of_mirrors` count caps, and t
 `path` — serialized to a string on save for TOML compatibility.
 
 [`MaintenanceCheckSettings`][archcare.config.models.MaintenanceCheckSettings] configures the
-"what's due" report: `critical_threshold_days` / `warning_threshold_days` (overdue severity),
-`output_mode` (`terminal` / `file` / `both`), `show_notifications` gated by `notification_level`
-(`info` / `warning` / `critical` minimum severity), `report_retention_days`, and
-`require_acknowledgment` for critical issues.
+"what's due" report: `critical_threshold_days` / `warning_threshold_days` (overdue severity, with
+`warning_threshold_days` required to be strictly below `critical_threshold_days` via a cross-field
+model validator), `output_mode` (`terminal` / `file` / `both`), `show_notifications` gated by
+`notification_level` (`info` / `warning` / `critical` minimum severity), `report_retention_days`,
+and `require_acknowledgment` for critical issues.
 
 ### `ignored-services.toml` — what to forgive
 

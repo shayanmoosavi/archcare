@@ -1,20 +1,21 @@
 """
 Application context for the Archcare CLI.
 
-Defines [AppContext][] — the per-invocation object built once by the root Typer callback and
-threaded through every command via `ctx.obj`. It lazily constructs the [ConfigLoader][],
-[AppSettings][], and [TaskExecutor][] (wiring in the CLI-side
-[TaskInteraction][archcare.core.interaction.TaskInteraction] and
-[TaskProgress][archcare.core.progress.TaskProgress] implementations only when
+Defines [`AppContext`][] — the per-invocation object built once by the root Typer callback and
+threaded through every command via `ctx.obj`. It lazily constructs the [`ConfigLoader`][],
+[`AppSettings`][], and [`TaskExecutor`][] (wiring in the CLI-side
+[`TaskInteraction`][archcare.core.interaction.TaskInteraction] and
+[`TaskProgress`][archcare.core.progress.TaskProgress] implementations only when
 running interactively), so nothing reaches for global state.
 
-Also defines `DEFAULT_TASK_REGISTRY` — the single, static [TaskRegistry][] mapping every task name
+Also defines `DEFAULT_TASK_REGISTRY` — the single, static [`TaskRegistry`][] mapping every task name
 to its execution class and CLI detail formatter. This is the one place new tasks must be registered.
 
 See Also:
-    - [archcare.cli.app][]: Root callback constructing the context
-    - [archcare.config.user.UserContext][]: Resolves the active user and interactivity, threaded
-        into the context at construction
+    - [`archcare.cli.app`][]: Root callback constructing the context
+    - [`archcare.cli.commands`][]: Commands using the context
+    - [`UserContext`][archcare.config.user.UserContext]: Resolves the active user and interactivity,
+        threaded into the context at construction
 """
 
 from dataclasses import dataclass, field
@@ -56,10 +57,10 @@ class AppContext:
     Per-invocation context, built once by the root callback and read by
     every command via `ctx.obj`.
 
-    Wraps the user's [UserContext][] together with lazy handles to the config loader, settings, and
-    [TaskExecutor][] so commands don't have to construct any of them manually. Also exposes a
-    [UserContext.is_interactive][] proxy (`is_interactive`) and the static `task_registry` for cheap
-    read-only access.
+    Wraps the user's [`UserContext`][] together with lazy handles to the config loader, settings,
+    and [`TaskExecutor`][] so commands don't have to construct any of them manually. Also exposes a
+    [`UserContext.is_interactive`][] proxy (`is_interactive`) and the static `task_registry` for
+    cheap read-only access.
 
     Args:
         devel (bool): Whether `--devel` was passed; controls console log verbosity.
@@ -83,9 +84,9 @@ class AppContext:
         """
         Whether the invocation is interactive (user terminal vs. systemd timer).
 
-        Proxied from [UserContext.is_interactive][]; used here to decide whether to wire in
-        interactive [TaskInteraction][archcare.core.interaction.TaskInteraction] and
-        [TaskProgress][archcare.core.progress.TaskProgress] adapters.
+        Proxied from [`UserContext.is_interactive`][]; used here to decide whether to wire in
+        interactive [`TaskInteraction`][archcare.core.interaction.TaskInteraction] and
+        [`TaskProgress`][archcare.core.progress.TaskProgress] adapters.
 
         Returns:
             bool: `True` for an interactive invocation.
@@ -95,14 +96,14 @@ class AppContext:
     @property
     def __loader(self) -> ConfigLoader:
         """
-        Lazily construct the cached [ConfigLoader][].
+        Lazily construct the cached [`ConfigLoader`][].
 
         *(private)* This property is an implementation detail and not intended to be accessed from
         outside the class.
 
         Returns:
             ConfigLoader: The shared loader for this invocation, bound to the archcare user
-                from [UserContext][].
+                from [`UserContext`][].
         """
         if self._loader is None:
             self._loader = ConfigLoader(user=self.user_ctx.archcare_user)
@@ -114,7 +115,7 @@ class AppContext:
         Lazily load and cache the application settings.
 
         Returns:
-            AppSettings: Settings read from `settings.toml` via the cached [ConfigLoader][].
+            AppSettings: Settings read from `settings.toml` via the cached [`ConfigLoader`][].
         """
         if self._settings is None:
             settings = self.__loader.load_settings()
@@ -130,18 +131,18 @@ class AppContext:
             TaskRegistry: The module-level `DEFAULT_TASK_REGISTRY` (see in source code).
 
         See also:
-            [archcare.cli.commands.task][]: The consumer of this property
+            [`archcare.cli.commands.task`][]: The consumer of this property
         """
         return DEFAULT_TASK_REGISTRY
 
     @property
     def executor(self) -> TaskExecutor:
         """
-        Lazily construct the cached [TaskExecutor][].
+        Lazily construct the cached [`TaskExecutor`][].
 
-        Wires in the CLI-side [TaskInteraction][archcare.core.interaction.TaskInteraction]
-        ([CliInteraction][]) and [TaskProgress][archcare.core.progress.TaskProgress]
-        ([RichProgress][]) implementations only when running interactively; non-interactive
+        Wires in the CLI-side [`TaskInteraction`][archcare.core.interaction.TaskInteraction]
+        ([`CliInteraction`][]) and [`TaskProgress`][archcare.core.progress.TaskProgress]
+        ([`RichProgress`][]) implementations only when running interactively; non-interactive
         (systemd) runs leave them as `None` so the executor falls back to its non-interactive
         defaults.
 
@@ -166,7 +167,7 @@ class AppContext:
         """
         Configure logging for this context.
 
-        Validates that `tasks.toml` exists (raising [ConfigNotInitializedError][] otherwise),
+        Validates that `tasks.toml` exists (raising [`ConfigNotInitializedError`][] otherwise),
         bootstraps directories, installs the default logging configuration, then re-applies it
         (via `reconfigure=True`) if the user's settings differ from defaults in any of:
         log directory, level, or retention. Refreshes the cached loader and settings using the
@@ -174,7 +175,7 @@ class AppContext:
 
         Args:
             user (str | None): Target archcare user; when `None`, uses `user_ctx.archcare_user`.
-                Used by [executor_for_user][] to target a different user than the one the context
+                Used by [`executor_for_user`][] to target a different user than the one the context
                 was built for.
 
         Raises:
@@ -202,7 +203,7 @@ class AppContext:
 
     def executor_for_user(self, user: str) -> TaskExecutor:
         """
-        Build a fresh, uncached [TaskExecutor][] scoped to a specific user.
+        Build a fresh, uncached [`TaskExecutor`][] scoped to a specific user.
 
         Used by `setup timers`, which must read the target (`SUDO_USER`) user's config rather than
         this context's own user — `SUDO_USER` and `ARCHCARE_USER` are unrelated env vars, and
@@ -217,7 +218,7 @@ class AppContext:
             TaskExecutor: A fresh executor bound to the target user's config and state.
 
         See also:
-            [TimerService][archcare.services.setup_service.TimerService]: The class that uses
+            [`TimerService`][archcare.services.setup_service.TimerService]: The class that uses
                 the returned executor
 
         Note:

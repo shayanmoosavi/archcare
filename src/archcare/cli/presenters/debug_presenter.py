@@ -1,13 +1,13 @@
 """
 Presenter for the `debug` command group.
 
-Owns all terminal rendering for [DebugService][archcare.services.debug_service.DebugService] results
-and errors: the test-notification flow (availability check, dispatch, follow-up hint) and the
-per-failure-mode error messages (invalid severity, missing libnotify, send failure). All methods are
-static — the presenter is stateless.
+Owns all terminal rendering for [`DebugService`][archcare.services.debug_service.DebugService]
+results and errors: the test-notification flow (availability check, dispatch, follow-up hint) and
+the per-failure-mode error messages (invalid severity, missing libnotify, send failure). All methods
+are static — the presenter is stateless.
 
 See Also:
-    - [archcare.services.debug_service][]: Producer of the responses and errors rendered here
+    - [`archcare.services.debug_service`][]: Producer of the responses and errors rendered here
 """
 
 from archcare.services.exceptions import InvalidSeverityError
@@ -17,7 +17,7 @@ from archcare.utils import print_error, print_header, print_info, print_success
 
 class DebugPresenter:
     """
-    Renders [DebugService][archcare.services.debug_service.DebugService] results and errors
+    Renders [`DebugService`][archcare.services.debug_service.DebugService] results and errors
     to the terminal.
     """
 
@@ -36,7 +36,7 @@ class DebugPresenter:
 
         Args:
             response (NotificationTestResponse): Test outcome from
-                [DebugService.test_notification][archcare.services.debug_service.DebugService.test_notification].
+                [`DebugService.test_notification`][archcare.services.debug_service.DebugService.test_notification].
         """
         print_success("notify-send is available")
         print_info(f"Sending test notification with severity: {response.severity}")

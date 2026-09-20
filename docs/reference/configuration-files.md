@@ -91,6 +91,11 @@ Settings for the `maintenance-check` task's report and notifications.
 | `report_retention_days`   | `30`         | Days to keep generated reports (for `"file"` or `"both"`) |
 | `require_acknowledgment`  | `true`       | Critical issues require explicit acknowledgment           |
 
+!!! warning
+
+    `warning_threshold_days` must be strictly less than `critical_threshold_days` —
+    a configuration violating this falls back to defaults on load.
+
 ## `ignored-services.toml`
 
 A single list of systemd units to exclude from the `failed-services` check —

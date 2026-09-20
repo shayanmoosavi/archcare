@@ -1,21 +1,21 @@
 """
 Task service for handling task related operations.
 
-Contains [TaskService][], the business logic behind the `archcare task` command group:
+Contains [`TaskService`][], the business logic behind the `archcare task` command group:
 
-- `run_task()`: Execute a single maintenance task via the [TaskExecutor][] and report its outcome.
+- `run_task()`: Execute a single maintenance task via the [`TaskExecutor`][] and report its outcome.
 - `list_tasks()`: Enumerate tasks from configuration, optionally filtered by type (`automated` /
     `manual`) or reduced to enabled tasks.
 - `get_task_status()`: Report scheduling status — due dates, overdue state, and a system-wide
-    maintenance summary — via the [TaskScheduler][].
+    maintenance summary — via the [`TaskScheduler`][].
 
-Every public method returns a response DTO from [archcare.services.responses][] so the CLI layer
-never handles raw business state, and translates low-level [UnknownTaskError][] into the
-service-layer [TaskNotFoundError][].
+Every public method returns a response DTO from [`archcare.services.responses`][] so the CLI layer
+never handles raw business state, and translates low-level [`UnknownTaskError`][] into the
+service-layer [`TaskNotFoundError`][].
 
 See Also:
-    - [archcare.services.exceptions][]: Service-layer error hierarchy used here
-    - [archcare.cli.commands.task][]: CLI commands delegating to this service
+    - [`archcare.services.exceptions`][]: Service-layer error hierarchy used here
+    - [`archcare.cli.commands.task`][]: CLI commands delegating to this service
 """
 
 from loguru import logger
@@ -41,8 +41,9 @@ class TaskService:
     Business logic for the `task` command group.
 
     Acts as the high-level facade over task execution and scheduling: validates task configuration
-    before touching it, delegates the heavy lifting to [TaskExecutor][] (execution) and
-    [TaskScheduler][] (scheduling), and packages results into response DTOs for the CLI presenters.
+    before touching it, delegates the heavy lifting to [`TaskExecutor`][] (execution) and
+    [`TaskScheduler`][] (scheduling), and packages results into response DTOs for the
+    CLI presenters.
     """
 
     def __init__(self, executor: TaskExecutor) -> None:
@@ -70,7 +71,7 @@ class TaskService:
                 reported as skipped).
 
         Returns:
-            TaskRunResponse: The task's [TaskResult][archcare.core.models.TaskResult] outcome and
+            TaskRunResponse: The task's [`TaskResult`][archcare.core.models.TaskResult] outcome and
                 whether the invocation was interactive (user terminal vs. systemd timer).
 
         Raises:
@@ -105,7 +106,7 @@ class TaskService:
         """
         List tasks, optionally filtered by type.
 
-        Matching is exact against the [TaskType][] values; when no filter is given, only *enabled*
+        Matching is exact against the [`TaskType`][] values; when no filter is given, only *enabled*
         tasks are returned.
 
         Args:
@@ -162,7 +163,7 @@ class TaskService:
             TaskNotFoundError: If `task_name` is set but unknown.
 
         See Also:
-            [TaskScheduler][]: Source of all schedule computations used here.
+            [`TaskScheduler`][]: Source of all schedule computations used here.
         """
         tasks_config = self._executor.config_loader.load_tasks()
         if not tasks_config.tasks:
