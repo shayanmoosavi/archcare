@@ -1,3 +1,13 @@
+## v0.4.0 (2026-09-20)
+
+### Feat
+
+- **config**: improve warning threshold validation
+
+### Refactor
+
+- **core**: made BaseTask.name a read-only property and update the affected unit tests
+
 ## v0.4.0rc0 (2026-09-13)
 
 ### Feat
