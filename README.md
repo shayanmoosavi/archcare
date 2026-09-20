@@ -3,6 +3,12 @@
 A system maintenance CLI for Arch Linux — checks for failed services, runs health checks, keeps
 your mirrorlist fresh, and tracks which maintenance tasks are due, all from one command.
 
+!!! info "Documentation"
+
+    The [documentation site](https://shayanmoosavi.github.io/archcare/) holds architecture
+    details, contributing guides, and exhaustive CLI/config reference. For installation and
+    quick-start steps, continue below.
+
 ## Why this exists
 
 Archcare automates the handful of maintenance chores every Arch install eventually needs
@@ -10,6 +16,19 @@ Archcare automates the handful of maintenance chores every Arch install eventual
 so nothing quietly falls behind. It aims to be a user-friendly tool that makes maintenance easy,
 painless, and reliable. If you're reading the code, the [Architecture](#architecture) section below
 is for you.
+
+## What Archcare touches on your system
+
+Before running any maintenance tool, it's fair to ask what it changes. Archcare keeps to a small,
+well-defined footprint:
+
+- **Files it writes** — its own configuration under `~/.config/archcare/` and run state under
+  `~/.local/state/archcare/`. Nothing else on disk is modified outside the explicit task actions
+  below.
+- **Where it needs sudo** — installing systemd timers (`archcare setup timers`) and replacing
+  `/etc/pacman.d/mirrorlist` during a mirrorlist update.
+- **Safety rails** — `archcare setup config` never overwrites existing configuration files, and
+  mirrorlist updates create a backup first, rolling back automatically if `reflector` fails.
 
 ## Features
 
@@ -26,10 +45,18 @@ is for you.
 - Systemd timer integration for fully automated, unattended runs
 - Verbose, per-task-formatted terminal output for every task result
 
+Per-command options and example output for every task are in the
+[CLI reference](https://shayanmoosavi.github.io/archcare/reference/cli/).
+
 ## Requirements
 
 - systemd (already installed in most Arch installs)
-- reflector
+- reflector — needed by the `mirrorlist-update` task
+
+Optional dependencies, needed only for specific features:
+
+- libnotify (`sudo pacman -S libnotify`) — desktop notifications
+- gpg — verifying release signatures during installation (already present on most systems)
 
 ## Installation
 
@@ -92,7 +119,7 @@ Once you've verified the authenticity of the software, you can delete the other 
 
 ### 5. Install to `~/.local/bin`
 
-If this path isn't in your `PATH`, add this line to your `~/.bashrc` (or `~/.bashrc` if your shell
+If this path isn't in your `PATH`, add this line to your `~/.bashrc` (or `~/.zshrc` if your shell
 is zsh):
 
 ```bash
@@ -102,13 +129,32 @@ export PATH="$PATH:$HOME/.local/bin"
 Then source it (`source ~/.bashrc` or `source ~/.zshrc`) or close and re-open the terminal for
 changes to take effect.
 
-Now install the executable to `~/.local/bin`:
+Install the executable to `~/.local/bin`:
 
 ```bash
 install -D -m 755 archcare ~/.local/bin
 ```
 
+## Uninstall
+
+If you want to remove archcare entirely, three parts need cleanup:
+
+- **Binary**: `rm ~/.local/bin/archcare`
+- **Configuration**: `rm -rf ~/.config/archcare/` (removes `tasks.toml`, `settings.toml`,
+  `ignored-services.toml`, state)
+- **Systemd timers**: there is no uninstall command yet; stop and remove manually:
+    ```bash
+    systemctl --user stop archcare@*
+    systemctl --user disable archcare@*
+    sudo rm /etc/systemd/system/archcare@*
+    sudo systemctl daemon-reload
+    ```
+
 ## Quick start
+
+A step-by-step walkthrough — what each step does and what to check along the way — is in the
+[Getting started guide](https://shayanmoosavi.github.io/archcare/guides/getting-started/). The
+short version:
 
 ```bash
 # CLI reference
@@ -117,26 +163,29 @@ archcare --help
 # Install shell completions
 archcare --install-completion
 
-# create default configs (First-time setup)
+# 1. Create default config files (first-time setup; non-destructive, safe to re-run)
 archcare setup config
 
-# install systemd timers for automated tasks (First-time setup)
-archcare setup timers
+# 2. Review the generated configs and tune schedules to taste:
+#    ~/.config/archcare/tasks.toml, settings.toml, ignored-services.toml
 
-# See what's registered
+# 3. Run a task manually — no timers needed to try it out
+archcare task run failed-services --verbose
+
+# 4. See what's registered, what's due, and what's overdue
 archcare task list
+archcare task status --due
 
-# Run one task
-archcare task run failed-services
-
-# Check what's due
-archcare task status
+# 5. Only once you're happy with the results: automate it (needs sudo)
+archcare setup timers
 ```
 
 ## Usage
 
 Commands are grouped by area; run `archcare --help` or `archcare <group> --help` for the full,
-always-up-to-date reference. The summary below covers the common cases.
+always-up-to-date reference. The summary below covers the common cases. Every command, option,
+flag, and exit code is documented in the
+[CLI reference](https://shayanmoosavi.github.io/archcare/reference/cli/).
 
 ### `task` — run and inspect maintenance tasks
 
@@ -187,16 +236,38 @@ archcare setup timers              # install systemd timers for automated tasks 
 archcare debug test-notification --severity warning   # test desktop notification delivery
 ```
 
-### `logs`
+## Troubleshooting
+
+Three things commonly trip first-time users. Check them in order:
+
+- **`archcare: command not found`** — `~/.local/bin` isn't on your `PATH`. Add
+  `export PATH="$PATH:$HOME/.local/bin"` to your shell rc file, then re-open the terminal.
+- **`reflector: command not found`** — the mirrorlist task needs it. Install it:
+  `sudo pacman -S reflector`.
+- **Timers aren't running** — verify with `systemctl --user list-timers --all` (user sessions)
+  or `systemctl list-timers --all` (root/systemd). If you installed via `archcare setup timers`,
+  check the target user is correct — timers run as the user set up, not whoever runs archcare.
+
+## Desktop notifications
+
+Archcare can send a desktop notification for due maintenance tasks. This needs `notify-send`, part
+of `libnotify`; install it with `sudo pacman -S libnotify`. This is usually installed in most
+standard Arch Linux installations.
+
+To test that notifications work, run:
 
 ```bash
-archcare logs                      # view recent archcare log output
+archcare debug test-notification --severity warning
 ```
+
+Full command reference (options, exit codes, env vars):
+[CLI reference](https://shayanmoosavi.github.io/archcare/reference/cli/).
 
 ## Configuration
 
 Config lives under `~/.config/archcare/` (or the target user's home when run via a systemd timer
-as root — see [Architecture](#architecture)).
+as root — see [this page](https://shayanmoosavi.github.io/archcare/reference/configuration-files/))
+for complete configuration options.
 
 **`tasks.toml`** — defines every task's schedule and type:
 
@@ -245,6 +316,13 @@ failed-unit check itself isn't type-restricted).
 
 ## Architecture
 
+!!! note "Technical documentation"
+
+    This section is only an overview, to see the entire architecture decisions including the
+    class relationships, task execution lifecycle, and more, see the
+    [Architecture](https://shayanmoosavi.github.io/archcare/architecture) section of the
+    documentation.
+
 Archcare is organized in a layered architecture as illustrated below:
 
 ```
@@ -278,31 +356,21 @@ A few things worth knowing if you're extending it:
 
 ## Development
 
-This project uses [uv](https://docs.astral.sh/uv/) as the project management tool. Follow the
-official instructions for how to install uv. If you're on Arch Linux (btw 😎), you can install it
-with pacman.
+Development uses [uv](https://docs.astral.sh/uv/) as the project management tool — on Arch Linux
+(btw 😎), install it with `sudo pacman -S uv`. To get started:
 
 ```bash
-sudo pacman -S uv
-```
-
-Once you've installed uv, fork the repository and setup your environment. Then install the
-development dependencies and run the test suite to get started.
-
-```bash
-# Install the dev dependencies
-uv sync --all-groups
-
-# Run the test suite
-uv run pytest
-
-# Run the ty type checker
-uv run ty check
+uv sync --all-groups   # install dev dependencies
+uv run pytest          # run the test suite
+uv run ty check        # static type checking
 ```
 
 Contributions should keep to the layering above — in particular, `core/` and `config/` should never
-import from `cli/` or `services/`. If you're adding a new task, look at `core/task_registry.py`'s
-`DEFAULT_TASK_REGISTRY` and `core/task_details.py` for the pattern every existing task follows.
+import from `cli/` or `services/`. The full workflow — environment setup, the layering rule, code
+style, pre-commit hooks, documentation conventions, and commit/PR conventions — lives in the
+[Contributing guide](https://shayanmoosavi.github.io/archcare/guides/contributing/), and new
+maintenance tasks are covered step by step in the
+[Adding a task guide](https://shayanmoosavi.github.io/archcare/guides/adding-a-task/).
 
 ## Testing
 
@@ -310,20 +378,13 @@ import from `cli/` or `services/`. If you're adding a new task, look at `core/ta
 uv run pytest                        # full suite
 uv run pytest tests/unit             # unit tests only
 uv run pytest tests/integration      # integration tests only
-uv run ty check                      # static type checking
 ```
 
-The suite is split by intent, not just by directory:
-
-- **Unit tests** (`tests/unit/`) mirror `src/archcare/` 1:1 and use mocks at precise boundaries —
-  real Pydantic models over bare mocks wherever construction is cheap, `mocker.patch.object` over
-  stacked `@patch` decorators, and specced mocks (`MagicMock(spec=X)`) to catch attribute typos.
-- **Integration tests** (`tests/integration/`) invoke the real CLI via Typer's `CliRunner`, build
-  a real `AppContext`, and do real file I/O under `tmp_path`. The _only_ things ever mocked are
-  the actual OS/subprocess boundary (`utils/system.py`'s `run_command`/`run_command_with_sudo`),
-  and desktop notifications. This combination has caught real bugs unit tests alone missed — see
-  `git log` for a couple of examples where a mocked unit test passed while the real wiring was
-  broken.
+Unit tests (`tests/unit/`) mirror `src/archcare/` 1:1; integration tests (`tests/integration/`)
+drive the real CLI via Typer's `CliRunner` and mock only the OS/subprocess boundary and desktop
+notifications. The
+[testing philosophy](https://shayanmoosavi.github.io/archcare/guides/contributing/#testing-philosophy)
+section of the Contributing guide explains the reasoning behind the split.
 
 ## Roadmap
 
@@ -339,7 +400,8 @@ The suite is split by intent, not just by directory:
     - [ ] disk-space-review
     - [ ] cache-cleanup
 - [ ] PySide6/QML GUI frontend, reusing `core/`/`config/` as-is via the port
-      boundaries described above
+      boundaries described in the
+      [ports and registry docs](https://shayanmoosavi.github.io/archcare/architecture/registry-and-ports/)
 
 ## License
 
