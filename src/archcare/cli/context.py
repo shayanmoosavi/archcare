@@ -233,10 +233,9 @@ class AppContext:
         # execute_task() (TimerService only reads config_loader/state off
         # it), and ARCHCARE_USER is always unset in this sudo-driven flow
         # anyway
-        executor = TaskExecutor(
+        return TaskExecutor(
             config_loader=self.__loader,
             settings=self.settings,
             state=state,
             task_registry=self.task_registry,
         )
-        return executor

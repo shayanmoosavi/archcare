@@ -237,8 +237,8 @@ def validate_mirrorlist(mirrorlist_path: Path) -> tuple[bool, str]:
     # Count uncommented Server lines
     mirror_count = 0
     for line in content.splitlines():
-        line = line.strip()
-        if line.startswith("Server = "):
+        stripped = line.strip()
+        if stripped.startswith("Server = "):
             mirror_count += 1
 
     if mirror_count == 0:
@@ -287,9 +287,9 @@ def get_mirrorlist_info(mirrorlist_path: Path) -> MirrorlistInfo:
     # Count mirrors
     mirrors = []
     for line in content.splitlines():
-        line = line.strip()
-        if line.startswith("Server = "):
-            mirrors.append(line)
+        stripped = line.strip()
+        if stripped.startswith("Server = "):
+            mirrors.append(stripped)
 
     # Extract protocols
     protocols = set()

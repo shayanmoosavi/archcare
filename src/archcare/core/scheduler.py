@@ -201,7 +201,7 @@ class TaskScheduler:
         """
         due_tasks = []
 
-        for task_name in self.tasks_config.get_enabled_tasks().keys():
+        for task_name in self.tasks_config.get_enabled_tasks():
             info = self.get_schedule_info(task_name)
             if info.is_due:
                 due_tasks.append(info)
@@ -225,7 +225,7 @@ class TaskScheduler:
         """
         all_info = []
 
-        for task_name in self.tasks_config.get_enabled_tasks().keys():
+        for task_name in self.tasks_config.get_enabled_tasks():
             info = self.get_schedule_info(task_name)
             all_info.append(info)
 

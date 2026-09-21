@@ -42,13 +42,11 @@ from .setup_presenter import SetupPresenter
 from .task_presenter import TaskPresenter
 
 __all__ = [
-    # Presenters
-    "TaskPresenter",
-    "SetupPresenter",
     "DebugPresenter",
-    # Formatters
     "FailedServicesFormatter",
     "HealthCheckFormatter",
     "MaintenanceCheckFormatter",
     "MirrorlistUpdateFormatter",
+    "SetupPresenter",
+    "TaskPresenter",
 ]

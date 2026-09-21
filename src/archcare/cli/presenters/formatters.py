@@ -67,7 +67,7 @@ class FailedServicesFormatter:
         lines = []
 
         lines.append(f"[blue]  Total failed: {details.total_failed}[/blue]")
-        lines.append(f"[red]  ⚠ Requiring attention: {details.actual_failures}[/red]")
+        lines.append(f"[red]   Requiring attention: {details.actual_failures}[/red]")
         lines.append(f"[dim]  Ignored: {details.ignored}[/dim]")
 
         if details.failed_services:
@@ -242,7 +242,7 @@ class MaintenanceCheckFormatter:
     Formats details for the `maintenance-check` task.
 
     Renders the tasks needing attention (with severity badges: red `❗ CRITICAL` or yellow
-    `⚠ WARNING`) followed by a schedule summary (total monitored tasks and counts by severity).
+    ` WARNING`) followed by a schedule summary (total monitored tasks and counts by severity).
     This is a compact textual alternative to the full report rendered by
     [`MaintenanceCheckPresenter`][archcare.cli.presenters.maintenance_presenter.MaintenanceCheckPresenter].
 
@@ -272,12 +272,12 @@ class MaintenanceCheckFormatter:
         if tasks_needing_attention := details.tasks_needing_attention:
             severity_mapping = {
                 IssueSeverity.CRITICAL: "[red]❗ CRITICAL[/red]",
-                IssueSeverity.WARNING: "[yellow]⚠ WARNING[/yellow]",
+                IssueSeverity.WARNING: "[yellow] WARNING[/yellow]",
             }
             lines.append("[bold]Tasks needing attention: [/bold]")
             for issue in tasks_needing_attention:
                 lines.append(f"[blue]  • {issue.task_name}[/blue]")
-                lines.append(f"    ‒ {severity_mapping[issue.severity]}")
+                lines.append(f"    ▶ {severity_mapping[issue.severity]}")
 
         # Show summary statistics
         summary = details.summary

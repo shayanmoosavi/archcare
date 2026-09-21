@@ -104,38 +104,25 @@ from .system import (
 )
 
 __all__ = [
-    # Command execution
-    "run_command",
-    "run_command_with_sudo",
-    "run_systemctl",
-    "check_command_exists",
-    # System checks
-    "is_root",
-    "change_ownership_to_user",
-    # Systemd helpers
-    "get_systemd_failed_services",
-    "get_service_status",
-    "get_service_logs",
-    "is_valid_systemd_unit_name",
-    # System information
-    "check_filesystem_errors",
-    "format_bytes",
-    "get_system_uptime",
-    "get_disk_usage",
-    "get_cpu_info",
-    "get_memory_info",
-    # Mirrorlist helpers
     "backup_file",
-    "restore_backup",
-    "update_mirrorlist",
-    "validate_mirrorlist",
-    "get_mirrorlist_info",
-    # Pacman helpers
-    "check_pacman_database",
+    "change_ownership_to_user",
+    "check_command_exists",
+    "check_filesystem_errors",
     "check_package_files",
-    # Output helpers
+    "check_pacman_database",
     "configure_console",
     "console",
+    "format_bytes",
+    "get_cpu_info",
+    "get_disk_usage",
+    "get_memory_info",
+    "get_mirrorlist_info",
+    "get_service_logs",
+    "get_service_status",
+    "get_system_uptime",
+    "get_systemd_failed_services",
+    "is_root",
+    "is_valid_systemd_unit_name",
     "print_error",
     "print_header",
     "print_info",
@@ -143,4 +130,10 @@ __all__ = [
     "print_success",
     "print_table",
     "print_warning",
+    "restore_backup",
+    "run_command",
+    "run_command_with_sudo",
+    "run_systemctl",
+    "update_mirrorlist",
+    "validate_mirrorlist",
 ]

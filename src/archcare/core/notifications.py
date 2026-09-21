@@ -350,11 +350,11 @@ class NotificationManager:
             True
         """
         if success:
-            title = f"✓ {task_name} completed"
+            title = f"✔ {task_name} completed"
             urgency = NotificationUrgency.LOW
             icon = NotificationIcon.SUCCESS
         else:
-            title = f"✗ {task_name} failed"
+            title = f"✘ {task_name} failed"
             urgency = NotificationUrgency.NORMAL
             icon = NotificationIcon.ERROR
 

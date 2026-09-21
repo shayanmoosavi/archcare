@@ -206,7 +206,7 @@ Running Task: health-check
 ──────────────────────────
 
 ╭──── Task Result: health-check ─────╮
-│ Status: ✓ SUCCESS                  │
+│ Status: ✔ SUCCESS                  │
 │ Message: All health checks passed  │
 │ Duration: 35.62s                   │
 │                                    │

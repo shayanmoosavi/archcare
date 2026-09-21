@@ -101,7 +101,7 @@ class TestRenderNoIssues:
 
         MaintenanceCheckPresenter.render(_details())
 
-        msg = "✓ No maintenance issues found! Your system is healthy :)"
+        msg = "✔ No maintenance issues found! Your system is healthy :)"
         mock_panel.assert_called_once_with(
             msg, style="green", border_style="green", padding=(0, 2), expand=False
         )

@@ -177,7 +177,7 @@ class HealthCheckTask(BaseTask):
                     summary=summary,
                 ),
             )
-        elif warnings:
+        if warnings:
             message = f"Health check found {len(warnings)} warning(s)"
             logger.info(f"Health check complete: {message}")
             return partial(
@@ -188,16 +188,15 @@ class HealthCheckTask(BaseTask):
                     summary=summary,
                 ),
             )
-        else:
-            message = "All health checks passed"
-            logger.info(f"Health check complete: {message}")
-            return success(
-                message=message,
-                details=HealthCheckDetails(
-                    total_checks=self._CHECK_COUNT,
-                    summary=summary,
-                ),
-            )
+        message = "All health checks passed"
+        logger.info(f"Health check complete: {message}")
+        return success(
+            message=message,
+            details=HealthCheckDetails(
+                total_checks=self._CHECK_COUNT,
+                summary=summary,
+            ),
+        )
 
     @staticmethod
     def _check_system_uptime() -> str:

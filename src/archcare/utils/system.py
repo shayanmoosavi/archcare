@@ -105,7 +105,7 @@ def run_command(
     check: bool = False,
     capture_output: bool = True,
     text: bool = True,
-    timeout: int | float | None = None,
+    timeout: float | None = None,
     cwd: Path | None = None,
     env: dict[str, str] | None = None,
 ) -> CommandResult:
@@ -236,15 +236,12 @@ def run_command_with_sudo(
         - [`is_root`][]: Used to determine if `sudo` prefixing is required.
     """
     # Convert string to list if needed
-    if isinstance(command, str):
-        command_list = command.split()
-    else:
-        command_list = list(command)
+    command_list = command.split() if isinstance(command, str) else list(command)
 
     # Check if we're already root
     if not is_root():
         # Prepend sudo
-        command_list = ["sudo"] + command_list
+        command_list = ["sudo", *command_list]
 
     # Run the command
     return run_command(
@@ -304,7 +301,7 @@ def run_systemctl(
     Returns:
         CommandResult: Structured result of the systemctl command execution.
     """
-    command = ["systemctl"] + args
+    command = ["systemctl", *args]
     return run_command(command, check=check, timeout=timeout)
 
 
@@ -395,9 +392,9 @@ def _parse_active_status(line: str) -> tuple[str, bool]:
     # 'inactive' check should be before 'active' to avoid false positives
     if "inactive" in line:
         return "inactive", False
-    elif "active" in line:
+    if "active" in line:
         return "active", "running" in line
-    elif "failed" in line:
+    if "failed" in line:
         return "failed", False
 
     return "unknown", False
@@ -468,18 +465,18 @@ def get_service_status(service_name: str) -> ServiceStatusInfo:
 
     # Parse the status output line by line
     for line in result.stdout.splitlines():
-        line = line.strip()
+        stripped = line.strip()
 
-        if "Loaded:" in line:
-            loaded = _parse_loaded_status(line)
+        if "Loaded:" in stripped:
+            loaded = _parse_loaded_status(stripped)
 
-        elif "Active:" in line:
-            active_state, is_running = _parse_active_status(line)
+        elif "Active:" in stripped:
+            active_state, is_running = _parse_active_status(stripped)
             active = active_state
             running = is_running
 
-        elif line.startswith("Main PID:"):
-            main_pid = _parse_main_pid(line)
+        elif stripped.startswith("Main PID:"):
+            main_pid = _parse_main_pid(stripped)
 
     # Get description separately
     description = _get_service_description(service_name)

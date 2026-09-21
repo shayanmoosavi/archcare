@@ -343,8 +343,8 @@ class TestRenderList:
     @pytest.mark.parametrize(
         "task_fixture,expected_icon",
         [
-            ("automated_task", "✓"),
-            ("disabled_task", "✗"),
+            ("automated_task", "✔"),
+            ("disabled_task", "✘"),
         ],
     )
     def test_tasks_use_correct_icon(

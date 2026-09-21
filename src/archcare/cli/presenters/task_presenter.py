@@ -149,8 +149,8 @@ class TaskPresenter:
         """
         Print the task schedule table with color-coded statuses.
 
-        Each task is rendered with a status glyph and colored due-date text: red `✗ DUE` when
-        overdue, yellow `⚠ DUE` when due but not overdue, green `✓ OK` otherwise. Tasks never run
+        Each task is rendered with a status glyph and colored due-date text: red `✘ DUE` when
+        overdue, yellow ` DUE` when due but not overdue, green `✔ OK` otherwise. Tasks never run
         show a dimmed `Never` for last run.
 
         Args:
@@ -162,15 +162,15 @@ class TaskPresenter:
 
         for info in response.schedule_info:
             if info.days_overdue > 0:
-                status, due_text = "[red]✗ DUE[/red]", f"[red]{info.reason}[/red]"
+                status, due_text = "[red]✘ DUE[/red]", f"[red]{info.reason}[/red]"
             elif info.is_due:
                 status, due_text = (
-                    "[yellow]⚠ DUE[/yellow]",
+                    "[yellow] DUE[/yellow]",
                     f"[yellow]{info.reason}[/yellow]",
                 )
             else:
                 status, due_text = (
-                    "[green]✓ OK[/green]",
+                    "[green]✔ OK[/green]",
                     f"[green]{info.reason}[/green]",
                 )
 
@@ -190,7 +190,7 @@ class TaskPresenter:
         """
         Renders the result of `archcare task list` to console.
 
-        Prints each task as an entry line with an enabled (`✓`) / disabled (`✗`) glyph, type badge,
+        Prints each task as an entry line with an enabled (`✔`) / disabled (`✘`) glyph, type badge,
         and frequency, followed by its indented description. Prints a warning when the (possibly
         filtered) task set is empty.
 
@@ -205,7 +205,7 @@ class TaskPresenter:
             return
 
         for name, config in response.tasks.items():
-            status_icon = "✓" if config.enabled else "✗"
+            status_icon = "✔" if config.enabled else "✘"
             type_badge = f"[cyan]{config.task_type.value}[/cyan]"
             freq = f"every {config.frequency} days"
 
@@ -276,18 +276,18 @@ class TaskPresenter:
         Returns:
             (str): Rich markup string with a status glyph:
 
-                - SUCCESS: green `✓ SUCCESS`
-                - FAILURE: red `⨯ FAILURE`
-                - PARTIAL: yellow `⚠ PARTIAL`
+                - SUCCESS: green `✔ SUCCESS`
+                - FAILURE: red `✘ FAILURE`
+                - PARTIAL: yellow ` PARTIAL`
                 - SKIPPED: blue `⤳ SKIPPED`
         """
         match status:
             case TaskStatus.SUCCESS:
-                return "[green]✓ SUCCESS[/green]"
+                return "[green]✔ SUCCESS[/green]"
             case TaskStatus.FAILURE:
-                return "[red]⨯ FAILURE[/red]"
+                return "[red]✘ FAILURE[/red]"
             case TaskStatus.PARTIAL:
-                return "[yellow]⚠ PARTIAL[/yellow]"
+                return "[yellow] PARTIAL[/yellow]"
             case _:  # SKIPPED
                 return "[blue]⤳ SKIPPED[/blue]"
 

@@ -97,7 +97,7 @@ class BaseTask(ABC):
         """
         return self.config.name
 
-    def set_start_time(self, start_time: int | float | None = None):
+    def set_start_time(self, start_time: float | None = None):
         """
         Set the task start timestamp.
 
@@ -127,7 +127,6 @@ class BaseTask(ABC):
             Exception: Any exception raised in this method triggers `rollback()`
                 and is captured as a task failure by `run()`.
         """
-        pass
 
     def pre_check(self) -> tuple[bool, str]:
         """
@@ -331,9 +330,7 @@ class BaseTask(ABC):
             except Exception as rollback_error:
                 logger.critical(f"Rollback failed for {self.name}: {rollback_error}")
 
-            return self.create_result(
-                failed(message=f"Task execution failed: {str(e)}", error=str(e))
-            )
+            return self.create_result(failed(message=f"Task execution failed: {e}", error=str(e)))
         finally:
             # Remove task-specific log handler
             if handler_id is not None:

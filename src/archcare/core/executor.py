@@ -249,14 +249,12 @@ class TaskExecutor:
                         SkipReason.DISABLED,
                     )
                 )
-            else:
-                return (
-                    task.create_result(skipped("Cancelled by user", SkipReason.USER_CANCELLED))
-                    if not self._interaction.confirm("Run anyway?")
-                    else None
-                )
-        else:
-            return None
+            return (
+                task.create_result(skipped("Cancelled by user", SkipReason.USER_CANCELLED))
+                if not self._interaction.confirm("Run anyway?")
+                else None
+            )
+        return None
 
     def _handle_due_task(
         self, task_name: str, tasks_config: TasksConfig, is_systemd: bool = False
@@ -297,20 +295,18 @@ class TaskExecutor:
                         SkipReason.NOT_DUE,
                     )
                 )
-            else:
-                logger.info(f"Skipping the execution of task {task_name}")
-                return (
-                    task.create_result(
-                        skipped(
-                            "Cancelling task execution as requested by user",
-                            SkipReason.USER_CANCELLED,
-                        )
+            logger.info(f"Skipping the execution of task {task_name}")
+            return (
+                task.create_result(
+                    skipped(
+                        "Cancelling task execution as requested by user",
+                        SkipReason.USER_CANCELLED,
                     )
-                    if not self._interaction.confirm("Run anyway?")
-                    else None
                 )
-        else:
-            return None
+                if not self._interaction.confirm("Run anyway?")
+                else None
+            )
+        return None
 
     def _update_state(self, task_config: TaskConfig, result: TaskResult):
         """

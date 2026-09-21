@@ -41,6 +41,6 @@ from .mirrorlist_update import MirrorlistUpdateTask
 __all__ = [
     "FailedServicesTask",
     "HealthCheckTask",
-    "MirrorlistUpdateTask",
     "MaintenanceCheckTask",
+    "MirrorlistUpdateTask",
 ]

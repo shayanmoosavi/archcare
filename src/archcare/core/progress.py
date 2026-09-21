@@ -221,7 +221,6 @@ class NoOpProgress:
         Args:
             total (int | None): Number of discrete steps if known. Defaults to `None`.
         """
-        pass
 
     def pause(self) -> AbstractContextManager[None]:
         """
@@ -239,7 +238,6 @@ class NoOpProgress:
         Args:
             step (TaskStep): The completed progress step.
         """
-        pass
 
     def spinner(self, label: str) -> AbstractContextManager[None]:
         """
@@ -255,4 +253,3 @@ class NoOpProgress:
 
     def stop(self) -> None:
         """Tear down the progress display (no-op)."""
-        pass

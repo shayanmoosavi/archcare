@@ -465,12 +465,11 @@ class MaintenanceCheckTask(BaseTask):
         if days_overdue >= critical_threshold:
             # Task severely overdue
             return IssueSeverity.CRITICAL
-        elif days_overdue >= warning_threshold:
+        if days_overdue >= warning_threshold:
             # Task overdue but not critical
             return IssueSeverity.WARNING
-        else:
-            # Task overdue but no immediate attention is required
-            return IssueSeverity.INFO
+        # Task overdue but no immediate attention is required
+        return IssueSeverity.INFO
 
     @staticmethod
     def _format_overdue_description(task_config: TaskConfig, days_overdue: int) -> str:
@@ -500,10 +499,9 @@ class MaintenanceCheckTask(BaseTask):
         """
         if days_overdue == 0:
             return f"Task `{task_config.name}` is due today"
-        elif days_overdue == 1:
+        if days_overdue == 1:
             return f"Task `{task_config.name}` is overdue by 1 day"
-        else:
-            return f"Task `{task_config.name}` is overdue by {days_overdue} days"
+        return f"Task `{task_config.name}` is overdue by {days_overdue} days"
 
     @staticmethod
     def _format_time_ago(timestamp: datetime | None) -> str:
@@ -687,7 +685,7 @@ class MaintenanceCheckTask(BaseTask):
             lines.append("\n")
 
         if not details.summary.has_issues:
-            lines.append("✓ No maintenance issues found! Your system is healthy :)")
+            lines.append("✔ No maintenance issues found! Your system is healthy :)")
             lines.append("\n")
         else:
             # Add issues by severity
