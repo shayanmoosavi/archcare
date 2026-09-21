@@ -678,10 +678,10 @@ class MaintenanceCheckTask(BaseTask):
 
         if tasks_needing_attention := details.tasks_needing_attention:
             lines.append("Tasks needing attention:")
-            for maintenance_issue in tasks_needing_attention:
-                lines.append(
-                    f"  - {maintenance_issue.task_name} ({str(maintenance_issue.severity).upper()})"
-                )
+            lines.extend(
+                f"  - {maintenance_issue.task_name} ({str(maintenance_issue.severity).upper()})"
+                for maintenance_issue in tasks_needing_attention
+            )
             lines.append("\n")
 
         if not details.summary.has_issues:

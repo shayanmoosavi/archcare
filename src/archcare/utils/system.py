@@ -544,9 +544,12 @@ def check_filesystem_errors() -> list[str]:
         # Look for common filesystem error keywords
         keywords = ["ext4", "btrfs", "xfs", "I/O error", "filesystem", "disk"]
 
-        for line in result.stdout.splitlines():
-            if any(keyword.lower() in line.lower() for keyword in keywords):
-                errors.append(line.strip())
+        # Include every line that matches these keywords
+        errors.extend(
+            line.strip()
+            for line in result.stdout.splitlines()
+            if any(keyword.lower() in line.lower() for keyword in keywords)
+        )
 
     # Limit to last 10 errors
     return errors[-10:] if errors else []

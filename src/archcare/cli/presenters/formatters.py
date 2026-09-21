@@ -98,8 +98,8 @@ class FailedServicesFormatter:
             # Show a few log lines
             if logs := failure.logs:
                 lines.append("    Recent logs:")
-                for log in logs[-3:]:  # Last 3 lines
-                    lines.append(f"      {log[:160]}")  # Truncate long lines
+                # Show last 3 logs and truncate each to 160 chars
+                lines.extend(f"      {log[:160]}" for log in logs[-3:])
 
 
 class HealthCheckFormatter:
@@ -135,13 +135,11 @@ class HealthCheckFormatter:
 
         if issues := details.issues:
             lines.append("\n[bold red]Critical Issues:[/bold red]")
-            for issue in issues:
-                lines.append(f"  • {issue}")
+            lines.extend(f"  • {issue}" for issue in issues)
 
         if warnings := details.warnings:
             lines.append("\n[bold yellow]Warnings:[/bold yellow]")
-            for warning in warnings:
-                lines.append(f"  • {warning}")
+            lines.extend(f"  • {warning}" for warning in warnings)
 
         # Show summary statistics
         summary = details.summary
