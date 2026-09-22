@@ -16,7 +16,7 @@ from archcare.config import (
 )
 from archcare.core import TaskDescriptor, TaskRegistry, TaskResult, success
 from archcare.core.base_task import BaseTask
-from archcare.core.executor import TaskExecutor
+from archcare.core.executor import TaskExecutor, TaskExecutorPorts
 from archcare.core.notifications import NotificationManager
 from archcare.core.progress import NoOpProgress, TaskProgress
 
@@ -126,10 +126,12 @@ def _make_executor(
         settings=AppSettings(user=user),
         state=state,
         task_registry=task_registry,
-        interaction=interaction,  # ty:ignore[invalid-argument-type]
-        notification_manager=notification_manager or MagicMock(spec=NotificationManager),
-        user_context=user_context or MagicMock(spec=UserContext),
-        progress=progress,
+        ports=TaskExecutorPorts(
+            interaction=interaction,  # ty:ignore[invalid-argument-type]
+            notification_manager=notification_manager or MagicMock(spec=NotificationManager),
+            user_context=user_context or MagicMock(spec=UserContext),
+            progress=progress,
+        ),
     )
 
 
@@ -151,7 +153,7 @@ class TestNotificationManagerProperty:
             settings=AppSettings(),
             state=AppState(),
             task_registry=_EMPTY_REGISTRY,
-            notification_manager=mock_manager_class.return_value,
+            ports=TaskExecutorPorts(notification_manager=mock_manager_class.return_value),
         )
 
         assert executor.notification_manager is mock_manager_class.return_value
@@ -209,7 +211,7 @@ class TestUserContextConstruction:
             settings=AppSettings(),
             state=AppState(),
             task_registry=_EMPTY_REGISTRY,
-            user_context=mock_user_context,
+            ports=TaskExecutorPorts(user_context=mock_user_context),
         )
 
         assert executor.user_context is mock_user_context
@@ -243,7 +245,7 @@ class TestProgressConstruction:
             settings=AppSettings(),
             state=AppState(),
             task_registry=_EMPTY_REGISTRY,
-            progress=mock_progress,
+            ports=TaskExecutorPorts(progress=mock_progress),
         )
 
         assert executor._progress is mock_progress

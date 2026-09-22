@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from archcare.utils.mirrorlist import (
+    ReflectorArgs,
     backup_file,
     get_mirrorlist_info,
     restore_backup,
@@ -233,14 +234,14 @@ class TestUpdateMirrorlist:
         monkeypatch.setattr(_PATCH_CHECK_COMMAND, lambda _: False)
 
         with pytest.raises(RuntimeError):
-            update_mirrorlist()
+            update_mirrorlist(ReflectorArgs())
 
     def test_builds_command_with_string_country_and_protocol(self, monkeypatch):
         monkeypatch.setattr(_PATCH_CHECK_COMMAND, lambda _: True)
         mock_run = MagicMock(return_value=_reflector_result())
         monkeypatch.setattr(_PATCH_RUN_SUDO, mock_run)
 
-        update_mirrorlist(country="Germany", protocol="https")
+        update_mirrorlist(ReflectorArgs(country="Germany", protocol="https"))
 
         cmd = mock_run.call_args[0][0]
         assert "--country" in cmd and "Germany" in cmd
@@ -252,7 +253,7 @@ class TestUpdateMirrorlist:
         mock_run = MagicMock(return_value=_reflector_result())
         monkeypatch.setattr(_PATCH_RUN_SUDO, mock_run)
 
-        update_mirrorlist(country=["Germany", "France"], protocol=["https", "http"])
+        update_mirrorlist(ReflectorArgs(country=["Germany", "France"], protocol=["https", "http"]))
 
         cmd = mock_run.call_args[0][0]
         assert "Germany,France" in cmd
@@ -263,7 +264,7 @@ class TestUpdateMirrorlist:
         mock_run = MagicMock(return_value=_reflector_result())
         monkeypatch.setattr(_PATCH_RUN_SUDO, mock_run)
 
-        update_mirrorlist(country=None, protocol=None)
+        update_mirrorlist(ReflectorArgs(country=None, protocol=None))
 
         cmd = mock_run.call_args[0][0]
         assert "--country" not in cmd
@@ -275,7 +276,7 @@ class TestUpdateMirrorlist:
         monkeypatch.setattr(_PATCH_RUN_SUDO, mock_run)
 
         save_path: Path = tmp_path / "mirrorlist"
-        update_mirrorlist(save_path=save_path)
+        update_mirrorlist(ReflectorArgs(save_path=save_path))
 
         cmd = mock_run.call_args[0][0]
         assert "--save" in cmd and str(save_path) in cmd
@@ -285,7 +286,7 @@ class TestUpdateMirrorlist:
         mock_run = MagicMock(return_value=_reflector_result())
         monkeypatch.setattr(_PATCH_RUN_SUDO, mock_run)
 
-        update_mirrorlist()
+        update_mirrorlist(ReflectorArgs())
 
         cmd = mock_run.call_args[0][0]
         assert "--save" not in cmd
@@ -296,15 +297,15 @@ class TestUpdateMirrorlist:
         mock_run = MagicMock(return_value=_reflector_result())
         monkeypatch.setattr(_PATCH_RUN_SUDO, mock_run)
 
-        update_mirrorlist(latest=10)
+        update_mirrorlist(ReflectorArgs(latest=10))
 
-        assert mock_run.call_args.kwargs["timeout"] == 10 * 5 + 30
+        assert mock_run.call_args.kwargs["options"].timeout == 10 * 5 + 30
 
     def test_returns_command_result_from_run_sudo(self, monkeypatch):
         monkeypatch.setattr(_PATCH_CHECK_COMMAND, lambda _: True)
         expected = _reflector_result()
         monkeypatch.setattr(_PATCH_RUN_SUDO, MagicMock(return_value=expected))
 
-        result = update_mirrorlist()
+        result = update_mirrorlist(ReflectorArgs())
 
         assert result is expected

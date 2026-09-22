@@ -198,7 +198,7 @@ class TestExecutorProperty:
         assert kwargs["config_loader"] is mock_config_loader
         assert kwargs["settings"] == "SETTINGS"
         assert kwargs["state"] == "STATE"
-        assert kwargs["user_context"] is context.user_ctx
+        assert kwargs["ports"].user_context is context.user_ctx
 
     def test_builds_with_interactive_cli_interaction(
         self, mock_executor: MagicMock, context: AppContext
@@ -206,7 +206,7 @@ class TestExecutorProperty:
         _ = context.executor
 
         _, kwargs = mock_executor.call_args
-        interaction = kwargs["interaction"]
+        interaction = kwargs["ports"].interaction
         assert isinstance(interaction, CliInteraction)
 
     def test_builds_with_default_task_registry(self, mock_executor: MagicMock, context: AppContext):
