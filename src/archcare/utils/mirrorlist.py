@@ -25,6 +25,7 @@ See Also:
         composing these into a full update cycle.
 """
 
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from subprocess import CalledProcessError
@@ -104,13 +105,36 @@ def restore_backup(backup_path: Path, target: Path) -> None:
         raise OSError(f"Could not restore backup file: {e}") from e
 
 
+@dataclass(frozen=True)
+class ReflectorArgs:
+    """
+    Dataclass grouping all parameters for the reflector command.
+
+    Attributes:
+        country (str | list[str] | None): Optional country filter(s) passed to `--country`. Accepts
+            a single country code (`"US"`) or a list (`["US", "CA"]`).
+        protocol (str | list[str] | None): Optional protocol filter(s) passed to `--protocol`. Valid
+            values include `"https"`, `"http"`, and `"rsync"`.
+        latest (int): Only include this many latest synchronized mirrors. Passed to `--latest`.
+            Defaults to `20`.
+        number (int): Maximum number of mirrors in the output. Passed to `--number`.
+            Defaults to `5`.
+        sort (str): Sort method passed to `--sort`. Valid values: `"rate"`, `"age"`, `"country"`,
+            `"score"`, and `"delay"`. Defaults to `"rate"`.
+        save_path (Path | None): Destination for the generated mirrorlist. Passed to `--save`. When
+            `None`, reflector writes to stdout. Defaults to `None`.
+    """
+
+    country: str | list[str] | None = None
+    protocol: str | list[str] | None = None
+    latest: int = 20
+    number: int = 5
+    sort: str = "rate"
+    save_path: Path | None = None
+
+
 def update_mirrorlist(
-    country: str | list[str] | None = None,
-    protocol: str | list[str] | None = None,
-    latest: int = 20,
-    number: int = 5,
-    sort: str = "rate",
-    save_path: Path | None = None,
+    payload: ReflectorArgs,
 ) -> CommandResult:
     """
     Refresh the pacman mirrorlist using reflector.
@@ -123,18 +147,8 @@ def update_mirrorlist(
     seconds plus a 30-second padding.
 
     Args:
-        country (str | list[str] | None): Country filter(s) passed to `--country`. Accepts a single
-            code (`"US"`) or a list (`["US", "CA"]`). No filter when `None`.
-        protocol (str | list[str] | None): Protocol filter(s) passed to `--protocol`. Valid values
-            include `"https"`, `"http"`, and `"rsync"`. No filter when `None`.
-        latest (int): Only include this many latest synchronized mirrors. Passed to `--latest`.
-            Defaults to `20`.
-        number (int): Maximum number of mirrors in the output. Passed to `--number`.
-            Defaults to `5`.
-        sort (str): Sort method passed to `--sort`. Valid values: `"rate"`, `"age"`, `"country"`,
-            `"score"`, and `"delay"`. Defaults to `"rate"`.
-        save_path (Path | None): Destination for the generated mirrorlist. Passed to `--save`. When
-            `None`, reflector writes to stdout.
+        payload (ReflectorArgs): Reflector command parameters including country, protocol, latest,
+            number, sort, and save path.
 
     Returns:
         CommandResult: Execution result from reflector, with stdout containing the mirrorlist when
@@ -152,27 +166,31 @@ def update_mirrorlist(
     reflector_cmd = ["reflector"]
 
     # Add country filter
-    if country:
-        countries = country if isinstance(country, str) else ",".join(country)
+    if payload.country:
+        countries = (
+            payload.country if isinstance(payload.country, str) else ",".join(payload.country)
+        )
         reflector_cmd.extend(["--country", countries])
 
     # Add protocol filter
-    if protocol:
-        protocols = protocol if isinstance(protocol, str) else ",".join(protocol)
+    if payload.protocol:
+        protocols = (
+            payload.protocol if isinstance(payload.protocol, str) else ",".join(payload.protocol)
+        )
         reflector_cmd.extend(["--protocol", protocols])
 
     # Add latest filter
-    reflector_cmd.extend(["--latest", str(latest)])
+    reflector_cmd.extend(["--latest", str(payload.latest)])
 
     # Add number of mirrors
-    reflector_cmd.extend(["--number", str(number)])
+    reflector_cmd.extend(["--number", str(payload.number)])
 
     # Add sort method
-    reflector_cmd.extend(["--sort", sort])
+    reflector_cmd.extend(["--sort", payload.sort])
 
     # Add save path if specified
-    if save_path:
-        reflector_cmd.extend(["--save", str(save_path)])
+    if payload.save_path:
+        reflector_cmd.extend(["--save", str(payload.save_path)])
 
     logger.debug(f"Running reflector: {' '.join(reflector_cmd)}")
 
@@ -180,7 +198,7 @@ def update_mirrorlist(
     # Worst case scenario: all mirrors timeout (number_of_mirrors * download_timeout)
     # plus some padding
     # Default reflector timeout: 5 sec
-    cmd_timeout = latest * 5 + 30  # Add 30 seconds padding
+    cmd_timeout = payload.latest * 5 + 30  # Add 30 seconds padding
 
     return run_command_with_sudo(reflector_cmd, timeout=cmd_timeout)
 

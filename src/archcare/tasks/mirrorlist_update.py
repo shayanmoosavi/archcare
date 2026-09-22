@@ -44,6 +44,7 @@ from archcare.utils import (
     update_mirrorlist,
     validate_mirrorlist,
 )
+from archcare.utils.mirrorlist import ReflectorArgs
 
 
 class MirrorlistUpdateTask(BaseTask):
@@ -191,7 +192,7 @@ class MirrorlistUpdateTask(BaseTask):
             logger.debug(f"Parameters: {reflector_args}")
 
             with self.progress.spinner("Running reflector to find fastest mirrors..."):
-                result = update_mirrorlist(**reflector_args)
+                result = update_mirrorlist(ReflectorArgs(**reflector_args))
 
             if not result.success:
                 logger.error(f"Reflector failed: {result.stderr}")
