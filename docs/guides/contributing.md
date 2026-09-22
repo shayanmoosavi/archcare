@@ -108,10 +108,33 @@ Two spots routinely trip up newcomers — neither is a violation:
 `pyproject.toml`:
 
 - `line-length = 100`
-- Lint rules: `E` (pycodestyle), `F` (Pyflakes), `I` (import sorting), `UP` (pyupgrade),
-  `B` (flake8-bugbear)
 - `docstring-code-format = true` — code examples inside docstrings are auto-formatted, so write
   them as if `ruff format` will run over them (it will)
+- `allowed-confusables = ["×"]` (for multiplication signs in docstrings)
+
+### Lint rules
+
+For a thorough explanation of all the rules, please refer to
+[Ruff](https://docs.astral.sh/ruff/rules/) documentation.
+
+| Rule   | Description           |
+| ------ | --------------------- |
+| `E`    | pycodestyle           |
+| `W`    | pycodestyle warnings  |
+| `F`    | Pyflakes              |
+| `I`    | import sorting        |
+| `UP`   | pyupgrade             |
+| `A`    | flake8-builtins       |
+| `B`    | flake8-bugbear        |
+| `C4`   | flake8-comprehensions |
+| `PIE`  | flake88-pie           |
+| `PYI`  | flake8-pyi            |
+| `RET`  | flake8-return         |
+| `SIM`  | flake8-simplify       |
+| `RUF`  | ruff-specific         |
+| `PERF` | perflint              |
+| `PLE`  | pylint errors         |
+| `PLW`  | pylint warnings       |
 
 [ty](https://docs.astral.sh/ty) is the type checker. The gate CI pipeline actually runs, in order:
 
@@ -242,6 +265,57 @@ while `help=` arguments survive compilation. So:
 
 - **`help=`** is what users see via `archcare <command> --help` — write it user-facing.
 - **The docstring** is what contributors see in the API reference — write it contributor-facing.
+
+## Local workflow automation (`justfile`)
+
+[`just`](https://github.com/casey/just) is a command runner whose recipes wrap the `uv` commands
+used throughout this guide — no venv activation is needed, since every recipe delegates to `uv run`.
+It's not required: all recipes are equivalent to their `uv` counterparts, and `just --list` shows
+every available recipe.
+
+Install on Arch Linux with `sudo pacman -s just` or `cargo install just`.
+
+### Environment & quality gates
+
+| Recipe            | What it does                                                                   |
+| ----------------- | ------------------------------------------------------------------------------ |
+| `just sync`       | `uv sync --all-groups` — install all dependency groups                         |
+| `just lint`       | `uv run ruff check .` and `uv run ruff format --check .` (same sequence as CI) |
+| `just format`     | `uv run ruff format .` — auto-format code and docstring code blocks            |
+| `just type-check` | `uv run ty check` — static type check                                          |
+| `just check`      | Runs `just lint` then `just test` then `uv run ty check` — the full CI gate    |
+
+### Testing
+
+| Recipe                  | What it does                                                        |
+| ----------------------- | ------------------------------------------------------------------- |
+| `just test`             | `uv run pytest` — full test suite                                   |
+| `just test-unit`        | `uv run pytest tests/unit` — unit tests only                        |
+| `just test-integration` | `uv run pytest tests/integration` — integration tests only          |
+| `just doctest`          | `uv run pytest --doctest-modules src/archcare` — docstring examples |
+
+### Documentation
+
+| Recipe            | What it does                                                                                                                         |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `just docs-build` | Regenerates API reference stubs (`scripts/gen_api_docs.py`) then builds the site with strict mode (`uv run zensical build --strict`) |
+| `just docs-serve` | Serves the docs site locally with live reload (`uv run zensical serve`)                                                              |
+
+### Build, commit & cleanup
+
+| Recipe             | What it does                                                                                   |
+| ------------------ | ---------------------------------------------------------------------------------------------- |
+| `just build`       | `uv sync --group build` then `uv run scripts/build.sh` — produces the standalone Nuitka binary |
+| `just commit`      | `uv run cz commit` — interactive commit helper                                                 |
+| `just install`     | Installs the compiled binary from `dist/` to `~/.local/bin`                                    |
+| `just clean`       | Removes generated build artifacts (`dist/`, `site/`, `docs/reference/api`)                     |
+| `just clean-cache` | Removes caches and coverage data (`.pytest_cache`, `.ruff_cache`, `.mypy_cache`, `.coverage`)  |
+
+!!! note
+
+    `just` is a convenience layer — every recipe has a direct `uv run` equivalent.
+    If `just` is not installed, the `uv` commands shown in the tables above are the
+    canonical way to run each task.
 
 ## Commit conventions
 
