@@ -100,14 +100,37 @@ class CommandResult:
         return f"[{status}] {self.command}"
 
 
+@dataclass(frozen=True)
+class CommandOptions:
+    """
+    Dataclass grouping optional parameters for command execution.
+
+    Attributes:
+        check (bool): If True, raises `subprocess.CalledProcessError` if the process exits with a
+            non-zero exit code. Defaults to `False`.
+        capture_output (bool): If True, captures standard output and standard error.
+            Defaults to `True`.
+        text (bool): If True, returns standard output and error as strings instead of bytes.
+            Defaults to `True`.
+        timeout (float | None): The maximum time in seconds the command is allowed to run before
+            being killed. Defaults to `None`.
+        cwd (Path | None): The working directory to set before executing the command.
+            Defaults to `None`.
+        env (dict[str, str] | None): Custom environment variables to pass to the process.
+            Defaults to `None`.
+    """
+
+    check: bool = False
+    capture_output: bool = True
+    text: bool = True
+    timeout: float | None = None
+    cwd: Path | None = None
+    env: dict[str, str] | None = None
+
+
 def run_command(
     command: list[str] | str,
-    check: bool = False,
-    capture_output: bool = True,
-    text: bool = True,
-    timeout: float | None = None,
-    cwd: Path | None = None,
-    env: dict[str, str] | None = None,
+    options: CommandOptions | None = None,
 ) -> CommandResult:
     """
     Run a system command and return a structured execution result.
@@ -118,18 +141,7 @@ def run_command(
 
     Args:
         command (list[str] | str): The command to run as a list of arguments or a single string.
-        check (bool): If True, raises `subprocess.CalledProcessError` if the process exits
-            with a non-zero exit code. Defaults to `False`.
-        capture_output (bool): If True, captures standard output and standard error.
-            Defaults to `True`.
-        text (bool): If True, returns standard output and error as strings instead of bytes.
-            Defaults to `True`.
-        timeout (int | float | None): The maximum time in seconds the command is allowed
-            to run before being killed. Defaults to `None`.
-        cwd (Path | None): The working directory to set before executing the command.
-            Defaults to `None`.
-        env (dict[str, str] | None): Custom environment variables dictionary to pass to the process.
-            Defaults to `None`.
+        options (CommandOptions): Optional parameters controlling command execution.
 
     Returns:
         CommandResult: Object containing command string, exit code, captured outputs,
@@ -147,6 +159,8 @@ def run_command(
         >>> res.stdout
         'hello'
     """
+    options = options or CommandOptions()
+
     # Convert string command to list if needed
     if isinstance(command, str):
         command_str = command
@@ -160,12 +174,12 @@ def run_command(
     try:
         result = subprocess.run(
             command_list,
-            capture_output=capture_output,
-            text=text,
-            check=check,
-            timeout=timeout,
-            cwd=cwd,
-            env=env,
+            capture_output=options.capture_output,
+            text=options.text,
+            check=options.check,
+            timeout=options.timeout,
+            cwd=options.cwd,
+            env=options.env,
         )
 
         cmd_result = CommandResult(
@@ -200,12 +214,7 @@ def run_command(
 
 def run_command_with_sudo(
     command: list[str] | str,
-    check: bool = False,
-    capture_output: bool = True,
-    text: bool = True,
-    timeout: int | None = None,
-    cwd: Path | None = None,
-    env: dict[str, str] | None = None,
+    options: CommandOptions | None = None,
 ) -> CommandResult:
     """
     Run a command with sudo privileges if the current process is not running as root.
@@ -216,13 +225,7 @@ def run_command_with_sudo(
 
     Args:
         command (list[str] | str): The command to run as a list of arguments or a single string.
-        check (bool): If True, raises `subprocess.CalledProcessError` on failure.
-            Defaults to `False`.
-        capture_output (bool): If True, captures stdout and stderr. Defaults to `True`.
-        text (bool): If True, decodes outputs to strings. Defaults to `True`.
-        timeout (int | None): Timeout limit in seconds. Defaults to `None`.
-        cwd (Path | None): Working directory context. Defaults to `None`.
-        env (dict[str, str] | None): Custom environment variables. Defaults to `None`.
+        options (CommandOptions): Optional parameters controlling command execution.
 
     Returns:
         CommandResult: Structured result of the command execution.
@@ -235,6 +238,8 @@ def run_command_with_sudo(
         - [`run_command`][]: The wrapped command used by this utility.
         - [`is_root`][]: Used to determine if `sudo` prefixing is required.
     """
+    options = options or CommandOptions()
+
     # Convert string to list if needed
     command_list = command.split() if isinstance(command, str) else list(command)
 
@@ -244,15 +249,7 @@ def run_command_with_sudo(
         command_list = ["sudo", *command_list]
 
     # Run the command
-    return run_command(
-        command_list,
-        check=check,
-        capture_output=capture_output,
-        text=text,
-        timeout=timeout,
-        cwd=cwd,
-        env=env,
-    )
+    return run_command(command_list, options=options)
 
 
 def check_command_exists(command: str) -> bool:
@@ -302,7 +299,7 @@ def run_systemctl(
         CommandResult: Structured result of the systemctl command execution.
     """
     command = ["systemctl", *args]
-    return run_command(command, check=check, timeout=timeout)
+    return run_command(command, options=CommandOptions(check=check, timeout=timeout))
 
 
 def is_root() -> bool:

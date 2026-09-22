@@ -31,6 +31,7 @@ from typing import Any
 from loguru import logger
 
 from archcare.utils import check_command_exists, run_command
+from archcare.utils.system import CommandOptions
 
 from .models import IssueSeverity
 
@@ -241,7 +242,7 @@ class NotificationManager:
                 payload.message,
             ]
 
-            result = run_command(cmd, timeout=5)
+            result = run_command(cmd, options=CommandOptions(timeout=5))
 
             if not result.success:
                 logger.error(

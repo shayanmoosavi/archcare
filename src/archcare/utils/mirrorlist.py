@@ -33,7 +33,7 @@ from subprocess import CalledProcessError
 from loguru import logger
 
 from .info_models import MirrorlistInfo
-from .system import CommandResult, check_command_exists, run_command_with_sudo
+from .system import CommandOptions, CommandResult, check_command_exists, run_command_with_sudo
 
 
 def backup_file(source: Path, backup_suffix: str = ".backup") -> Path:
@@ -68,7 +68,10 @@ def backup_file(source: Path, backup_suffix: str = ".backup") -> Path:
 
     try:
         logger.debug(f"Creating backup: {source} -> {backup_path}")
-        run_command_with_sudo(["cp", "-p", str(source), str(backup_path)], check=True)
+        run_command_with_sudo(
+            ["cp", "-p", str(source), str(backup_path)],
+            options=CommandOptions(check=True),
+        )
     except CalledProcessError as e:
         logger.error(f"Failed to create backup: {e}")
         raise OSError(f"Could not create backup file: {e}") from e
@@ -99,7 +102,10 @@ def restore_backup(backup_path: Path, target: Path) -> None:
 
     try:
         logger.debug(f"Restoring backup: {backup_path} -> {target}")
-        run_command_with_sudo(["cp", "-p", str(backup_path), str(target)], check=True)
+        run_command_with_sudo(
+            ["cp", "-p", str(backup_path), str(target)],
+            options=CommandOptions(check=True),
+        )
     except CalledProcessError as e:
         logger.error(f"Failed to restore backup: {e}")
         raise OSError(f"Could not restore backup file: {e}") from e
@@ -200,7 +206,7 @@ def update_mirrorlist(
     # Default reflector timeout: 5 sec
     cmd_timeout = payload.latest * 5 + 30  # Add 30 seconds padding
 
-    return run_command_with_sudo(reflector_cmd, timeout=cmd_timeout)
+    return run_command_with_sudo(reflector_cmd, options=CommandOptions(timeout=cmd_timeout))
 
 
 def validate_mirrorlist(mirrorlist_path: Path) -> tuple[bool, str]:
