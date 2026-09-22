@@ -175,7 +175,7 @@ def run_command(
             stderr=result.stderr.strip() if result.stderr else "",
             success=(
                 # Systemctl status returns an exit code of 3 for failed services
-                result.returncode == 3 or result.returncode == 0
+                result.returncode in {3, 0}
                 if "systemctl" in command_str
                 else result.returncode == 0
             ),
