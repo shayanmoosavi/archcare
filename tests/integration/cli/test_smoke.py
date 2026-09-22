@@ -220,6 +220,6 @@ class TestTaskRun:
 
         result = runner.invoke(app, ["task", "run", "maintenance-check"])
 
-        assert "execution aborted"
+        assert "execution aborted" in result.stdout
         assert isinstance(result.exception, SystemExit)
         assert result.exit_code == 1
