@@ -481,6 +481,11 @@ class MirrorlistSettings(BaseModel):
 
             Typical: 5-15 mirrors balances redundancy and performance
 
+        backup_retention_count: Number of old mirrorlist backup files to retain
+            during cleanup in `post_execute()`. (Range: >= 1 | Default: 5)
+
+            Higher values keep more history; lower values save disk space.
+
     Example Configurations:
         ```toml title="settings.toml"
         # Conservative: 3 fast, recent German mirrors
@@ -540,6 +545,11 @@ class MirrorlistSettings(BaseModel):
     )
     number_of_mirrors: int = Field(
         default=5, ge=1, le=50, description="Number of mirrors to include"
+    )
+    backup_retention_count: int = Field(
+        default=5,
+        ge=1,
+        description="Number of old mirrorlist backups to retain during cleanup",
     )
 
     @field_validator("protocol")
