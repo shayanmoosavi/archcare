@@ -9,6 +9,7 @@ import pytest
 
 from archcare.utils.system import (
     _VALID_UNIT_SUFFIXES,
+    CommandOptions,
     CommandResult,
     _get_boot_time,
     _get_service_description,
@@ -269,11 +270,11 @@ class TestRunCommand:
         swallow the exception subprocess.run raises on its own.
         """
         with pytest.raises(CalledProcessError):
-            run_command(["false"], check=True)
+            run_command(["false"], CommandOptions(check=True))
 
     def test_timeout_raises_timeout_expired_for_real(self):
         with pytest.raises(TimeoutExpired):
-            run_command(["sleep", "2"], timeout=0.01)
+            run_command(["sleep", "2"], CommandOptions(timeout=0.01))
 
     def test_systemctl_exit_code_3_counts_as_success(self, mocker):
         """
@@ -355,11 +356,13 @@ class TestRunCommandWithSudo:
             "-Syu",
         ]
 
-    def test_forwards_kwargs_to_run_command(self, mocker, mock_run_command: MagicMock):
+    def test_forwards_options_to_run_command(self, mocker, mock_run_command: MagicMock):
         mocker.patch(_PATCH_IS_ROOT, return_value=True)
-        run_command_with_sudo(["pacman", "-Syu"], check=True, timeout=15)
-        assert mock_run_command.call_args.kwargs["check"] is True
-        assert mock_run_command.call_args.kwargs["timeout"] == 15
+        run_command_with_sudo(["pacman", "-Syu"], CommandOptions(check=True, timeout=15))
+        assert mock_run_command.call_args.args[0] == ["pacman", "-Syu"]
+        assert isinstance(mock_run_command.call_args.kwargs["options"], CommandOptions)
+        assert mock_run_command.call_args.kwargs["options"].check is True
+        assert mock_run_command.call_args.kwargs["options"].timeout == 15
 
 
 # ---------------------------------------------------------------------------

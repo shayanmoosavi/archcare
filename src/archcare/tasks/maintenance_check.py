@@ -280,9 +280,7 @@ class MaintenanceCheckTask(BaseTask):
 
         # 2. Manual tasks - check if due/overdue
         if task_config.task_type == TaskType.MANUAL:
-            self._check_overdue_task(
-                days_overdue, issues, schedule_info, task_config, task_name, task_state
-            )
+            self._check_overdue_task(days_overdue, issues, schedule_info, task_config, task_state)
 
         # 3. Automated tasks - check for failures and broken timers
         elif task_config.task_type == TaskType.AUTOMATED:
@@ -307,7 +305,6 @@ class MaintenanceCheckTask(BaseTask):
         issues: list[MaintenanceIssue],
         schedule_info: TaskScheduleInfo,
         task_config: TaskConfig,
-        task_name: str,
         task_state: TaskState,
     ):
         """
@@ -324,8 +321,7 @@ class MaintenanceCheckTask(BaseTask):
             schedule_info (TaskScheduleInfo): Schedule info for the task being
                 checked (provides the `is_due` flag).
             task_config (TaskConfig): The task configuration of the task being
-                checked (used for the description text).
-            task_name (str): Name of the task being checked.
+                checked (used for the description text and task name).
             task_state (TaskState): Current persisted state of the task
                 (provides `last_run`/`last_status` for the issue).
 
@@ -337,13 +333,13 @@ class MaintenanceCheckTask(BaseTask):
 
             issues.append(
                 MaintenanceIssue(
-                    task_name=task_name,
+                    task_name=task_config.name,
                     severity=severity,
                     description=self._format_overdue_description(task_config, days_overdue),
                     days_overdue=days_overdue,
                     last_run=task_state.last_run,
                     last_status=task_state.last_status,
-                    recommendation=f"Run now: archcare task run {task_name}",
+                    recommendation=f"Run now: archcare task run {task_config.name}",
                 )
             )
 
@@ -527,22 +523,17 @@ class MaintenanceCheckTask(BaseTask):
 
         delta = datetime.now() - timestamp
 
-        if delta.days > 0:
-            if delta.days == 1:
-                return "1 day ago"
-            return f"{delta.days} days ago"
+        units: tuple[tuple[int, str], ...] = (
+            (delta.days, "day"),
+            (delta.seconds // 3600, "hour"),
+            (delta.seconds // 60, "minute"),
+        )
 
-        hours = delta.seconds // 3600
-        if hours > 0:
-            if hours == 1:
-                return "1 hour ago"
-            return f"{hours} hours ago"
-
-        minutes = delta.seconds // 60
-        if minutes > 0:
-            if minutes == 1:
-                return "1 minute ago"
-            return f"{minutes} minutes ago"
+        for value, unit in units:
+            if value > 0:
+                if value == 1:
+                    return f"1 {unit} ago"
+                return f"{value} {unit}s ago"
 
         return "just now"
 

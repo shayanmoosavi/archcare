@@ -20,6 +20,7 @@ See Also:
     - [`BaseTask`][]: Abstract interface for task classes.
 """
 
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from loguru import logger
@@ -44,6 +45,31 @@ from .scheduler import TaskScheduler
 from .task_registry import TaskRegistry
 
 
+@dataclass(frozen=True)
+class TaskExecutorPorts:
+    """
+    Dataclass grouping optional port dependencies for [`TaskExecutor`][].
+
+    All fields default to `None`; They are dynamically injected by the
+    `TaskExecutor` constructor.
+
+    Attributes:
+        interaction (TaskInteraction | None): User notification and confirmation adapter.
+            Defaults to [`NonInteractive`][].
+        notification_manager (NotificationManager | None): Desktop notifications sender. If `None`,
+            it is lazily constructed on first access.
+        user_context (UserContext | None): System user context resolution. If `None`, eagerly
+            retrieved from active environment variables.
+        progress (TaskProgress | None): Visual progress tracking adapter.
+            Defaults to [`NoOpProgress`][].
+    """
+
+    interaction: TaskInteraction | None = None
+    notification_manager: NotificationManager | None = None
+    user_context: UserContext | None = None
+    progress: TaskProgress | None = None
+
+
 class TaskExecutor:
     """
     Coordinates task execution and state management.
@@ -53,45 +79,12 @@ class TaskExecutor:
     runs, and persisting execution results back to the state database.
 
     Attributes:
-        config_loader (ConfigLoader): Handles reading and writing TOML configurations and
-            JSON state.
-        settings (AppSettings): Application-wide settings model.
-        state (AppState): Tracking container of historical task run statistics.
-        task_registry (TaskRegistry): Map linking task names to executing and
-            detail formatter classes.
-        user_context (UserContext): Resolves the active user context via
-            `ARCHCARE_USER` environment variable.
+        user_context (UserContext): Resolves the active user context via `ARCHCARE_USER`
+            environment variable.
 
     Methods:
         notification_manager: *(property)* The lazy-loaded shared desktop notification manager.
         execute_task: Execute a single task by name.
-
-    Examples:
-        Let's demonstrate how to construct a `TaskExecutor` using mocked dependencies:
-
-        >>> from pathlib import Path
-        >>> from archcare.config import AppSettings, AppState, ConfigLoader, UserContext
-        >>> from archcare.core.task_registry import TaskRegistry
-        >>> from archcare.core.executor import TaskExecutor
-        >>>
-        >>> # Construct mock dependencies
-        >>> settings = AppSettings()
-        >>> state = AppState(tasks={})
-        >>> registry = TaskRegistry(())
-        >>> loader = ConfigLoader()
-        >>>
-        >>> executor = TaskExecutor(
-        ...     config_loader=loader,
-        ...     settings=settings,
-        ...     state=state,
-        ...     task_registry=registry,
-        ... )
-        >>> executor.task_registry is registry
-        True
-
-    See Also:
-        - [`BaseTask`][]: Base task implementation structure.
-        - [`TaskRegistry`][]: Task registry that maps tasks to their implementations.
     """
 
     def __init__(
@@ -100,36 +93,57 @@ class TaskExecutor:
         settings: AppSettings,
         state: AppState,
         task_registry: TaskRegistry,
-        interaction: TaskInteraction | None = None,
-        notification_manager: NotificationManager | None = None,
-        user_context: UserContext | None = None,
-        progress: TaskProgress | None = None,
+        ports: TaskExecutorPorts | None = None,
     ):
         """
         Initialize the task executor.
 
         Args:
             config_loader (ConfigLoader): ConfigLoader instance for reading and writing files.
-            settings (AppSettings): Application settings.
+            settings (AppSettings): Application-wide settings model.
             state (AppState): Application state for tracking execution history.
-            task_registry (TaskRegistry): Static registry of task names mapped to their classes.
-            interaction (TaskInteraction | None): User notification and confirmation adapter.
-                Defaults to [`NonInteractive`][].
-            notification_manager (NotificationManager | None): Desktop notifications sender.
-                If `None`, it is lazily constructed on first access.
-            user_context (UserContext | None): System user context resolution. If `None`, eagerly
-                retrieved from active environment variables.
-            progress (TaskProgress | None): Visual progress tracking adapter.
-                Defaults to [`NoOpProgress`][].
+            task_registry (TaskRegistry): Static registry of task names mapped to their
+                implementation and detail formatters.
+            ports (TaskExecutorPorts | None): Optional port dependencies (interaction,
+                notification manager, user context, progress). Defaults to `None`,
+                which materializes to `TaskExecutorPorts` with all fields `None`.
+
+        Examples:
+            Let's demonstrate how to construct a `TaskExecutor` using mocked dependencies:
+
+            >>> from pathlib import Path
+            >>> from archcare.config import AppSettings, AppState, ConfigLoader, UserContext
+            >>> from archcare.core.task_registry import TaskRegistry
+            >>> from archcare.core.executor import TaskExecutor
+            >>>
+            >>> # Construct mock dependencies
+            >>> settings = AppSettings()
+            >>> state = AppState(tasks={})
+            >>> registry = TaskRegistry(())
+            >>> loader = ConfigLoader()
+            >>>
+            >>> executor = TaskExecutor(
+            ...     config_loader=loader,
+            ...     settings=settings,
+            ...     state=state,
+            ...     task_registry=registry,
+            ... )
+            >>> executor.task_registry is registry
+            True
+
+        See Also:
+            - [`BaseTask`][]: Base task implementation structure.
+            - [`TaskRegistry`][]: Task registry that maps tasks to their implementations.
         """
+        ports = ports or TaskExecutorPorts()
         self.config_loader = config_loader
         self.settings = settings
         self.state = state
         self.task_registry = task_registry
-        self.user_context = user_context or UserContext.from_env()
-        self._interaction = interaction or NonInteractive()
-        self._progress = progress or NoOpProgress()
-        self.__notification_manager = notification_manager
+        self.user_context = ports.user_context or UserContext.from_env()
+        self._interaction = ports.interaction or NonInteractive()
+        self._progress = ports.progress or NoOpProgress()
+        self.__notification_manager = ports.notification_manager
 
     @property
     def notification_manager(self) -> NotificationManager:

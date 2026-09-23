@@ -58,7 +58,7 @@ def convert(pep440_version: str) -> str:
 
     base = base_match.group(1)
     parts = base.split(".")
-    while len(parts) < 3:
+    while len(parts) < 3:  # noqa: PLR2004
         parts.append("0")
     major, minor, patch = parts[0], parts[1], parts[2]
 
@@ -82,7 +82,7 @@ def convert(pep440_version: str) -> str:
 
 
 def main() -> int:
-    if len(sys.argv) != 2:
+    if len(sys.argv) != 2:  # noqa: PLR2004
         print(f"Usage: {sys.argv[0]} <pep440-version>", file=sys.stderr)
         return 1
 

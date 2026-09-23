@@ -21,6 +21,7 @@ from typing import Any
 from archcare.core.notifications import (
     NotificationIcon,
     NotificationManager,
+    NotificationPayload,
     NotificationUrgency,
 )
 
@@ -104,12 +105,15 @@ class DebugService:
             raise NotificationUnavailableError()
 
         sent = self.notification_manager.send_notification(
-            title=config["title"],
-            message=(
-                "This is a test notification from archcare.\nNotifications are working correctly!"
-            ),
-            urgency=config["urgency"],
-            icon=config["icon"],
+            NotificationPayload(
+                title=config["title"],
+                message=(
+                    "This is a test notification from archcare.\n"
+                    "Notifications are working correctly!"
+                ),
+                urgency=config["urgency"],
+                icon=config["icon"],
+            )
         )
 
         if not sent:
