@@ -86,7 +86,10 @@ select = [
     "RET",
     "PLE",
     "PLW",
+    "PLR",
+    "C90",
     "RUF",
     "PERF"
 ]
+ignore = ["PLR2004", "RUF100"]  # Ignoring magic number warnings for now
 allowed-confusables = ["×"]

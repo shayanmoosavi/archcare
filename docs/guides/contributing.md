@@ -127,7 +127,7 @@ For a thorough explanation of all the rules, please refer to
 | `A`    | flake8-builtins       |
 | `B`    | flake8-bugbear        |
 | `C4`   | flake8-comprehensions |
-| `PIE`  | flake88-pie           |
+| `PIE`  | flake8-pie            |
 | `PYI`  | flake8-pyi            |
 | `RET`  | flake8-return         |
 | `SIM`  | flake8-simplify       |
@@ -135,6 +135,8 @@ For a thorough explanation of all the rules, please refer to
 | `PERF` | perflint              |
 | `PLE`  | pylint errors         |
 | `PLW`  | pylint warnings       |
+| `PLR`  | pylint refactor       |
+| `C90`  | mccabe complexity     |
 
 [ty](https://docs.astral.sh/ty) is the type checker. The gate CI pipeline actually runs, in order:
 

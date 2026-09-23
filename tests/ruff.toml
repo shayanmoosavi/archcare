@@ -1,0 +1,7 @@
+extend = "../pyproject.toml"
+
+[lint]
+ignore = ["PLR0913", "PLR0917"]
+
+[lint.isort]
+known-first-party = ["archcare"]
