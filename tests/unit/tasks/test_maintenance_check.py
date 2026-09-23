@@ -573,7 +573,7 @@ class TestPostExecute:
         mock_result = MagicMock(spec=TaskResult)
         mock_result.details = None
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="details"):
             task.post_execute(mock_result)
 
     def test_sends_notification_when_show_notifications_true(

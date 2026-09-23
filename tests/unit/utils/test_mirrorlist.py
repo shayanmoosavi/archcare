@@ -145,8 +145,8 @@ class TestGetMirrorlistInfo:
 
 
 class TestBackupFile:
-    def test_raises_io_error_if_source_missing(self, tmp_path):
-        with pytest.raises(IOError):
+    def test_raises_os_error_if_source_missing(self, tmp_path):
+        with pytest.raises(OSError, match="does not exist"):
             backup_file(tmp_path / "missing")
 
     def test_creates_backup_with_default_suffix(self, monkeypatch, write_src_file: Path):
@@ -183,13 +183,13 @@ class TestBackupFile:
         assert "source_file_" in backup_path.name
         assert datetime.now().strftime("%Y-%m-%d") in backup_path.name
 
-    def test_wraps_called_process_error_as_io_error(self, monkeypatch, write_src_file: Path):
+    def test_wraps_called_process_error_as_os_error(self, monkeypatch, write_src_file: Path):
         source = write_src_file
 
         # Simulate a CalledProcessError being raised by run_command_with_sudo
         monkeypatch.setattr(_PATCH_RUN_SUDO, MagicMock(side_effect=CalledProcessError(1, "cp")))
 
-        with pytest.raises(IOError):
+        with pytest.raises(OSError, match="create backup file"):
             backup_file(source)
 
 
@@ -199,8 +199,8 @@ class TestBackupFile:
 
 
 class TestRestoreBackup:
-    def test_raises_io_error_if_backup_missing(self, tmp_path):
-        with pytest.raises(IOError):
+    def test_raises_os_error_if_backup_missing(self, tmp_path):
+        with pytest.raises(OSError, match="does not exist"):
             restore_backup(tmp_path / "missing.backup", tmp_path / "target")
 
     def test_restores_content_to_target(self, tmp_path, monkeypatch):
@@ -214,13 +214,13 @@ class TestRestoreBackup:
 
         assert target.read_text() == backup.read_text()
 
-    def test_wraps_called_process_error_as_io_error(self, tmp_path, monkeypatch):
+    def test_wraps_called_process_error_as_os_error(self, tmp_path, monkeypatch):
         backup: Path = tmp_path / "target.backup"
         backup.write_text("backed up content\n")
 
         monkeypatch.setattr(_PATCH_RUN_SUDO, MagicMock(side_effect=CalledProcessError(1, "cp")))
 
-        with pytest.raises(IOError):
+        with pytest.raises(OSError, match="restore backup file"):
             restore_backup(backup, tmp_path / "target")
 
 
@@ -244,8 +244,10 @@ class TestUpdateMirrorlist:
         update_mirrorlist(ReflectorArgs(country="Germany", protocol="https"))
 
         cmd = mock_run.call_args[0][0]
-        assert "--country" in cmd and "Germany" in cmd
-        assert "--protocol" in cmd and "https" in cmd
+        assert "--country" in cmd
+        assert "Germany" in cmd
+        assert "--protocol" in cmd
+        assert "https" in cmd
 
     def test_builds_command_with_list_country_and_protocol(self, monkeypatch):
         """Lists are comma-joined into a single reflector argument."""
@@ -279,7 +281,8 @@ class TestUpdateMirrorlist:
         update_mirrorlist(ReflectorArgs(save_path=save_path))
 
         cmd = mock_run.call_args[0][0]
-        assert "--save" in cmd and str(save_path) in cmd
+        assert "--save" in cmd
+        assert str(save_path) in cmd
 
     def test_omits_save_path_when_not_given(self, monkeypatch):
         monkeypatch.setattr(_PATCH_CHECK_COMMAND, lambda _: True)
