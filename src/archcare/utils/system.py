@@ -408,7 +408,8 @@ def _parse_main_pid(line: str) -> int | None:
         int | None: The parsed process ID as an integer, or `None` if parsing fails.
     """
     parts = line.split()
-    if len(parts) >= 3:
+    # Line gets split into 'Main', 'PID:', '<the-pid>', and some other details
+    if len(parts) >= 3:  # noqa: PLR2004
         try:
             return int(parts[2])
         except ValueError:
@@ -431,9 +432,11 @@ def _get_service_description(service_name: str) -> str:
     if not result.success or not result.stdout:
         return ""
 
-    # Last part of the line is the description
+    # Systemd status for a service contains a line with the service name, load state, active state,
+    # sub state, and description. Last column is the description
+    SYSTEMD_STATUS_COLUMNS = 5
     parts = result.stdout.split(maxsplit=4)
-    return parts[4] if len(parts) >= 5 else ""
+    return parts[4] if len(parts) >= SYSTEMD_STATUS_COLUMNS else ""
 
 
 def get_service_status(service_name: str) -> ServiceStatusInfo:
@@ -573,10 +576,11 @@ def format_bytes(bytes_value: float) -> str:
         >>> format_bytes(1024 * 1024 * 5)
         '5.00 MB'
     """
+    UNIT_SCALE = 1024.0
     for unit in ["B", "KB", "MB", "GB", "TB"]:
-        if bytes_value < 1024.0:
+        if bytes_value < UNIT_SCALE:
             return f"{bytes_value:.2f} {unit}"
-        bytes_value /= 1024.0
+        bytes_value /= UNIT_SCALE
     return f"{bytes_value:.2f} PB"
 
 
