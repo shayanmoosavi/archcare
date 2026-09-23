@@ -152,7 +152,7 @@ class TestRenderIssueDispatch:
         )
 
     @pytest.mark.parametrize(
-        "issue_fixture,title,style",
+        ("issue_fixture", "title", "style"),
         [
             ("critical_issue", "🟥 Critical Issues", "red"),
             ("warning_issue", "🟨 Warning Issues", "yellow"),

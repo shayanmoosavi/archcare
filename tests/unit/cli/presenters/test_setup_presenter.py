@@ -137,7 +137,9 @@ class TestRenderConfigInit:
 
 
 class TestRenderTemplateInstallation:
-    @pytest.mark.parametrize("dry_run,expected_verb", [(True, "Would create"), (False, "Created")])
+    @pytest.mark.parametrize(
+        ("dry_run", "expected_verb"), [(True, "Would create"), (False, "Created")]
+    )
     def test_verb_matches_dry_run_flag(
         self, tmp_path, dry_run, expected_verb, mock_success: MagicMock
     ):
@@ -167,7 +169,9 @@ class TestRenderTemplateInstallation:
 
 
 class TestRenderSystemdReload:
-    @pytest.mark.parametrize("dry_run,expected_verb", [(True, "Would reload"), (False, "Reloaded")])
+    @pytest.mark.parametrize(
+        ("dry_run", "expected_verb"), [(True, "Would reload"), (False, "Reloaded")]
+    )
     def test_success_verbs_match_dry_run_flag(
         self, dry_run, expected_verb, mock_success: MagicMock
     ):
@@ -195,7 +199,7 @@ class TestRenderTimerSetup:
         return mocker.patch(f"{_MODULE}._list_timers")
 
     @pytest.mark.parametrize(
-        "task_fixture,expected_icon",
+        ("task_fixture", "expected_icon"),
         [
             ("automated_task", "✔"),
             ("disabled_task", "✘"),

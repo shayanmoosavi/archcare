@@ -341,7 +341,7 @@ class TestRenderList:
         mock_console.print.assert_not_called()
 
     @pytest.mark.parametrize(
-        "task_fixture,expected_icon",
+        ("task_fixture", "expected_icon"),
         [
             ("automated_task", "✔"),
             ("disabled_task", "✘"),
@@ -436,7 +436,7 @@ class TestConvenienceMethods:
 
 class TestGetStatusText:
     @pytest.mark.parametrize(
-        "status,expected_fragment",
+        ("status", "expected_fragment"),
         [
             (TaskStatus.SUCCESS, "SUCCESS"),
             (TaskStatus.FAILURE, "FAILURE"),

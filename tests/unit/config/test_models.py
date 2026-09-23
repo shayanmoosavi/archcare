@@ -176,7 +176,7 @@ class TestAppSettingsPaths:
             AppSettings._resolve_user_home("ghost")
 
     @pytest.mark.parametrize(
-        "path,expected",
+        ("path", "expected"),
         [
             ("log_dir", Path("/home/alice/.local/state/archcare/logs")),
             ("config_dir", Path("/home/alice/.config/archcare")),

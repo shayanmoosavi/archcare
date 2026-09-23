@@ -104,7 +104,7 @@ class TestSystemctlParsing:
         assert _parse_main_pid("Some other line entirely") is None
 
     @pytest.mark.parametrize(
-        "svc_name,out,desc",
+        ("svc_name", "out", "desc"),
         [
             (
                 "acpid.service",
@@ -191,7 +191,7 @@ class TestGetBootTime:
 
 class TestFormatting:
     @pytest.mark.parametrize(
-        "bytes_val,bytes_expected",
+        ("bytes_val", "bytes_expected"),
         [
             (500, "500.00 B"),
             (1024, "1.00 KB"),
@@ -205,7 +205,7 @@ class TestFormatting:
         assert format_bytes(bytes_val) == bytes_expected
 
     @pytest.mark.parametrize(
-        "expected,uptime",
+        ("expected", "uptime"),
         [
             ("just now", timedelta(seconds=30)),  # Test just now (less than a minute)
             (

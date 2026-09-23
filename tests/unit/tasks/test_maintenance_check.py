@@ -159,7 +159,7 @@ def settings_with_tmp_reports(mocker, tmp_path) -> AppSettings:
 
 class TestFormatTimeAgo:
     @pytest.mark.parametrize(
-        "time_ago,expected",
+        ("time_ago", "expected"),
         [
             (None, "never"),
             (datetime.now() - timedelta(seconds=1), "just now"),
@@ -332,7 +332,7 @@ class TestCheckFailedAutomatedTask:
 
 class TestCategorizeIssues:
     @pytest.mark.parametrize(
-        "severity,list_attr",
+        ("severity", "list_attr"),
         [
             (IssueSeverity.CRITICAL, "critical_issues"),
             (IssueSeverity.WARNING, "warning_issues"),

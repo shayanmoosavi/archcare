@@ -37,7 +37,7 @@ class MockTaskDetails:
 
 class TestTaskResultStatusChecks:
     @pytest.mark.parametrize(
-        "status,method_name",
+        ("status", "method_name"),
         [
             (TaskStatus.SUCCESS, "is_success"),
             (TaskStatus.FAILURE, "is_failed"),
@@ -50,7 +50,7 @@ class TestTaskResultStatusChecks:
         assert getattr(result, method_name)() is True
 
     @pytest.mark.parametrize(
-        "status,method_name",
+        ("status", "method_name"),
         [
             (TaskStatus.SUCCESS, "is_failed"),
             (TaskStatus.FAILURE, "is_success"),
@@ -102,7 +102,7 @@ class TestTaskResultStr:
 
 class TestIssueSeverityStr:
     @pytest.mark.parametrize(
-        "severity,expected",
+        ("severity", "expected"),
         [
             (IssueSeverity.CRITICAL, "critical"),
             (IssueSeverity.WARNING, "warning"),
