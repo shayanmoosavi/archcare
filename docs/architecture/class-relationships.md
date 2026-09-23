@@ -201,6 +201,7 @@ classDiagram
         +log_dir: Path
         +mirrorlist: MirrorlistSettings
         +maintenance_check: MaintenanceCheckSettings
+        +health_check: HealthCheckSettings
         +ensure_directories()
     }
 
@@ -244,6 +245,7 @@ classDiagram
     ConfigLoader -- AppState
     AppSettings *-- MirrorlistSettings
     AppSettings *-- MaintenanceCheckSettings
+    AppSettings *-- HealthCheckSettings
     AppState o-- TaskState : many
     TasksConfig o-- TaskConfig : many
 ```

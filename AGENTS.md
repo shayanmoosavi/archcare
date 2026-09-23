@@ -66,7 +66,7 @@ utils/      → subprocess wrappers, system/hardware queries, notifications
 
 | File          | Purpose                                                                                                                                                         |
 | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `models.py`   | Pydantic models: `TaskConfig`, `TasksConfig`, `AppSettings`, `AppState`, `TaskState`, `MirrorlistSettings`, `MaintenanceCheckSettings`, `IgnoredServicesConfig` |
+| `models.py`   | Pydantic models: `TaskConfig`, `TasksConfig`, `AppSettings`, `AppState`, `TaskState`, `MirrorlistSettings`, `MaintenanceCheckSettings`, `HealthCheckSettings`, `IgnoredServicesConfig` |
 | `enums.py`    | Enums: `TaskType`, `TaskStatus`, `SkipReason`, `LogLevel`                                                                                                       |
 | `loader.py`   | `ConfigLoader` - loads/saves TOML (settings, tasks, ignored-services) and JSON (state)                                                                          |
 | `defaults.py` | Default TOML document builders for initial config creation                                                                                                      |
