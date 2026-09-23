@@ -51,7 +51,7 @@ utils/      → subprocess wrappers, system/hardware queries, notifications
 | File               | Purpose                                                                                                                                |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `base_task.py`     | `BaseTask` - abstract base with `execute()`, `pre_check()`, `should_run()`, `post_execute()`, `rollback()`, `run()`                    |
-| `executor.py`      | `TaskExecutor` - coordinates task instantiation, execution, state updates                                                              |
+| `executor.py`      | `TaskExecutor` - coordinates task instantiation, execution, state updates; `TaskExecutorPorts` - dataclass grouping optional port dependencies              |
 | `task_registry.py` | `TaskRegistry`, `TaskDescriptor` - static mapping of task name → (class, formatter)                                                    |
 | `models.py`        | `TaskResult[TDetails]`, `TaskStep`, `IssueSeverity`, `MaintenanceIssue`, factory functions (`success`, `failed`, `skipped`, `partial`) |
 | `task_details.py`  | Per-task detail dataclasses: `FailedServicesDetails`, `HealthCheckDetails`, `MaintenanceCheckDetails`, `MirrorlistUpdateDetails`       |
@@ -113,6 +113,7 @@ utils/      → subprocess wrappers, system/hardware queries, notifications
 | `mirrorlist.py`  | Mirrorlist parsing, reflector invocation                                                                                                                         |
 | `info_models.py` | Frozen dataclasses returned by utils queries: `ServiceStatusInfo`, `DiskUsageInfo`, `MemoryInfo`, `CpuInfo`, `MirrorlistInfo`                                    |
 | `output.py`      | Global Rich `Console` + print helpers (`print_success`, `print_error`, `print_panel`, `print_table`); `configure_console()` mutes output in non-interactive runs |
+| `system.py`      | `run_command`, `run_command_with_sudo` - subprocess wrappers (the ONLY OS boundary); `CommandOptions` - dataclass for command options                             |
 
 ---
 
@@ -318,13 +319,13 @@ just doctest
 
 ## Documentation (Zensical)
 
-### Site Structure (4 sections, 11 hand-written pages + generated API stubs)
+### Site Structure (4 sections, 13 hand-written pages + generated API stubs)
 
 | Section       | Pages                                                                                                          |
 | ------------- | -------------------------------------------------------------------------------------------------------------- |
 | Home          | `docs/index.md` - hero + "Where to go next" cards to the 3 sections                                            |
-| Architecture  | `architecture/{index,task-lifecycle,registry-and-ports,configuration}.md`                                      |
-| Guides        | `guides/{index,adding-a-task,contributing}.md`                                                                 |
+| Architecture  | `architecture/{index,class-relationships,task-lifecycle,registry-and-ports,configuration}.md`                  |
+| Guides        | `guides/{index,getting-started,adding-a-task,contributing}.md`                                                 |
 | Reference     | `reference/{index,cli,configuration-files}.md`                                                                 |
 | Reference API | `reference/api/**` - auto-generated mkdocstrings stubs (gitignored; regenerate with `scripts/gen_api_docs.py`) |
 
@@ -397,7 +398,7 @@ archcare debug test-notification --severity warning
 - **Config errors**: `ConfigNotInitializedError` → CLI catches, suggests `archcare setup config`
 - **Task not found**: `TaskNotRegisteredError` (core) / `TaskNotFoundError` (services)
 - **Validation errors**: Pydantic `ValidationError` caught in `ConfigLoader`, falls back to defaults
-- **OS errors**: Wrapped in `utils/system.py` → `CommandError` with stdout/stderr/exit_code
+- **OS errors**: Wrapped in `utils/system.py` → `CommandResult` with stdout/stderr/exit_code
 
 ---
 
