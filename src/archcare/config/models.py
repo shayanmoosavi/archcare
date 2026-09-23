@@ -630,6 +630,87 @@ class MirrorlistSettings(BaseModel):
         return str(v)
 
 
+class HealthCheckSettings(BaseModel):
+    """
+    Settings for `health-check` task thresholds.
+
+    Configures severity thresholds for each system health metric. All percentages
+    are integers 0-100. Warning thresholds must be strictly less than critical
+    thresholds for the same resource (enforced by cross-field validators).
+
+    Attributes:
+        cpu_warning_percent (int): CPU usage percentage above which a warning
+            is emitted. (Default: 90)
+        memory_critical_percent (int): Memory usage percentage above which a
+            critical issue is recorded. (Default: 90)
+        memory_warning_percent (int): Memory usage percentage above which a
+            warning is emitted (below critical). (Default: 80)
+        swap_warning_percent (int): Swap usage percentage above which a
+            warning is emitted. (Default: 50)
+        disk_critical_percent (int): Disk usage percentage above which a
+            critical issue is recorded. (Default: 90)
+        disk_warning_percent (int): Disk usage percentage above which a
+            warning is emitted (below critical). (Default: 80)
+
+    Example Configurations:
+        ```toml title="settings.toml"
+        # Strict thresholds
+        [health_check]
+        cpu_warning_percent = 85
+        memory_critical_percent = 85
+        memory_warning_percent = 75
+        swap_warning_percent = 40
+        disk_critical_percent = 85
+        disk_warning_percent = 75
+
+        # Relaxed thresholds
+        [health_check]
+        cpu_warning_percent = 95
+        memory_critical_percent = 95
+        memory_warning_percent = 85
+        swap_warning_percent = 60
+        disk_critical_percent = 95
+        disk_warning_percent = 85
+        ```
+
+    Validation:
+        - All percentages must be in range 0-100
+        - `memory_warning_percent` < `memory_critical_percent`
+        - `disk_warning_percent` < `disk_critical_percent`
+
+    Integration:
+        - `health-check` task reads these via `self.settings.health_check`
+        - Thresholds appear in task docstring table (kept in sync by convention)
+    """
+
+    cpu_warning_percent: int = Field(
+        default=90, ge=0, le=100, description="CPU usage % for warning"
+    )
+    memory_critical_percent: int = Field(
+        default=90, ge=0, le=100, description="Memory usage % for critical issue"
+    )
+    memory_warning_percent: int = Field(
+        default=80, ge=0, le=100, description="Memory usage % for warning"
+    )
+    swap_warning_percent: int = Field(
+        default=50, ge=0, le=100, description="Swap usage % for warning"
+    )
+    disk_critical_percent: int = Field(
+        default=90, ge=0, le=100, description="Disk usage % for critical issue"
+    )
+    disk_warning_percent: int = Field(
+        default=80, ge=0, le=100, description="Disk usage % for warning"
+    )
+
+    @model_validator(mode="after")
+    def validate_threshold_ordering(self) -> Self:
+        if self.memory_warning_percent >= self.memory_critical_percent:
+            raise ValueError("memory_warning_percent must be < memory_critical_percent")
+        if self.disk_warning_percent >= self.disk_critical_percent:
+            raise ValueError("disk_warning_percent must be < disk_critical_percent")
+        return self
+
+
 class MaintenanceCheckSettings(BaseModel):
     """
     Settings for `maintenance-check` task
@@ -825,6 +906,7 @@ class AppSettings(BaseModel):
 
         mirrorlist (MirrorlistSettings): Mirrorlist settings
         maintenance_check (MaintenanceCheckSettings): Maintenance check settings
+        health_check (HealthCheckSettings): Health check threshold settings
 
     Methods:
         home_dir: *(property)* User's home directory
@@ -854,6 +936,14 @@ class AppSettings(BaseModel):
         critical_threshold_days = 7
         warning_threshold_days = 1
         show_notifications = true
+
+        [health_check]
+        cpu_warning_percent = 90
+        memory_critical_percent = 90
+        memory_warning_percent = 80
+        swap_warning_percent = 50
+        disk_critical_percent = 90
+        disk_warning_percent = 80
         ```
 
     Validation:
@@ -873,6 +963,7 @@ class AppSettings(BaseModel):
     See also:
         - [`MirrorlistSettings`][]: Mirrorlist-specific settings
         - [`MaintenanceCheckSettings`][]: Maintenance check-specific settings
+        - [`HealthCheckSettings`][]: Health check threshold settings
     """
 
     # Global settings
@@ -902,6 +993,13 @@ class AppSettings(BaseModel):
     maintenance_check: MaintenanceCheckSettings = Field(
         default_factory=MaintenanceCheckSettings,
         description="Settings for maintenance check task",
+    )
+
+    # health check specific settings
+    # This corresponds to the [health_check] section in the settings.toml file
+    health_check: HealthCheckSettings = Field(
+        default_factory=HealthCheckSettings,
+        description="Settings for health check task thresholds",
     )
 
     # Paths
