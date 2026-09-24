@@ -76,9 +76,10 @@ class TestConfigService:
         config_dir.mkdir()
         (config_dir / "settings.toml").touch()
         (config_dir / "tasks.toml").touch()
+        EXPECTED_FILE_COUNT = 2
         service = ConfigService(config_dir=config_dir)
         found = service.check_existing()
-        assert len(found) == 2
+        assert len(found) == EXPECTED_FILE_COUNT
 
     def test_check_existing_excludes_non_toml_files(self, tmp_path):
         config_dir: Path = tmp_path / "archcare"

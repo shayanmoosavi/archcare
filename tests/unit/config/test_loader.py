@@ -18,6 +18,8 @@ from archcare.config import (
     create_default_config_files,
 )
 
+DEFAULT_CONFIG_FILES_COUNT = 3
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -136,13 +138,14 @@ enabled = true
     def test_valid_file_parses_single_task_correctly(self, loader: ConfigLoader, config_dir: Path):
         tasks_file: Path = config_dir / "tasks.toml"
         _w(tasks_file, _TASK_TOML)
+        DEFAULT_AUTOMATED_FREQUENCY = 7
 
         config: TasksConfig = loader.load_tasks()
         assert "test-task" in config.tasks
 
         test_task = config.tasks["test-task"]
         assert test_task.task_type == TaskType.AUTOMATED
-        assert test_task.frequency == 7
+        assert test_task.frequency == DEFAULT_AUTOMATED_FREQUENCY
         assert test_task.description == "A test task"
         assert test_task.name == "test-task"
         assert test_task.enabled is True
@@ -159,18 +162,20 @@ description = "Second"
 enabled = true
 """,
         )
+        EXPECTED_TASK_COUNT = 2
 
-        assert len(loader.load_tasks().tasks) == 2
+        assert len(loader.load_tasks().tasks) == EXPECTED_TASK_COUNT
 
     def test_save_and_load_roundtrip(self, config_dir: Path, loader: ConfigLoader):
         _w(config_dir / "tasks.toml", _TASK_TOML)
         changed = loader.load_tasks()
         changed.tasks["test-task"].frequency = 10
         loader.save_tasks(changed)
+        EXPECTED_FREQUENCY = 10
 
         fresh_loader = ConfigLoader(user="testuser", config_dir=config_dir)
         loaded = fresh_loader.load_tasks()
-        assert loaded.tasks["test-task"].frequency == 10
+        assert loaded.tasks["test-task"].frequency == EXPECTED_FREQUENCY
 
     def test_updates_an_existing_field_in_place(self, loader: ConfigLoader, config_dir: Path):
         _w(config_dir / "tasks.toml", _TASK_TOML)
@@ -348,9 +353,10 @@ latest = 10
 number_of_mirrors = 3
 """,
         )
+        EXPECTED_MIRROR_COUNT = 3
         settings = loader.load_settings()
         assert settings.mirrorlist.country == "France"
-        assert settings.mirrorlist.number_of_mirrors == 3
+        assert settings.mirrorlist.number_of_mirrors == EXPECTED_MIRROR_COUNT
 
     def test_falls_back_to_defaults_on_invalid_value(self, loader: ConfigLoader, config_dir: Path):
         _w(config_dir / "settings.toml", 'log_level = "VERBOSE"\n')
@@ -389,9 +395,10 @@ warning_threshold_days = 7
         assert settings == default_settings
 
     def test_updates_cached_settings_after_loading(self, loader: ConfigLoader, config_dir: Path):
-        _w(config_dir / "settings.toml", "log_retention_days = 99\n")
+        TEST_LOG_RETENTION = 99
+        _w(config_dir / "settings.toml", f"log_retention_days = {TEST_LOG_RETENTION}\n")
         loader.load_settings()
-        assert loader._settings.log_retention_days == 99
+        assert loader._settings.log_retention_days == TEST_LOG_RETENTION
 
     def test_save_and_load_roundtrip(self, loader: ConfigLoader, config_dir: Path):
         settings = AppSettings(user="testuser", log_level=LogLevel.WARNING, dry_run=True)
@@ -494,9 +501,10 @@ class TestStateManagement:
                 skip_reason=None,
             )
         loader.save_state(state, state_file=state_file)
+        EXPECTED_RUN_COUNT = 3
 
         reloaded = loader.load_state(state_file=state_file)
-        assert reloaded.get_task_state("test-task").run_count == 3
+        assert reloaded.get_task_state("test-task").run_count == EXPECTED_RUN_COUNT
 
     def test_save_creates_parent_directory(self, loader: ConfigLoader, tmp_path):
         nested = tmp_path / "deep" / "nested" / "state.json"
@@ -525,7 +533,7 @@ class TestCreateDefaultConfigFiles:
 
     def test_created_files_are_returned(self, tmp_path):
         created, _ = create_default_config_files(tmp_path)
-        assert len(created) == 3
+        assert len(created) == DEFAULT_CONFIG_FILES_COUNT
         assert tmp_path / "tasks.toml" in created
         assert tmp_path / "ignored-services.toml" in created
         assert tmp_path / "settings.toml" in created
@@ -535,7 +543,7 @@ class TestCreateDefaultConfigFiles:
         create_default_config_files(tmp_path)
         _, skipped = create_default_config_files(tmp_path)
 
-        assert len(skipped) == 3
+        assert len(skipped) == DEFAULT_CONFIG_FILES_COUNT
         assert tmp_path / "tasks.toml" in skipped
         assert tmp_path / "ignored-services.toml" in skipped
         assert tmp_path / "settings.toml" in skipped

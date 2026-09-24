@@ -78,9 +78,10 @@ class TestExistingFilesWarning:
         mocker.patch(_PATCH_WARNINGS)
 
         files = [tmp_path / "settings.toml", tmp_path / "tasks.toml"]
+        FILE_COUNT = 2
         SetupPresenter.existing_files_warning(files)
 
-        assert mock_print.call_count == 2
+        assert mock_print.call_count == FILE_COUNT
         assert "settings.toml" in mock_print.call_args_list[0].args[0]
         assert "tasks.toml" in mock_print.call_args_list[1].args[0]
 
@@ -137,7 +138,9 @@ class TestRenderConfigInit:
 
 
 class TestRenderTemplateInstallation:
-    @pytest.mark.parametrize("dry_run,expected_verb", [(True, "Would create"), (False, "Created")])
+    @pytest.mark.parametrize(
+        ("dry_run", "expected_verb"), [(True, "Would create"), (False, "Created")]
+    )
     def test_verb_matches_dry_run_flag(
         self, tmp_path, dry_run, expected_verb, mock_success: MagicMock
     ):
@@ -167,7 +170,9 @@ class TestRenderTemplateInstallation:
 
 
 class TestRenderSystemdReload:
-    @pytest.mark.parametrize("dry_run,expected_verb", [(True, "Would reload"), (False, "Reloaded")])
+    @pytest.mark.parametrize(
+        ("dry_run", "expected_verb"), [(True, "Would reload"), (False, "Reloaded")]
+    )
     def test_success_verbs_match_dry_run_flag(
         self, dry_run, expected_verb, mock_success: MagicMock
     ):
@@ -195,7 +200,7 @@ class TestRenderTimerSetup:
         return mocker.patch(f"{_MODULE}._list_timers")
 
     @pytest.mark.parametrize(
-        "task_fixture,expected_icon",
+        ("task_fixture", "expected_icon"),
         [
             ("automated_task", "✔"),
             ("disabled_task", "✘"),

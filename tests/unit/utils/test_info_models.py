@@ -12,6 +12,11 @@ from archcare.utils.info_models import (
     ServiceStatusInfo,
 )
 
+TOTAL = 100
+USED = 50
+FREE = 50
+PERCENT = 50.0
+
 # ---------------------------------------------------------------------------
 # ServiceStatusInfo
 # ---------------------------------------------------------------------------
@@ -27,14 +32,15 @@ class TestServiceStatusInfo:
         assert info.main_pid is None
 
     def test_custom(self):
+        MAIN_PID = 123
         info = ServiceStatusInfo(
-            loaded=True, active="active", running=True, description="test", main_pid=123
+            loaded=True, active="active", running=True, description="test", main_pid=MAIN_PID
         )
         assert info.loaded is True
         assert info.active == "active"
         assert info.running is True
         assert info.description == "test"
-        assert info.main_pid == 123
+        assert info.main_pid == MAIN_PID
 
     def test_is_frozen(self):
         info = ServiceStatusInfo(
@@ -59,12 +65,12 @@ class TestDiskUsageInfo:
         assert info.percent == 0.0
 
     def test_custom(self):
-        info = DiskUsageInfo(path="/home", total=100, used=50, free=50, percent=50.0)
+        info = DiskUsageInfo(path="/home", total=TOTAL, used=USED, free=FREE, percent=PERCENT)
         assert info.path == "/home"
-        assert info.total == 100
-        assert info.used == 50
-        assert info.free == 50
-        assert info.percent == 50.0
+        assert info.total == TOTAL
+        assert info.used == USED
+        assert info.free == FREE
+        assert info.percent == PERCENT
 
     def test_is_frozen(self):
         info = DiskUsageInfo(path="/home", total=100, used=50, free=50, percent=50.0)
@@ -88,20 +94,23 @@ class TestMemoryInfo:
         assert info.swap_percent == 0.0
 
     def test_custom(self):
+        SWAP_TOTAL = 200
+        SWAP_USED = 100
+        SWAP_PERCENT = 50.0
         info = MemoryInfo(
-            total=100,
-            used=50,
-            percent=50.0,
-            swap_total=200,
-            swap_used=100,
-            swap_percent=50.0,
+            total=TOTAL,
+            used=USED,
+            percent=PERCENT,
+            swap_total=SWAP_TOTAL,
+            swap_used=SWAP_USED,
+            swap_percent=SWAP_PERCENT,
         )
-        assert info.total == 100
-        assert info.used == 50
-        assert info.percent == 50.0
-        assert info.swap_total == 200
-        assert info.swap_used == 100
-        assert info.swap_percent == 50.0
+        assert info.total == TOTAL
+        assert info.used == USED
+        assert info.percent == PERCENT
+        assert info.swap_total == SWAP_TOTAL
+        assert info.swap_used == SWAP_USED
+        assert info.swap_percent == SWAP_PERCENT
 
     def test_is_frozen(self):
         info = MemoryInfo(
@@ -129,13 +138,14 @@ class TestCpuInfo:
         assert info.load_avg is None
 
     def test_custom(self):
+        CORES = 4
         info = CpuInfo(
             cores=4,
             percent=50.0,
             load_avg=(1.0, 2.0, 3.0),
         )
-        assert info.cores == 4
-        assert info.percent == 50.0
+        assert info.cores == CORES
+        assert info.percent == PERCENT
         assert info.load_avg == (1.0, 2.0, 3.0)
 
     def test_is_frozen(self):
@@ -157,12 +167,13 @@ class TestMirrorlistInfo:
         assert info.last_modified is None
 
     def test_custom(self):
+        TOTAL_MIRRORS = 10
         info = MirrorlistInfo(
             total_mirrors=10,
             protocols={"http", "https"},
             last_modified="2026-01-01",
         )
-        assert info.total_mirrors == 10
+        assert info.total_mirrors == TOTAL_MIRRORS
         assert info.protocols == {"http", "https"}
         assert info.last_modified == "2026-01-01"
 

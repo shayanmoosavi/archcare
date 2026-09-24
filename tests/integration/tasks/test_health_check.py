@@ -20,6 +20,8 @@ _MODULE = "archcare.tasks.health_check"
 _SYSTEM_MODULE = "archcare.utils.system"
 _PACMAN_MODULE = "archcare.utils.pacman"
 
+TOTAL_CHECKS = 7  # Total health checks
+
 
 def _cmd_result(stdout: str = "", success: bool = True) -> CommandResult:
     return CommandResult(
@@ -221,14 +223,14 @@ class TestHealthCheckProgressReporting:
 
         runner.invoke(app, ["task", "run", "health-check"])
 
-        mock_progress.return_value.start.assert_called_once_with(total=7)
+        mock_progress.return_value.start.assert_called_once_with(total=TOTAL_CHECKS)
 
     def test_progress_advanced_once_per_check(self, mock_progress):
         runner.invoke(app, ["setup", "config"])
 
         runner.invoke(app, ["task", "run", "health-check"])
 
-        assert mock_progress.return_value.advance.call_count == 7
+        assert mock_progress.return_value.advance.call_count == TOTAL_CHECKS
 
     def test_progress_stopped_after_run(self, mock_progress):
         runner.invoke(app, ["setup", "config"])
@@ -264,6 +266,6 @@ class TestHealthCheckProgressReporting:
         runner.invoke(app, ["setup", "config"])
         runner.invoke(app, ["task", "run", "health-check"])
 
-        mock_progress.return_value.start.assert_called_once_with(total=7)
-        assert mock_progress.return_value.advance.call_count == 7
+        mock_progress.return_value.start.assert_called_once_with(total=TOTAL_CHECKS)
+        assert mock_progress.return_value.advance.call_count == TOTAL_CHECKS
         mock_progress.return_value.stop.assert_called_once()

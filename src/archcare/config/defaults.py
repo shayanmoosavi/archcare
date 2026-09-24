@@ -281,6 +281,11 @@ def build_settings_toml() -> TOMLDocument:
 
     doc.add("maintenance_check", maintenance_section)
 
+    doc.add(comment("Health Check Settings"))
+    health_check_section = table()
+    health_check_section.update(data["health_check"])
+    doc.add("health_check", health_check_section)
+
     return doc
 
 
