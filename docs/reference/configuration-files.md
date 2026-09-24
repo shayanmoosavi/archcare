@@ -58,7 +58,7 @@ you invoke `archcare task run <name>` explicitly. To add your own task, see
 
 ### Global settings
 
-| Key                  | Default  | Valid values                                    |
+| Key                  | Default  | Valid values / description                      |
 | -------------------- | -------- | ----------------------------------------------- |
 | `log_level`          | `"INFO"` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
 | `log_retention_days` | `30`     | Days to retain rotated log files                |
@@ -68,14 +68,15 @@ you invoke `archcare task run <name>` explicitly. To add your own task, see
 
 Settings for the `mirrorlist-update` task (consumed by `reflector`).
 
-| Key                 | Default                      | Description                                 |
-| ------------------- | ---------------------------- | ------------------------------------------- |
-| `path`              | `"/etc/pacman.d/mirrorlist"` | Mirrorlist file to rewrite                  |
-| `country`           | `"Germany"`                  | Country filter for mirror selection         |
-| `protocol`          | `"https"`                    | Mirror protocol                             |
-| `sort`              | `"rate"`                     | Mirror sort strategy                        |
-| `latest`            | `20`                         | Consider the N most recently synced mirrors |
-| `number_of_mirrors` | `5`                          | Number of mirrors to write                  |
+| Key                      | Default                      | Description                                 |
+| ------------------------ | ---------------------------- | ------------------------------------------- |
+| `path`                   | `"/etc/pacman.d/mirrorlist"` | Mirrorlist file to rewrite                  |
+| `country`                | `"Germany"`                  | Country filter for mirror selection         |
+| `protocol`               | `"https"`                    | Mirror protocol                             |
+| `sort`                   | `"rate"`                     | Mirror sort strategy                        |
+| `latest`                 | `20`                         | Consider the N most recently synced mirrors |
+| `number_of_mirrors`      | `5`                          | Number of mirrors to write                  |
+| `backup_retention_count` | `5`                          | Number of backups to keep                   |
 
 ### `[maintenance_check]`
 
@@ -95,6 +96,24 @@ Settings for the `maintenance-check` task's report and notifications.
 
     `warning_threshold_days` must be strictly less than `critical_threshold_days` —
     a configuration violating this falls back to defaults on load.
+
+### `[health_check]`
+
+Settings for the `health-check` task.
+
+| Key                       | Default | Valid values / description        |
+| ------------------------- | ------- | --------------------------------- |
+| `cpu_warning_percent`     | `90`    | CPU usage % for warning           |
+| `memory_critical_percent` | `90`    | Memory usage % for critical issue |
+| `memory_warning_percent`  | `80`    | Memory usage % for warning        |
+| `swap_warning_percent`    | `50`    | Swap usage % for warning          |
+| `disk_critical_percent`   | `90`    | Disk usage % for critical issue   |
+| `disk_warning_percent`    | `80`    | Disk usage % for warning          |
+
+!!! warning
+
+    The same threshold rule applies to disk and memory percentages as for
+    `warning_threshold_days` and `critical_threshold_days`.
 
 ## `ignored-services.toml`
 
