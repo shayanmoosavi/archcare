@@ -1,3 +1,21 @@
+## v0.5.0 (2026-09-24)
+
+### Feat
+
+- add health check task settings
+- add backup retention count to mirrorlist settings
+
+### Refactor
+
+- **executor**: simplify `TaskExecutor` arguments by bundling the ports into a separate dataclass
+- simplify `run_command` arguments by introducing `CommandOptions` dataclass
+- simplify function signatures by introducing payload dataclasses
+- **tasks**: simplify function signature and return statements
+
+### Perf
+
+- use list extend with generator expression instead of repeated append calls in a for-loop
+
 ## v0.4.0 (2026-09-20)
 
 ### Feat
