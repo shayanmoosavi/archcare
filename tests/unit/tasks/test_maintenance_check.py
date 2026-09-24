@@ -238,8 +238,9 @@ class TestCheckBrokenTimer:
         state = AppState()
         state.update_task_state(task_name="update-mirrorlist", status=TaskStatus.FAILURE)
 
+        DAYS_OVERDUE = 20
         MaintenanceCheckTask._check_broken_timer(
-            20,
+            DAYS_OVERDUE,
             issues,
             timer_threshold_days=10,
             task_name="update-mirrorlist",
@@ -249,7 +250,7 @@ class TestCheckBrokenTimer:
         assert len(issues) == 1
         assert issues[0].severity == IssueSeverity.CRITICAL
         assert issues[0].task_name == "update-mirrorlist"
-        assert issues[0].days_overdue == 20
+        assert issues[0].days_overdue == DAYS_OVERDUE
 
 
 # ---------------------------------------------------------------------------
@@ -435,6 +436,7 @@ class TestCheckTask:
         An automated task that is overdue and failed should return two issues; One
         WARNING for failed automated task, and one CRITICAL for broken timer.
         """
+        EXPECTED_ISSUE_COUNT = 2
         config = _task_config("test-task", "automated", frequency=7)
         tasks_config = TasksConfig(tasks={config.name: config})
         state = AppState()
@@ -447,7 +449,7 @@ class TestCheckTask:
 
         issues = task._check_task(config.name, config)
 
-        assert len(issues) == 2
+        assert len(issues) == EXPECTED_ISSUE_COUNT
         assert issues[0].severity == IssueSeverity.WARNING
         assert issues[1].severity == IssueSeverity.CRITICAL
         assert "failed" in issues[0].description

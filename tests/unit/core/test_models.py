@@ -160,11 +160,14 @@ class TestSuccessFactory:
         assert result.message == "Update completed"
 
     def test_sets_details_correctly(self):
-        mock_details = MockTaskDetails(field_1=45, field_2="x")
+        VALUE_1 = 45
+        VALUE_2 = "x"
+        mock_details = MockTaskDetails(field_1=VALUE_1, field_2=VALUE_2)
+
         result = success("Update completed", details=mock_details)
         assert result.details is not None
-        assert result.details.field_1 == 45
-        assert result.details.field_2 == "x"
+        assert result.details.field_1 == VALUE_1
+        assert result.details.field_2 == VALUE_2
 
 
 class TestFailedFactory:
@@ -207,8 +210,9 @@ class TestPartialFactory:
         assert result.message == "3 of 5 checks passed"
 
     def test_sets_details_correctly(self):
-        mock_details = MockTaskDetails(field_1=3, field_2="2 checks failed")
+        VALUE = 3
+        mock_details = MockTaskDetails(field_1=VALUE, field_2="2 checks failed")
         result = partial("x", details=mock_details)
         assert result.details is not None
-        assert result.details.field_1 == 3
+        assert result.details.field_1 == VALUE
         assert result.details.field_2 == "2 checks failed"

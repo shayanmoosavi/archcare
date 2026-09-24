@@ -78,9 +78,10 @@ class TestExistingFilesWarning:
         mocker.patch(_PATCH_WARNINGS)
 
         files = [tmp_path / "settings.toml", tmp_path / "tasks.toml"]
+        FILE_COUNT = 2
         SetupPresenter.existing_files_warning(files)
 
-        assert mock_print.call_count == 2
+        assert mock_print.call_count == FILE_COUNT
         assert "settings.toml" in mock_print.call_args_list[0].args[0]
         assert "tasks.toml" in mock_print.call_args_list[1].args[0]
 

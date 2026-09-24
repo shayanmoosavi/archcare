@@ -96,7 +96,8 @@ class TestSystemctlParsing:
         assert is_running is False
 
     def test_parse_main_pid_valid(self):
-        assert _parse_main_pid(" Main PID: 1234 (code=exited, status=0/SUCCESS)") == 1234
+        MAIN_PID = 1234
+        assert _parse_main_pid(" Main PID: 1234 (code=exited, status=0/SUCCESS)") == MAIN_PID
 
     def test_parse_main_pid_invalid_or_missing(self):
         assert _parse_main_pid(" Main PID: unknown") is None
@@ -358,11 +359,12 @@ class TestRunCommandWithSudo:
 
     def test_forwards_options_to_run_command(self, mocker, mock_run_command: MagicMock):
         mocker.patch(_PATCH_IS_ROOT, return_value=True)
-        run_command_with_sudo(["pacman", "-Syu"], CommandOptions(check=True, timeout=15))
+        TIMEOUT = 15
+        run_command_with_sudo(["pacman", "-Syu"], CommandOptions(check=True, timeout=TIMEOUT))
         assert mock_run_command.call_args.args[0] == ["pacman", "-Syu"]
         assert isinstance(mock_run_command.call_args.kwargs["options"], CommandOptions)
         assert mock_run_command.call_args.kwargs["options"].check is True
-        assert mock_run_command.call_args.kwargs["options"].timeout == 15
+        assert mock_run_command.call_args.kwargs["options"].timeout == TIMEOUT
 
 
 # ---------------------------------------------------------------------------
@@ -444,9 +446,10 @@ class TestCheckFilesystemErrors:
                 command="", returncode=0, stdout=stdout, stderr="", success=True
             ),
         )
+        EXPECTED_LINE_COUNT = 2
 
         result = check_filesystem_errors()
-        assert len(result) == 2
+        assert len(result) == EXPECTED_LINE_COUNT
         assert all("unrelated" not in line for line in result)
 
     def test_limits_to_last_10_errors(self, mocker):
@@ -463,8 +466,9 @@ class TestCheckFilesystemErrors:
                 command="", returncode=0, stdout=stdout, stderr="", success=True
             ),
         )
+        EXPECTED_LINE_COUNT = 10
         result = check_filesystem_errors()
-        assert len(result) == 10
+        assert len(result) == EXPECTED_LINE_COUNT
         assert result[0] == "kernel: disk error #2"
         assert result[-1] == "kernel: disk error #11"
 

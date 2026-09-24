@@ -19,6 +19,8 @@ _MODULE = "archcare.cli.presenters.maintenance_presenter"
 _PATCH_TABLE = f"{_MODULE}.Table"
 _PATCH_PANEL = f"{_MODULE}.Panel"
 
+CATEGORY_TYPE_COUNT = 3
+
 # ---------------------------------------------------------------------------
 # Fixtures and Helpers
 # ---------------------------------------------------------------------------
@@ -203,7 +205,7 @@ class TestRenderIssueDispatch:
         )
         MaintenanceCheckPresenter.render(details)
 
-        assert mock_render_table.call_count == 3
+        assert mock_render_table.call_count == CATEGORY_TYPE_COUNT
         titles = [call.kwargs["title"] for call in mock_render_table.call_args_list]
         assert titles == ["🟥 Critical Issues", "🟨 Warning Issues", "🟦 Information"]
 
@@ -291,7 +293,7 @@ class TestRenderIssuesTable:
             mock_console, title="X", issues=[], style="red"
         )
 
-        assert mock_table.add_column.call_count == 3
+        assert mock_table.add_column.call_count == CATEGORY_TYPE_COUNT
         column_names = [c.args[0] for c in mock_table.add_column.call_args_list]
         assert column_names == ["Task", "Issue", "Recommendation"]
 
@@ -316,7 +318,8 @@ class TestRenderIssuesTable:
             style="red",
         )
 
-        assert mock_table.add_row.call_count == 2
+        # 2 issue types, 1 row per issue type
+        assert mock_table.add_row.call_count == CATEGORY_TYPE_COUNT - 1
         mock_table.add_row.assert_any_call(
             critical_issue.task_name,
             critical_issue.description,

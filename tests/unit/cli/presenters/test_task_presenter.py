@@ -375,11 +375,12 @@ class TestRenderList:
         refactor collapsing them into one print() silently drops the
         description without any test noticing.
         """
+        EXPECTED_CALL_COUNT = 3
 
         response = TaskListResponse(tasks={automated_task.name: automated_task}, filtered_by=None)
         presenter.render_list(response)
 
-        assert mock_console.print.call_count == 3
+        assert mock_console.print.call_count == EXPECTED_CALL_COUNT
         assert automated_task.description in mock_console.print.call_args_list[1].args[0]
 
 
@@ -405,10 +406,10 @@ class TestConvenienceMethods:
     def test_empty_calls_print_error_and_two_print_info(
         self, mock_info: MagicMock, presenter: TaskPresenter
     ):
-
+        INFO_CALL_COUNT = 2
         presenter.empty()
 
-        assert mock_info.call_count == 2
+        assert mock_info.call_count == INFO_CALL_COUNT
 
     def test_invalid_task_type_message(self, mock_error: MagicMock, presenter: TaskPresenter):
         presenter.invalid_task_type()

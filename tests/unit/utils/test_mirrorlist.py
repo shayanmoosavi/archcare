@@ -122,8 +122,9 @@ class TestGetMirrorlistInfo:
         )
 
         info = get_mirrorlist_info(mirrorlist)
+        EXPECTED_MIRRORS = 4
 
-        assert info.total_mirrors == 4
+        assert info.total_mirrors == EXPECTED_MIRRORS
         # Ensure protocols aren't duplicated
         assert info.protocols == {"https", "http", "rsync"}
         # Ensure timestamp was generated
@@ -134,8 +135,9 @@ class TestGetMirrorlistInfo:
         mirrorlist.write_text("Server = https://mirror1.com\nServer = ftp://mirror2.com\n")
 
         info = get_mirrorlist_info(mirrorlist)
+        EXPECTED_MIRRORS = 2
 
-        assert info.total_mirrors == 2
+        assert info.total_mirrors == EXPECTED_MIRRORS
         assert info.protocols == {"https"}
 
 

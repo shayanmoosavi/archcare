@@ -23,6 +23,10 @@ from archcare.config.exceptions import (
 )
 from archcare.config.models import HealthCheckSettings, MaintenanceCheckSettings, MirrorlistSettings
 
+# Test-specific constants for HealthCheckSettings validation tests (below/above thresholds)
+TEST_WARNING_PERCENT = 70
+TEST_CRITICAL_PERCENT = 90
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -45,9 +49,11 @@ def mock_pwd(mocker) -> MagicMock:
 
 class TestTaskConfig:
     def test_valid_config_is_accepted(self, automated_task: TaskConfig):
+        DEFAULT_AUTOMATED_FREQUENCY = 7
+
         assert automated_task.name == "test-auto-task"
         assert automated_task.enabled is True
-        assert automated_task.frequency == 7
+        assert automated_task.frequency == DEFAULT_AUTOMATED_FREQUENCY
 
     def test_name_with_spaces_raises(self):
         with pytest.raises(ValidationError):
@@ -144,7 +150,7 @@ class TestAppSettingsPaths:
         assert settings.home_dir == Path("/home/alice")
         assert mock_pwd.call_args_list[0].args[0] == "alice"
 
-    def test_sudo_user_overrides_user(self, monkeypatch, mock_pwd: MagicMock):
+    def test_prefers_sudo_user(self, monkeypatch, mock_pwd: MagicMock):
         monkeypatch.setenv("SUDO_USER", "bob")
         mock_pwd.return_value.pw_dir = "/home/bob"
 
@@ -275,9 +281,10 @@ class TestAppState:
         assert fresh_state.get_task_state("task-a").last_status == TaskStatus.FAILURE
 
     def test_run_count_increments_on_each_update(self, fresh_state: AppState):
-        for _ in range(3):
+        RUN_COUNT = 3
+        for _ in range(RUN_COUNT):
             _update(fresh_state, "task-a", TaskStatus.SUCCESS)
-        assert fresh_state.get_task_state("task-a").run_count == 3
+        assert fresh_state.get_task_state("task-a").run_count == RUN_COUNT
 
     def test_update_stores_next_due(self, fresh_state: AppState):
         due = datetime.now() + timedelta(days=7)
@@ -342,7 +349,8 @@ class TestMirrorlistSettings:
             MirrorlistSettings(sort="random")
 
     def test_backup_retention_count_default(self):
-        assert MirrorlistSettings().backup_retention_count == 5
+        DEFAULT_BACKUP_RETENTION = 5
+        assert MirrorlistSettings().backup_retention_count == DEFAULT_BACKUP_RETENTION
 
     @pytest.mark.parametrize("value", [1, 5, 10, 100])
     def test_valid_backup_retention_accepted(self, value):
@@ -449,14 +457,20 @@ class TestHealthCheckSettings:
             HealthCheckSettings(disk_critical_percent=critical, disk_warning_percent=warning)
 
     def test_memory_warning_below_critical_accepted(self):
-        settings = HealthCheckSettings(memory_warning_percent=70, memory_critical_percent=90)
-        assert settings.memory_warning_percent == 70
-        assert settings.memory_critical_percent == 90
+        settings = HealthCheckSettings(
+            memory_warning_percent=TEST_WARNING_PERCENT,
+            memory_critical_percent=TEST_CRITICAL_PERCENT,
+        )
+        assert settings.memory_warning_percent == TEST_WARNING_PERCENT
+        assert settings.memory_critical_percent == TEST_CRITICAL_PERCENT
 
     def test_disk_warning_below_critical_accepted(self):
-        settings = HealthCheckSettings(disk_warning_percent=70, disk_critical_percent=90)
-        assert settings.disk_warning_percent == 70
-        assert settings.disk_critical_percent == 90
+        settings = HealthCheckSettings(
+            disk_warning_percent=TEST_WARNING_PERCENT,
+            disk_critical_percent=TEST_CRITICAL_PERCENT,
+        )
+        assert settings.disk_warning_percent == TEST_WARNING_PERCENT
+        assert settings.disk_critical_percent == TEST_CRITICAL_PERCENT
 
     def test_memory_warning_not_below_critical_rejected(self):
         with pytest.raises(
@@ -482,15 +496,21 @@ class TestHealthCheckSettings:
         ):
             HealthCheckSettings(disk_warning_percent=90, disk_critical_percent=90)
 
-    def test_defaults_match_current_magic_values(self):
-        """Defaults must match the hardcoded values currently in health_check.py."""
+    def test_defaults_values(self):
+        DEFAULT_CPU_WARNING = 90
+        DEFAULT_MEM_CRITICAL = 90
+        DEFAULT_MEM_WARNING = 80
+        DEFAULT_SWAP_WARNING = 50
+        DEFAULT_DISK_CRITICAL = 90
+        DEFAULT_DISK_WARNING = 80
+
         s = HealthCheckSettings()
-        assert s.cpu_warning_percent == 90
-        assert s.memory_critical_percent == 90
-        assert s.memory_warning_percent == 80
-        assert s.swap_warning_percent == 50
-        assert s.disk_critical_percent == 90
-        assert s.disk_warning_percent == 80
+        assert s.cpu_warning_percent == DEFAULT_CPU_WARNING
+        assert s.memory_critical_percent == DEFAULT_MEM_CRITICAL
+        assert s.memory_warning_percent == DEFAULT_MEM_WARNING
+        assert s.swap_warning_percent == DEFAULT_SWAP_WARNING
+        assert s.disk_critical_percent == DEFAULT_DISK_CRITICAL
+        assert s.disk_warning_percent == DEFAULT_DISK_WARNING
 
 
 # ---------------------------------------------------------------------------

@@ -15,6 +15,8 @@ from archcare.config.models import (
     TaskType,
 )
 
+DEFAULT_TASK_COUNT = 11
+
 
 class TestBuildSettingsToml:
     def test_values_match_appsettings_defaults(self):
@@ -46,7 +48,7 @@ class TestBuildTasksToml:
     def test_all_tasks_present(self):
         doc = build_tasks_toml()
         task_sections = [k for k, v in doc.items() if isinstance(v, dict)]
-        assert len(task_sections) == 11
+        assert len(task_sections) == DEFAULT_TASK_COUNT
 
     def test_produces_valid_task_configs(self):
         doc = build_tasks_toml()
@@ -59,7 +61,7 @@ class TestBuildTasksToml:
         }
         config = TasksConfig(tasks=tasks)
 
-        assert len(config.tasks) == 11
+        assert len(config.tasks) == DEFAULT_TASK_COUNT
         assert config.tasks["maintenance-check"].task_type == TaskType.AUTOMATED
         assert config.tasks["health-check"].task_type == TaskType.MANUAL
 
