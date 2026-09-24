@@ -1,6 +1,7 @@
 extend = "../pyproject.toml"
 
 [lint]
+extend-select = ["PT"]
 ignore = ["PLR0913", "PLR0917"]
 
 [lint.isort]
