@@ -73,8 +73,9 @@ class TestChownIfRoot:
         parent_path = tmp_path
 
         UserContext(archcare_user="alice").chown_if_root(file_path, parent_path)
+        EXPECTED_CALL_COUNT = 2
 
-        assert mock_chown.call_count == 2
+        assert mock_chown.call_count == EXPECTED_CALL_COUNT
         mock_chown.assert_any_call(file_path, "alice")
         mock_chown.assert_any_call(parent_path, "alice")
 

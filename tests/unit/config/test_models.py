@@ -21,7 +21,11 @@ from archcare.config.exceptions import (
     InvalidTaskTypeFilterError,
     UnknownTaskError,
 )
-from archcare.config.models import MaintenanceCheckSettings, MirrorlistSettings
+from archcare.config.models import HealthCheckSettings, MaintenanceCheckSettings, MirrorlistSettings
+
+# Test-specific constants for HealthCheckSettings validation tests (below/above thresholds)
+TEST_WARNING_PERCENT = 70
+TEST_CRITICAL_PERCENT = 90
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -45,9 +49,11 @@ def mock_pwd(mocker) -> MagicMock:
 
 class TestTaskConfig:
     def test_valid_config_is_accepted(self, automated_task: TaskConfig):
+        DEFAULT_AUTOMATED_FREQUENCY = 7
+
         assert automated_task.name == "test-auto-task"
         assert automated_task.enabled is True
-        assert automated_task.frequency == 7
+        assert automated_task.frequency == DEFAULT_AUTOMATED_FREQUENCY
 
     def test_name_with_spaces_raises(self):
         with pytest.raises(ValidationError):
@@ -144,7 +150,7 @@ class TestAppSettingsPaths:
         assert settings.home_dir == Path("/home/alice")
         assert mock_pwd.call_args_list[0].args[0] == "alice"
 
-    def test_sudo_user_overrides_user(self, monkeypatch, mock_pwd: MagicMock):
+    def test_prefers_sudo_user(self, monkeypatch, mock_pwd: MagicMock):
         monkeypatch.setenv("SUDO_USER", "bob")
         mock_pwd.return_value.pw_dir = "/home/bob"
 
@@ -176,7 +182,7 @@ class TestAppSettingsPaths:
             AppSettings._resolve_user_home("ghost")
 
     @pytest.mark.parametrize(
-        "path,expected",
+        ("path", "expected"),
         [
             ("log_dir", Path("/home/alice/.local/state/archcare/logs")),
             ("config_dir", Path("/home/alice/.config/archcare")),
@@ -275,9 +281,10 @@ class TestAppState:
         assert fresh_state.get_task_state("task-a").last_status == TaskStatus.FAILURE
 
     def test_run_count_increments_on_each_update(self, fresh_state: AppState):
-        for _ in range(3):
+        RUN_COUNT = 3
+        for _ in range(RUN_COUNT):
             _update(fresh_state, "task-a", TaskStatus.SUCCESS)
-        assert fresh_state.get_task_state("task-a").run_count == 3
+        assert fresh_state.get_task_state("task-a").run_count == RUN_COUNT
 
     def test_update_stores_next_due(self, fresh_state: AppState):
         due = datetime.now() + timedelta(days=7)
@@ -340,6 +347,170 @@ class TestMirrorlistSettings:
     def test_invalid_sort_raises(self):
         with pytest.raises(ValidationError):
             MirrorlistSettings(sort="random")
+
+    def test_backup_retention_count_default(self):
+        DEFAULT_BACKUP_RETENTION = 5
+        assert MirrorlistSettings().backup_retention_count == DEFAULT_BACKUP_RETENTION
+
+    @pytest.mark.parametrize("value", [1, 5, 10, 100])
+    def test_valid_backup_retention_accepted(self, value):
+        assert MirrorlistSettings(backup_retention_count=value).backup_retention_count == value
+
+    @pytest.mark.parametrize("value", [0, -1])
+    def test_invalid_backup_retention_rejected(self, value):
+        with pytest.raises(ValidationError):
+            MirrorlistSettings(backup_retention_count=value)
+
+
+# ---------------------------------------------------------------------------
+# HealthCheckSettings validators
+# ---------------------------------------------------------------------------
+
+
+class TestHealthCheckSettings:
+    @pytest.mark.parametrize(
+        ("field", "value"),
+        [
+            ("cpu_warning_percent", 0),
+            ("cpu_warning_percent", 100),
+            ("swap_warning_percent", 0),
+            ("swap_warning_percent", 100),
+        ],
+    )
+    def test_valid_percentages_accepted(self, field, value):
+        settings = HealthCheckSettings(**{field: value})
+        assert getattr(settings, field) == value
+
+    @pytest.mark.parametrize(
+        ("field", "value"),
+        [
+            ("cpu_warning_percent", -1),
+            ("cpu_warning_percent", 101),
+            ("swap_warning_percent", -1),
+            ("swap_warning_percent", 101),
+        ],
+    )
+    def test_invalid_percentages_rejected(self, field, value):
+        with pytest.raises(ValidationError):
+            HealthCheckSettings(**{field: value})
+
+    @pytest.mark.parametrize(
+        ("critical", "warning"),
+        [
+            (50, 0),
+            (100, 0),
+            (100, 50),
+            (100, 99),
+        ],
+    )
+    def test_valid_memory_threshold_combinations(self, critical, warning):
+        settings = HealthCheckSettings(
+            memory_critical_percent=critical, memory_warning_percent=warning
+        )
+        assert settings.memory_critical_percent == critical
+        assert settings.memory_warning_percent == warning
+
+    @pytest.mark.parametrize(
+        ("critical", "warning"),
+        [
+            (50, 0),
+            (100, 0),
+            (100, 50),
+            (100, 99),
+        ],
+    )
+    def test_valid_disk_threshold_combinations(self, critical, warning):
+        settings = HealthCheckSettings(disk_critical_percent=critical, disk_warning_percent=warning)
+        assert settings.disk_critical_percent == critical
+        assert settings.disk_warning_percent == warning
+
+    @pytest.mark.parametrize(
+        ("critical", "warning"),
+        [
+            (0, 0),  # warning >= critical (equal)
+            (50, 50),  # equal
+            (50, 60),  # warning > critical
+            (90, 95),  # warning > critical
+            (90, 90),  # equal
+        ],
+    )
+    def test_invalid_memory_threshold_combinations_rejected(self, critical, warning):
+        with pytest.raises(
+            ValidationError, match="memory_warning_percent must be < memory_critical_percent"
+        ):
+            HealthCheckSettings(memory_critical_percent=critical, memory_warning_percent=warning)
+
+    @pytest.mark.parametrize(
+        ("critical", "warning"),
+        [
+            (0, 0),  # warning >= critical (equal)
+            (50, 50),  # equal
+            (50, 60),  # warning > critical
+            (90, 95),  # warning > critical
+            (90, 90),  # equal
+        ],
+    )
+    def test_invalid_disk_threshold_combinations_rejected(self, critical, warning):
+        with pytest.raises(
+            ValidationError, match="disk_warning_percent must be < disk_critical_percent"
+        ):
+            HealthCheckSettings(disk_critical_percent=critical, disk_warning_percent=warning)
+
+    def test_memory_warning_below_critical_accepted(self):
+        settings = HealthCheckSettings(
+            memory_warning_percent=TEST_WARNING_PERCENT,
+            memory_critical_percent=TEST_CRITICAL_PERCENT,
+        )
+        assert settings.memory_warning_percent == TEST_WARNING_PERCENT
+        assert settings.memory_critical_percent == TEST_CRITICAL_PERCENT
+
+    def test_disk_warning_below_critical_accepted(self):
+        settings = HealthCheckSettings(
+            disk_warning_percent=TEST_WARNING_PERCENT,
+            disk_critical_percent=TEST_CRITICAL_PERCENT,
+        )
+        assert settings.disk_warning_percent == TEST_WARNING_PERCENT
+        assert settings.disk_critical_percent == TEST_CRITICAL_PERCENT
+
+    def test_memory_warning_not_below_critical_rejected(self):
+        with pytest.raises(
+            ValidationError, match="memory_warning_percent must be < memory_critical_percent"
+        ):
+            HealthCheckSettings(memory_warning_percent=95, memory_critical_percent=90)
+
+    def test_memory_warning_equal_critical_rejected(self):
+        with pytest.raises(
+            ValidationError, match="memory_warning_percent must be < memory_critical_percent"
+        ):
+            HealthCheckSettings(memory_warning_percent=90, memory_critical_percent=90)
+
+    def test_disk_warning_not_below_critical_rejected(self):
+        with pytest.raises(
+            ValidationError, match="disk_warning_percent must be < disk_critical_percent"
+        ):
+            HealthCheckSettings(disk_warning_percent=95, disk_critical_percent=90)
+
+    def test_disk_warning_equal_critical_rejected(self):
+        with pytest.raises(
+            ValidationError, match="disk_warning_percent must be < disk_critical_percent"
+        ):
+            HealthCheckSettings(disk_warning_percent=90, disk_critical_percent=90)
+
+    def test_defaults_values(self):
+        DEFAULT_CPU_WARNING = 90
+        DEFAULT_MEM_CRITICAL = 90
+        DEFAULT_MEM_WARNING = 80
+        DEFAULT_SWAP_WARNING = 50
+        DEFAULT_DISK_CRITICAL = 90
+        DEFAULT_DISK_WARNING = 80
+
+        s = HealthCheckSettings()
+        assert s.cpu_warning_percent == DEFAULT_CPU_WARNING
+        assert s.memory_critical_percent == DEFAULT_MEM_CRITICAL
+        assert s.memory_warning_percent == DEFAULT_MEM_WARNING
+        assert s.swap_warning_percent == DEFAULT_SWAP_WARNING
+        assert s.disk_critical_percent == DEFAULT_DISK_CRITICAL
+        assert s.disk_warning_percent == DEFAULT_DISK_WARNING
 
 
 # ---------------------------------------------------------------------------

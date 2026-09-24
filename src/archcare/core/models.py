@@ -212,7 +212,7 @@ class TaskResult[TDetails]:
             parts.append(f"({self.duration_seconds:.2f}s)")
 
         if self.error:
-            parts.append(f"Error: {str(self.error)}")
+            parts.append(f"Error: {self.error}")
 
         return " ".join(parts)
 

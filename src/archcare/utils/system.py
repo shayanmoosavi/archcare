@@ -100,14 +100,37 @@ class CommandResult:
         return f"[{status}] {self.command}"
 
 
+@dataclass(frozen=True)
+class CommandOptions:
+    """
+    Dataclass grouping optional parameters for command execution.
+
+    Attributes:
+        check (bool): If True, raises `subprocess.CalledProcessError` if the process exits with a
+            non-zero exit code. Defaults to `False`.
+        capture_output (bool): If True, captures standard output and standard error.
+            Defaults to `True`.
+        text (bool): If True, returns standard output and error as strings instead of bytes.
+            Defaults to `True`.
+        timeout (float | None): The maximum time in seconds the command is allowed to run before
+            being killed. Defaults to `None`.
+        cwd (Path | None): The working directory to set before executing the command.
+            Defaults to `None`.
+        env (dict[str, str] | None): Custom environment variables to pass to the process.
+            Defaults to `None`.
+    """
+
+    check: bool = False
+    capture_output: bool = True
+    text: bool = True
+    timeout: float | None = None
+    cwd: Path | None = None
+    env: dict[str, str] | None = None
+
+
 def run_command(
     command: list[str] | str,
-    check: bool = False,
-    capture_output: bool = True,
-    text: bool = True,
-    timeout: int | float | None = None,
-    cwd: Path | None = None,
-    env: dict[str, str] | None = None,
+    options: CommandOptions | None = None,
 ) -> CommandResult:
     """
     Run a system command and return a structured execution result.
@@ -118,18 +141,7 @@ def run_command(
 
     Args:
         command (list[str] | str): The command to run as a list of arguments or a single string.
-        check (bool): If True, raises `subprocess.CalledProcessError` if the process exits
-            with a non-zero exit code. Defaults to `False`.
-        capture_output (bool): If True, captures standard output and standard error.
-            Defaults to `True`.
-        text (bool): If True, returns standard output and error as strings instead of bytes.
-            Defaults to `True`.
-        timeout (int | float | None): The maximum time in seconds the command is allowed
-            to run before being killed. Defaults to `None`.
-        cwd (Path | None): The working directory to set before executing the command.
-            Defaults to `None`.
-        env (dict[str, str] | None): Custom environment variables dictionary to pass to the process.
-            Defaults to `None`.
+        options (CommandOptions): Optional parameters controlling command execution.
 
     Returns:
         CommandResult: Object containing command string, exit code, captured outputs,
@@ -147,6 +159,8 @@ def run_command(
         >>> res.stdout
         'hello'
     """
+    options = options or CommandOptions()
+
     # Convert string command to list if needed
     if isinstance(command, str):
         command_str = command
@@ -160,12 +174,12 @@ def run_command(
     try:
         result = subprocess.run(
             command_list,
-            capture_output=capture_output,
-            text=text,
-            check=check,
-            timeout=timeout,
-            cwd=cwd,
-            env=env,
+            capture_output=options.capture_output,
+            text=options.text,
+            check=options.check,
+            timeout=options.timeout,
+            cwd=options.cwd,
+            env=options.env,
         )
 
         cmd_result = CommandResult(
@@ -175,7 +189,7 @@ def run_command(
             stderr=result.stderr.strip() if result.stderr else "",
             success=(
                 # Systemctl status returns an exit code of 3 for failed services
-                result.returncode == 3 or result.returncode == 0
+                result.returncode in {3, 0}
                 if "systemctl" in command_str
                 else result.returncode == 0
             ),
@@ -200,12 +214,7 @@ def run_command(
 
 def run_command_with_sudo(
     command: list[str] | str,
-    check: bool = False,
-    capture_output: bool = True,
-    text: bool = True,
-    timeout: int | None = None,
-    cwd: Path | None = None,
-    env: dict[str, str] | None = None,
+    options: CommandOptions | None = None,
 ) -> CommandResult:
     """
     Run a command with sudo privileges if the current process is not running as root.
@@ -216,13 +225,7 @@ def run_command_with_sudo(
 
     Args:
         command (list[str] | str): The command to run as a list of arguments or a single string.
-        check (bool): If True, raises `subprocess.CalledProcessError` on failure.
-            Defaults to `False`.
-        capture_output (bool): If True, captures stdout and stderr. Defaults to `True`.
-        text (bool): If True, decodes outputs to strings. Defaults to `True`.
-        timeout (int | None): Timeout limit in seconds. Defaults to `None`.
-        cwd (Path | None): Working directory context. Defaults to `None`.
-        env (dict[str, str] | None): Custom environment variables. Defaults to `None`.
+        options (CommandOptions): Optional parameters controlling command execution.
 
     Returns:
         CommandResult: Structured result of the command execution.
@@ -235,27 +238,18 @@ def run_command_with_sudo(
         - [`run_command`][]: The wrapped command used by this utility.
         - [`is_root`][]: Used to determine if `sudo` prefixing is required.
     """
+    options = options or CommandOptions()
+
     # Convert string to list if needed
-    if isinstance(command, str):
-        command_list = command.split()
-    else:
-        command_list = list(command)
+    command_list = command.split() if isinstance(command, str) else list(command)
 
     # Check if we're already root
     if not is_root():
         # Prepend sudo
-        command_list = ["sudo"] + command_list
+        command_list = ["sudo", *command_list]
 
     # Run the command
-    return run_command(
-        command_list,
-        check=check,
-        capture_output=capture_output,
-        text=text,
-        timeout=timeout,
-        cwd=cwd,
-        env=env,
-    )
+    return run_command(command_list, options=options)
 
 
 def check_command_exists(command: str) -> bool:
@@ -304,8 +298,8 @@ def run_systemctl(
     Returns:
         CommandResult: Structured result of the systemctl command execution.
     """
-    command = ["systemctl"] + args
-    return run_command(command, check=check, timeout=timeout)
+    command = ["systemctl", *args]
+    return run_command(command, options=CommandOptions(check=check, timeout=timeout))
 
 
 def is_root() -> bool:
@@ -395,9 +389,9 @@ def _parse_active_status(line: str) -> tuple[str, bool]:
     # 'inactive' check should be before 'active' to avoid false positives
     if "inactive" in line:
         return "inactive", False
-    elif "active" in line:
+    if "active" in line:
         return "active", "running" in line
-    elif "failed" in line:
+    if "failed" in line:
         return "failed", False
 
     return "unknown", False
@@ -414,7 +408,8 @@ def _parse_main_pid(line: str) -> int | None:
         int | None: The parsed process ID as an integer, or `None` if parsing fails.
     """
     parts = line.split()
-    if len(parts) >= 3:
+    # Line gets split into 'Main', 'PID:', '<the-pid>', and some other details
+    if len(parts) >= 3:  # noqa: PLR2004
         try:
             return int(parts[2])
         except ValueError:
@@ -437,9 +432,11 @@ def _get_service_description(service_name: str) -> str:
     if not result.success or not result.stdout:
         return ""
 
-    # Last part of the line is the description
+    # Systemd status for a service contains a line with the service name, load state, active state,
+    # sub state, and description. Last column is the description
+    SYSTEMD_STATUS_COLUMNS = 5
     parts = result.stdout.split(maxsplit=4)
-    return parts[4] if len(parts) >= 5 else ""
+    return parts[4] if len(parts) >= SYSTEMD_STATUS_COLUMNS else ""
 
 
 def get_service_status(service_name: str) -> ServiceStatusInfo:
@@ -468,18 +465,18 @@ def get_service_status(service_name: str) -> ServiceStatusInfo:
 
     # Parse the status output line by line
     for line in result.stdout.splitlines():
-        line = line.strip()
+        stripped = line.strip()
 
-        if "Loaded:" in line:
-            loaded = _parse_loaded_status(line)
+        if "Loaded:" in stripped:
+            loaded = _parse_loaded_status(stripped)
 
-        elif "Active:" in line:
-            active_state, is_running = _parse_active_status(line)
+        elif "Active:" in stripped:
+            active_state, is_running = _parse_active_status(stripped)
             active = active_state
             running = is_running
 
-        elif line.startswith("Main PID:"):
-            main_pid = _parse_main_pid(line)
+        elif stripped.startswith("Main PID:"):
+            main_pid = _parse_main_pid(stripped)
 
     # Get description separately
     description = _get_service_description(service_name)
@@ -547,9 +544,12 @@ def check_filesystem_errors() -> list[str]:
         # Look for common filesystem error keywords
         keywords = ["ext4", "btrfs", "xfs", "I/O error", "filesystem", "disk"]
 
-        for line in result.stdout.splitlines():
-            if any(keyword.lower() in line.lower() for keyword in keywords):
-                errors.append(line.strip())
+        # Include every line that matches these keywords
+        errors.extend(
+            line.strip()
+            for line in result.stdout.splitlines()
+            if any(keyword.lower() in line.lower() for keyword in keywords)
+        )
 
     # Limit to last 10 errors
     return errors[-10:] if errors else []
@@ -576,10 +576,11 @@ def format_bytes(bytes_value: float) -> str:
         >>> format_bytes(1024 * 1024 * 5)
         '5.00 MB'
     """
+    UNIT_SCALE = 1024.0
     for unit in ["B", "KB", "MB", "GB", "TB"]:
-        if bytes_value < 1024.0:
+        if bytes_value < UNIT_SCALE:
             return f"{bytes_value:.2f} {unit}"
-        bytes_value /= 1024.0
+        bytes_value /= UNIT_SCALE
     return f"{bytes_value:.2f} PB"
 
 

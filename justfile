@@ -62,6 +62,10 @@ build:
 commit:
     uv run cz commit
 
+# Install the compiled binary to user local directory
+install:
+    install -D -m 755 dist/archcare ~/.local/bin
+
 # --- Cleanup ------------------------------------------------------------
 
 # Remove generated build artifacts (dist/, site/, docs API stubs)

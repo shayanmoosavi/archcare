@@ -57,7 +57,7 @@ class MaintenanceCheckPresenter:
         """
 
         if not details.summary.has_issues:
-            msg = "✓ No maintenance issues found! Your system is healthy :)"
+            msg = "✔ No maintenance issues found! Your system is healthy :)"
             console.print()
             console.print(
                 Panel(

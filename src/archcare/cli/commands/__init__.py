@@ -30,4 +30,4 @@ from .logs import logs_app
 from .setup import setup_app
 from .task import task_app
 
-__all__ = ["task_app", "setup_app", "logs_app", "debug_app"]
+__all__ = ["debug_app", "logs_app", "setup_app", "task_app"]

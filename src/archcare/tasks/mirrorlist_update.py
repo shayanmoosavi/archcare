@@ -15,8 +15,8 @@ Workflow:
         before/after metrics in a [`MirrorlistUpdateDetails`][] payload.
     3. If anything goes wrong (reflector failure or invalid output), the raised exception triggers
         [`BaseTask.rollback`][], which restores the mirrorlist from the backup.
-    4. `post_execute()` prunes old backups after a successful update, keeping only the 5
-        most recent.
+    4. `post_execute()` prunes old backups after a successful update, keeping only the
+        `backup_retention_count` (default: 5) most recent.
 
 !!! warning "Destructive operation"
     This task overwrites `/etc/pacman.d/mirrorlist` (or the configured path). The automatic
@@ -44,6 +44,7 @@ from archcare.utils import (
     update_mirrorlist,
     validate_mirrorlist,
 )
+from archcare.utils.mirrorlist import ReflectorArgs
 
 
 class MirrorlistUpdateTask(BaseTask):
@@ -191,7 +192,7 @@ class MirrorlistUpdateTask(BaseTask):
             logger.debug(f"Parameters: {reflector_args}")
 
             with self.progress.spinner("Running reflector to find fastest mirrors..."):
-                result = update_mirrorlist(**reflector_args)
+                result = update_mirrorlist(ReflectorArgs(**reflector_args))
 
             if not result.success:
                 logger.error(f"Reflector failed: {result.stderr}")
@@ -232,9 +233,9 @@ class MirrorlistUpdateTask(BaseTask):
         """
         Clean up old mirrorlist backups after a successful update.
 
-        Keeps only the 5 most recent `mirrorlist_*.backup` files in the backup directory (determined
-        by file modification time) and deletes the rest. No-op when the update failed or no
-        backup exists.
+        Keeps only the `backup_retention_count` (default: 5) most recent `mirrorlist_*.backup` files
+        in the backup directory (determined by file modification time) and deletes the rest. No-op
+        when the update failed or no backup exists.
 
         Args:
             result (TaskResult[MirrorlistUpdateDetails]): The result produced by `execute()`.
@@ -252,14 +253,15 @@ class MirrorlistUpdateTask(BaseTask):
                     backup_dir.glob("mirrorlist_*.backup"),
                     key=lambda p: p.stat().st_mtime,
                 )
-                # Keep only the 5 most recent backups
-                if len(backups) >= 5:
-                    for old_backup in backups[:-5]:
+                # Keep only the N most recent backups
+                retention = self.settings.mirrorlist.backup_retention_count
+                if len(backups) >= retention:
+                    for old_backup in backups[:-retention]:
                         logger.debug(f"Removing old backup: {old_backup}")
                         old_backup.unlink()
                     logger.info("Old backups cleanup completed")
                 else:
-                    logger.info("Less than 5 backups present, no cleanup needed")
+                    logger.info(f"Less than {retention} backups present, no cleanup needed")
             except Exception as e:
                 logger.error(f"Failed to cleanup old backups: {e}")
 

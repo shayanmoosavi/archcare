@@ -67,9 +67,8 @@ class TestPause:
     def test_resumes_even_if_body_raises(self, rich_progress: RichProgress):
         mock_progress: MagicMock = rich_progress._progress  # ty:ignore[invalid-assignment]
 
-        with pytest.raises(RuntimeError):
-            with rich_progress.pause():
-                raise RuntimeError("sudo prompt handling failed")
+        with pytest.raises(RuntimeError), rich_progress.pause():
+            raise RuntimeError("sudo prompt handling failed")
 
         mock_progress.start.assert_called_once()
 
@@ -132,9 +131,8 @@ class TestSpinner:
     def test_removes_task_and_stops_even_if_body_raises(self, rich_progress: RichProgress):
         mock_progress: MagicMock = rich_progress._progress  # ty:ignore[invalid-assignment]
 
-        with pytest.raises(RuntimeError):
-            with rich_progress.spinner("label"):
-                raise RuntimeError("reflector failed")
+        with pytest.raises(RuntimeError), rich_progress.spinner("label"):
+            raise RuntimeError("reflector failed")
 
         mock_progress.remove_task.assert_called_once()
         mock_progress.stop.assert_called_once()

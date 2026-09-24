@@ -30,7 +30,7 @@ from archcare.cli.presenters import (
 from archcare.cli.progress import RichProgress
 from archcare.config import AppSettings, ConfigLoader, UserContext, setup_logging
 from archcare.core import TaskDescriptor, TaskRegistry
-from archcare.core.executor import TaskExecutor
+from archcare.core.executor import TaskExecutor, TaskExecutorPorts
 from archcare.services.exceptions import ConfigNotInitializedError
 from archcare.tasks import (
     FailedServicesTask,
@@ -156,9 +156,11 @@ class AppContext:
                 settings=self.settings,
                 state=state,
                 task_registry=self.task_registry,
-                interaction=CliInteraction() if self.is_interactive else None,
-                user_context=self.user_ctx,
-                progress=RichProgress() if self.is_interactive else None,
+                ports=TaskExecutorPorts(
+                    interaction=CliInteraction() if self.is_interactive else None,
+                    user_context=self.user_ctx,
+                    progress=RichProgress() if self.is_interactive else None,
+                ),
             )
             self._executor = executor
         return self._executor
@@ -233,10 +235,9 @@ class AppContext:
         # execute_task() (TimerService only reads config_loader/state off
         # it), and ARCHCARE_USER is always unset in this sudo-driven flow
         # anyway
-        executor = TaskExecutor(
+        return TaskExecutor(
             config_loader=self.__loader,
             settings=self.settings,
             state=state,
             task_registry=self.task_registry,
         )
-        return executor

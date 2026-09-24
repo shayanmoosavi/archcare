@@ -101,7 +101,7 @@ class InvalidTaskTypeError(ArchcareServiceError):
             task_type (str): The invalid filter value supplied by the caller.
         """
         self.task_type = task_type
-        super().__init__(f"Invalid task type: {repr(task_type)} (expected 'automated' or 'manual')")
+        super().__init__(f"Invalid task type: {task_type!r} (expected 'automated' or 'manual')")
 
 
 class NotRootError(ArchcareServiceError):

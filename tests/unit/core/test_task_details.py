@@ -32,18 +32,24 @@ class TestFailedServiceInfo:
         assert info.logs == []
 
     def test_custom_values(self):
+        SERVICE = "sshd.service"
+        DESCRIPTION = "SSH daemon"
+        ACTIVE = "failed"
+        MAIN_PID = 1234
+        LOGS = ["line 1", "line 2"]
+
         info = FailedServiceInfo(
-            service="sshd.service",
-            description="SSH daemon",
-            active="failed",
-            main_pid=1234,
-            logs=["line 1", "line 2"],
+            service=SERVICE,
+            description=DESCRIPTION,
+            active=ACTIVE,
+            main_pid=MAIN_PID,
+            logs=LOGS,
         )
 
-        assert info.description == "SSH daemon"
-        assert info.active == "failed"
-        assert info.main_pid == 1234
-        assert info.logs == ["line 1", "line 2"]
+        assert info.description == DESCRIPTION
+        assert info.active == ACTIVE
+        assert info.main_pid == MAIN_PID
+        assert info.logs == LOGS
 
     def test_is_frozen(self):
         info = FailedServiceInfo(service="sshd.service")
@@ -74,6 +80,9 @@ class TestFailedServicesDetails:
         assert details.failed_services == []
 
     def test_custom_values(self):
+        TOTAL_FAILED = 5
+        ACTUAL_FAILURES = 2
+        IGNORED = 3
         info = FailedServiceInfo(service="sshd.service")
         details = FailedServicesDetails(
             total_failed=5,
@@ -83,9 +92,9 @@ class TestFailedServicesDetails:
             failed_services=[info],
         )
 
-        assert details.total_failed == 5
-        assert details.actual_failures == 2
-        assert details.ignored == 3
+        assert details.total_failed == TOTAL_FAILED
+        assert details.actual_failures == ACTUAL_FAILURES
+        assert details.ignored == IGNORED
         assert details.ignored_services == ["known-flaky.service"]
         assert details.failed_services == [info]
 
@@ -118,17 +127,22 @@ class TestMaintenanceCheckSummary:
         assert summary.info_count == 0
 
     def test_custom_values(self):
+        TOTAL_TASKS_MONITORED = 10
+        CRITICAL_COUNT = 2
+        WARNING_COUNT = 3
+        INFO_COUNT = 5
+
         summary = MaintenanceCheckSummary(
-            total_tasks_monitored=10,
-            critical_count=2,
-            warning_count=3,
-            info_count=5,
+            total_tasks_monitored=TOTAL_TASKS_MONITORED,
+            critical_count=CRITICAL_COUNT,
+            warning_count=WARNING_COUNT,
+            info_count=INFO_COUNT,
         )
 
-        assert summary.total_tasks_monitored == 10
-        assert summary.critical_count == 2
-        assert summary.warning_count == 3
-        assert summary.info_count == 5
+        assert summary.total_tasks_monitored == TOTAL_TASKS_MONITORED
+        assert summary.critical_count == CRITICAL_COUNT
+        assert summary.warning_count == WARNING_COUNT
+        assert summary.info_count == INFO_COUNT
 
     def test_is_frozen(self):
         summary = MaintenanceCheckSummary()
@@ -295,8 +309,9 @@ class TestHealthCheckSummary:
         assert summary.uptime == "unknown"
 
     def test_custom_values(self):
+        DISK_USAGE_PERCENT = 45.5
         summary = HealthCheckSummary(
-            disk_usage_percent=45.5,
+            disk_usage_percent=DISK_USAGE_PERCENT,
             memory_usage_percent=60.0,
             cpu_usage_percent=12.3,
             filesystem_errors_count=1,
@@ -305,7 +320,7 @@ class TestHealthCheckSummary:
             uptime="3 days",
         )
 
-        assert summary.disk_usage_percent == 45.5
+        assert summary.disk_usage_percent == DISK_USAGE_PERCENT
         assert summary.pacman_healthy is False
         assert summary.uptime == "3 days"
 
@@ -331,17 +346,18 @@ class TestHealthCheckDetails:
         assert details.summary == HealthCheckSummary()
 
     def test_custom_values(self):
+        TOTAL_CHECKS = 7
         summary = HealthCheckSummary(uptime="2 days")
         details = HealthCheckDetails(
             issues=["disk failing"],
             warnings=["high cpu"],
-            total_checks=7,
+            total_checks=TOTAL_CHECKS,
             summary=summary,
         )
 
         assert details.issues == ["disk failing"]
         assert details.warnings == ["high cpu"]
-        assert details.total_checks == 7
+        assert details.total_checks == TOTAL_CHECKS
         assert details.summary is summary
 
     def test_is_frozen(self):
@@ -375,16 +391,18 @@ class TestMirrorlistUpdateDetails:
         assert details.backup_path is None
 
     def test_custom_values(self):
+        OLD_MIRRORS = 5
+        NEW_MIRRORS = 8
         details = MirrorlistUpdateDetails(
-            old_mirrors=5,
-            new_mirrors=8,
-            old_info=MirrorlistInfo(total_mirrors=5, last_modified="2026-01-01"),
-            new_info=MirrorlistInfo(total_mirrors=8),
+            old_mirrors=OLD_MIRRORS,
+            new_mirrors=NEW_MIRRORS,
+            old_info=MirrorlistInfo(total_mirrors=OLD_MIRRORS, last_modified="2026-01-01"),
+            new_info=MirrorlistInfo(total_mirrors=NEW_MIRRORS),
             backup_path="/etc/pacman.d/mirrorlist_20260101.backup",
         )
 
-        assert details.old_mirrors == 5
-        assert details.new_mirrors == 8
+        assert details.old_mirrors == OLD_MIRRORS
+        assert details.new_mirrors == NEW_MIRRORS
         assert details.old_info.last_modified == "2026-01-01"
         assert details.backup_path == "/etc/pacman.d/mirrorlist_20260101.backup"
 

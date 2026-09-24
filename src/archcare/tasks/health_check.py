@@ -35,6 +35,7 @@ See Also:
     - [`TaskResult`][]: The structured result object that the task returns
     - [`HealthCheckDetails`][]: Details schema produced by this task
     - [`HealthCheckSummary`][]: Aggregated metrics snapshot within the details
+    - [`HealthCheckSettings`][archcare.config.models.HealthCheckSettings]: Threshold configuration
 """
 
 import dataclasses
@@ -73,19 +74,20 @@ class HealthCheckTask(BaseTask):
     (into a [`HealthCheckSummary`][]) and the categorized findings (into a
     [`HealthCheckDetails`][]).
 
-    Severity thresholds:
+    Severity thresholds (configurable via
+    [`HealthCheckSettings`][archcare.config.models.HealthCheckSettings]):
 
-    | Check                  | Warning                          | Critical (issue)   |
-    | ---------------------- | -------------------------------- | ------------------ |
-    | Disk usage (`/`)       | > 80%                            | > 90%              |
-    | Memory usage           | > 80%                            | > 90%              |
-    | Swap usage             | > 50%                            | —                  |
-    | CPU usage              | > 90%                            | —                  |
-    | Load average (1 min)   | > 2× CPU core count              | —                  |
-    | Filesystem errors      | —                                | any error          |
-    | Pacman database        | —                                | unhealthy          |
-    | Package files          | —                                | unhealthy          |
-    | System uptime          | —                                | — (informational)  |
+    | Check                  | Warning                              | Critical (issue)          |
+    | ---------------------- | ------------------------------------ | ------------------------- |
+    | Disk usage (`/`)       | > `disk_warning_percent`%            | > `disk_critical_percent`% |
+    | Memory usage           | > `memory_warning_percent`%          | > `memory_critical_percent`% |
+    | Swap usage             | > `swap_warning_percent`%            | —                         |
+    | CPU usage              | > `cpu_warning_percent`%             | —                         |
+    | Load average (1 min)   | > 2× CPU core count                  | —                         |
+    | Filesystem errors      | —                                    | any error                 |
+    | Pacman database        | —                                    | unhealthy                 |
+    | Package files          | —                                    | unhealthy                 |
+    | System uptime          | —                                    | — (informational)         |
 
     This task follows the [`BaseTask`][] Template Method contract. Unlike some tasks, it does not
     override `pre_check()` or `should_run()`: all checks are read-only queries that are always safe
@@ -177,7 +179,7 @@ class HealthCheckTask(BaseTask):
                     summary=summary,
                 ),
             )
-        elif warnings:
+        if warnings:
             message = f"Health check found {len(warnings)} warning(s)"
             logger.info(f"Health check complete: {message}")
             return partial(
@@ -188,16 +190,15 @@ class HealthCheckTask(BaseTask):
                     summary=summary,
                 ),
             )
-        else:
-            message = "All health checks passed"
-            logger.info(f"Health check complete: {message}")
-            return success(
-                message=message,
-                details=HealthCheckDetails(
-                    total_checks=self._CHECK_COUNT,
-                    summary=summary,
-                ),
-            )
+        message = "All health checks passed"
+        logger.info(f"Health check complete: {message}")
+        return success(
+            message=message,
+            details=HealthCheckDetails(
+                total_checks=self._CHECK_COUNT,
+                summary=summary,
+            ),
+        )
 
     @staticmethod
     def _check_system_uptime() -> str:
@@ -301,12 +302,12 @@ class HealthCheckTask(BaseTask):
 
         return fs_errors
 
-    @staticmethod
-    def _check_cpu_load(warnings: list[str]) -> float:
+    def _check_cpu_load(self, warnings: list[str]) -> float:
         """
         Measure CPU usage and load average, flagging sustained overload.
 
-        Records a warning when instantaneous CPU usage exceeds 90%, and another when the 1-minute
+        Records a warning when instantaneous CPU usage exceeds the configured
+        `cpu_warning_percent` threshold, and another when the 1-minute
         load average exceeds twice the number of CPU cores.
 
         Args:
@@ -326,7 +327,7 @@ class HealthCheckTask(BaseTask):
         load_avg = cpu.load_avg
         cpu_count = cpu.cores or 1
 
-        if cpu_percent > 90:
+        if cpu_percent > self.settings.health_check.cpu_warning_percent:
             warnings.append(f"High CPU usage at {cpu_percent}%")
 
         if load_avg:
@@ -337,13 +338,13 @@ class HealthCheckTask(BaseTask):
 
         return cpu_percent
 
-    @staticmethod
-    def _check_memory_usage(issues: list[str], warnings: list[str]) -> float:
+    def _check_memory_usage(self, issues: list[str], warnings: list[str]) -> float:
         """
         Measure memory and swap usage, flagging pressure by severity.
 
-        Memory usage above 90% is recorded as a critical issue, above 80% as a warning; both include
-        the amount of free memory. Swap usage above 50% is recorded as a warning.
+        Memory usage above `memory_critical_percent`% is recorded as a critical issue,
+        above `memory_warning_percent`% as a warning; both include the amount of free
+        memory. Swap usage above `swap_warning_percent`% is recorded as a warning.
 
         Args:
             issues (list[str]): Accumulator list for critical issues.
@@ -361,27 +362,27 @@ class HealthCheckTask(BaseTask):
         mem_percent = memory.percent
         swap_percent = memory.swap_percent
 
-        if mem_percent > 90:
+        if mem_percent > self.settings.health_check.memory_critical_percent:
             issues.append(
                 f"Memory usage at {mem_percent}% ({format_bytes(memory.available)} available)"
             )
-        elif mem_percent > 80:
+        elif mem_percent > self.settings.health_check.memory_warning_percent:
             warnings.append(
                 f"Memory usage at {mem_percent}% ({format_bytes(memory.available)} available)"
             )
 
-        if swap_percent > 50:
+        if swap_percent > self.settings.health_check.swap_warning_percent:
             warnings.append(f"High swap usage at {swap_percent}%")
 
         return mem_percent
 
-    @staticmethod
-    def _check_disk_space(issues: list[str], warnings: list[str]) -> float:
+    def _check_disk_space(self, issues: list[str], warnings: list[str]) -> float:
         """
         Measure root filesystem usage, flagging low disk space by severity.
 
-        Usage above 90% is recorded as a critical issue, above 80% as a warning; both include the
-        amount of free space. Healthy usage is only logged at `debug` level.
+        Usage above `disk_critical_percent`% is recorded as a critical issue,
+        above `disk_warning_percent`% as a warning; both include the amount of
+        free space. Healthy usage is only logged at `debug` level.
 
         Args:
             issues (list[str]): Accumulator list for critical issues.
@@ -397,9 +398,9 @@ class HealthCheckTask(BaseTask):
         disk = get_disk_usage("/")
 
         disk_percent = disk.percent
-        if disk_percent > 90:
+        if disk_percent > self.settings.health_check.disk_critical_percent:
             issues.append(f"Disk usage at {disk_percent}% ({format_bytes(disk.free)} free)")
-        elif disk_percent > 80:
+        elif disk_percent > self.settings.health_check.disk_warning_percent:
             warnings.append(f"Disk usage at {disk_percent}% ({format_bytes(disk.free)} free)")
         else:
             logger.debug(f"Disk usage: {disk_percent}% ({format_bytes(disk.free)} free)")

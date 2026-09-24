@@ -198,7 +198,7 @@ class TestExecutorProperty:
         assert kwargs["config_loader"] is mock_config_loader
         assert kwargs["settings"] == "SETTINGS"
         assert kwargs["state"] == "STATE"
-        assert kwargs["user_context"] is context.user_ctx
+        assert kwargs["ports"].user_context is context.user_ctx
 
     def test_builds_with_interactive_cli_interaction(
         self, mock_executor: MagicMock, context: AppContext
@@ -206,7 +206,7 @@ class TestExecutorProperty:
         _ = context.executor
 
         _, kwargs = mock_executor.call_args
-        interaction = kwargs["interaction"]
+        interaction = kwargs["ports"].interaction
         assert isinstance(interaction, CliInteraction)
 
     def test_builds_with_default_task_registry(self, mock_executor: MagicMock, context: AppContext):
@@ -282,7 +282,8 @@ class TestSetupLogging:
         context.setup_logging()
 
         # Should be called once for defaults, and a second time for reconfiguration
-        assert mock_setup_logging.call_count == 2
+        EXPECTED_SETUP_LOGGING_CALLS = 2
+        assert mock_setup_logging.call_count == EXPECTED_SETUP_LOGGING_CALLS
         mock_setup_logging.assert_called_with(settings, reconfigure=True, devel_mode=False)
 
     def test_defaults_to_self_user_when_no_user_param(self, mock_config_loader_class: MagicMock):
@@ -417,5 +418,6 @@ class TestExecutorForUser:
 
         # They should be distinct instances (TaskExecutor should have been constructed
         #  multiple times)
+        EXPECTED_EXECUTOR_CALLS = 2
         assert target_executor is not cached_executor
-        assert mock_executor.call_count == 2
+        assert mock_executor.call_count == EXPECTED_EXECUTOR_CALLS

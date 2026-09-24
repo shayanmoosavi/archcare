@@ -209,7 +209,8 @@ class TestMirrorlistUpdateTask:
         backup_dir = sandbox.parent
 
         # Create 6 "old" backups with staggered modification times
-        for i in range(1, 7):
+        BACKUP_COUNT = 6
+        for i in range(1, BACKUP_COUNT + 1):
             old_backup = backup_dir / f"mirrorlist_2026-01-0{i}_120000.backup"
             old_backup.write_text(f"Old backup {i}")
 
@@ -220,7 +221,7 @@ class TestMirrorlistUpdateTask:
 
         # Sanity check before run:
         # We should have 1 sandbox mirrorlist + 6 backups = 7 files total
-        assert len(list(backup_dir.glob("mirrorlist_*.backup"))) == 6
+        assert len(list(backup_dir.glob("mirrorlist_*.backup"))) == BACKUP_COUNT
 
         # It creates 1 new backup (total 7), then post_execute purges
         # the oldest 2 (leaving 5).
@@ -230,7 +231,7 @@ class TestMirrorlistUpdateTask:
 
         # Verify exactly 5 backups remain
         remaining_backups = list(backup_dir.glob("mirrorlist_*.backup"))
-        assert len(remaining_backups) == 5
+        assert len(remaining_backups) == BACKUP_COUNT - 1
 
         # Verify the absolute oldest files (i=1 and i=2) were the ones deleted
         remaining_names = [b.name for b in remaining_backups]

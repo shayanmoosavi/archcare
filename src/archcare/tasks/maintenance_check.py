@@ -280,9 +280,7 @@ class MaintenanceCheckTask(BaseTask):
 
         # 2. Manual tasks - check if due/overdue
         if task_config.task_type == TaskType.MANUAL:
-            self._check_overdue_task(
-                days_overdue, issues, schedule_info, task_config, task_name, task_state
-            )
+            self._check_overdue_task(days_overdue, issues, schedule_info, task_config, task_state)
 
         # 3. Automated tasks - check for failures and broken timers
         elif task_config.task_type == TaskType.AUTOMATED:
@@ -307,7 +305,6 @@ class MaintenanceCheckTask(BaseTask):
         issues: list[MaintenanceIssue],
         schedule_info: TaskScheduleInfo,
         task_config: TaskConfig,
-        task_name: str,
         task_state: TaskState,
     ):
         """
@@ -324,8 +321,7 @@ class MaintenanceCheckTask(BaseTask):
             schedule_info (TaskScheduleInfo): Schedule info for the task being
                 checked (provides the `is_due` flag).
             task_config (TaskConfig): The task configuration of the task being
-                checked (used for the description text).
-            task_name (str): Name of the task being checked.
+                checked (used for the description text and task name).
             task_state (TaskState): Current persisted state of the task
                 (provides `last_run`/`last_status` for the issue).
 
@@ -337,13 +333,13 @@ class MaintenanceCheckTask(BaseTask):
 
             issues.append(
                 MaintenanceIssue(
-                    task_name=task_name,
+                    task_name=task_config.name,
                     severity=severity,
                     description=self._format_overdue_description(task_config, days_overdue),
                     days_overdue=days_overdue,
                     last_run=task_state.last_run,
                     last_status=task_state.last_status,
-                    recommendation=f"Run now: archcare task run {task_name}",
+                    recommendation=f"Run now: archcare task run {task_config.name}",
                 )
             )
 
@@ -465,12 +461,11 @@ class MaintenanceCheckTask(BaseTask):
         if days_overdue >= critical_threshold:
             # Task severely overdue
             return IssueSeverity.CRITICAL
-        elif days_overdue >= warning_threshold:
+        if days_overdue >= warning_threshold:
             # Task overdue but not critical
             return IssueSeverity.WARNING
-        else:
-            # Task overdue but no immediate attention is required
-            return IssueSeverity.INFO
+        # Task overdue but no immediate attention is required
+        return IssueSeverity.INFO
 
     @staticmethod
     def _format_overdue_description(task_config: TaskConfig, days_overdue: int) -> str:
@@ -500,10 +495,9 @@ class MaintenanceCheckTask(BaseTask):
         """
         if days_overdue == 0:
             return f"Task `{task_config.name}` is due today"
-        elif days_overdue == 1:
+        if days_overdue == 1:
             return f"Task `{task_config.name}` is overdue by 1 day"
-        else:
-            return f"Task `{task_config.name}` is overdue by {days_overdue} days"
+        return f"Task `{task_config.name}` is overdue by {days_overdue} days"
 
     @staticmethod
     def _format_time_ago(timestamp: datetime | None) -> str:
@@ -529,22 +523,17 @@ class MaintenanceCheckTask(BaseTask):
 
         delta = datetime.now() - timestamp
 
-        if delta.days > 0:
-            if delta.days == 1:
-                return "1 day ago"
-            return f"{delta.days} days ago"
+        units: tuple[tuple[int, str], ...] = (
+            (delta.days, "day"),
+            (delta.seconds // 3600, "hour"),
+            (delta.seconds // 60, "minute"),
+        )
 
-        hours = delta.seconds // 3600
-        if hours > 0:
-            if hours == 1:
-                return "1 hour ago"
-            return f"{hours} hours ago"
-
-        minutes = delta.seconds // 60
-        if minutes > 0:
-            if minutes == 1:
-                return "1 minute ago"
-            return f"{minutes} minutes ago"
+        for value, unit in units:
+            if value > 0:
+                if value == 1:
+                    return f"1 {unit} ago"
+                return f"{value} {unit}s ago"
 
         return "just now"
 
@@ -680,14 +669,14 @@ class MaintenanceCheckTask(BaseTask):
 
         if tasks_needing_attention := details.tasks_needing_attention:
             lines.append("Tasks needing attention:")
-            for maintenance_issue in tasks_needing_attention:
-                lines.append(
-                    f"  - {maintenance_issue.task_name} ({str(maintenance_issue.severity).upper()})"
-                )
+            lines.extend(
+                f"  - {maintenance_issue.task_name} ({str(maintenance_issue.severity).upper()})"
+                for maintenance_issue in tasks_needing_attention
+            )
             lines.append("\n")
 
         if not details.summary.has_issues:
-            lines.append("✓ No maintenance issues found! Your system is healthy :)")
+            lines.append("✔ No maintenance issues found! Your system is healthy :)")
             lines.append("\n")
         else:
             # Add issues by severity

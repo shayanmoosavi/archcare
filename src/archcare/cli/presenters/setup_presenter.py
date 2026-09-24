@@ -72,7 +72,7 @@ class SetupPresenter:
         """
         Render the result of `archcare setup config`.
 
-        Lists created files (✓) and files skipped because they already existed, then prints
+        Lists created files (✔) and files skipped because they already existed, then prints
         next-step hints (config location, `task list`).
 
         Args:
@@ -82,7 +82,7 @@ class SetupPresenter:
         if response.created_files:
             print_success("Configuration files created:")
             for f in response.created_files:
-                console.print(f"  ✓ {f.name}")
+                console.print(f"  ✔ {f.name}")
 
         if response.skipped_files:
             print_info("Already present, left untouched:")
@@ -150,7 +150,7 @@ class SetupPresenter:
         console.print()
         print_info("Available automated tasks:")
         for task_name, task_config in response.automated_tasks.items():
-            status_icon = "✓" if task_config.enabled else "✗"
+            status_icon = "✔" if task_config.enabled else "✘"
             console.print(f"  {status_icon} {task_name}: {task_config.description}")
 
         console.print()

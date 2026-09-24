@@ -24,12 +24,14 @@ See Also:
 """
 
 import subprocess
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
 from loguru import logger
 
 from archcare.utils import check_command_exists, run_command
+from archcare.utils.system import CommandOptions
 
 from .models import IssueSeverity
 
@@ -103,6 +105,31 @@ class NotificationIcon(Enum):
         return self.value
 
 
+@dataclass(frozen=True)
+class NotificationPayload:
+    """
+    Dataclass grouping all parameters for a desktop notification.
+
+    Attributes:
+        title (str): Bold notification title header.
+        message (str): Body text of the notification.
+        urgency (NotificationUrgency): Urgency level of the alert. Defaults to `NORMAL`.
+        icon (NotificationIcon | str): An icon enumeration value or a custom system theme icon
+            name/file path. Defaults to `INFO`.
+        timeout (int): Duration in milliseconds before the notification expires and fades out (0
+            means no timeout). Defaults to `5000` (5 seconds).
+        app_name (str): Calling application identifier shown by modern desktop managers. Defaults
+            to `"Archcare"`.
+    """
+
+    title: str
+    message: str
+    urgency: NotificationUrgency = NotificationUrgency.NORMAL
+    icon: NotificationIcon | str = NotificationIcon.INFO
+    timeout: int = 5000
+    app_name: str = "Archcare"
+
+
 class NotificationManager:
     """
     Manages desktop notifications using notify-send.
@@ -158,31 +185,19 @@ class NotificationManager:
 
     def send_notification(
         self,
-        title: str,
-        message: str,
-        urgency: NotificationUrgency = NotificationUrgency.NORMAL,
-        icon: NotificationIcon | str = NotificationIcon.INFO,
-        timeout: int = 5000,
-        app_name: str = "Archcare",
+        payload: NotificationPayload,
     ) -> bool:
         """
         Send a desktop notification using `notify-send`.
 
-        Assembles and executes the low-level `notify-send` command with custom
-        arguments. This operation includes a short execution timeout of 5 seconds
-        to prevent blocks in headless environments where standard DBus message buses
-        are unreachable or hanging.
+        Assembles and executes the low-level `notify-send` command with custom arguments from a
+        [`NotificationPayload`][]. This operation includes a short execution timeout of 5 seconds to
+        prevent blocks in headless environments where standard DBus message buses are unreachable
+        or hanging.
 
         Args:
-            title (str): Bold notification title header.
-            message (str): Body text of the notification.
-            urgency (NotificationUrgency): Urgency level of the alert. Defaults to `NORMAL`.
-            icon (NotificationIcon | str): An icon enumeration value or a custom
-                system theme icon name/file path. Defaults to `INFO`.
-            timeout (int): Duration in milliseconds before the notification expires
-                and fades out (0 means no timeout). Defaults to `5000` (5 seconds).
-            app_name (str): Calling application identifier shown by modern desktop managers.
-                Defaults to `"Archcare"`.
+            payload (NotificationPayload): Notification parameters including title,
+                message, urgency, icon, timeout, and app name.
 
         Returns:
             bool: `True` if the command executed with exit code 0; `False` if notifications
@@ -193,37 +208,41 @@ class NotificationManager:
             >>> manager = NotificationManager()
             >>> # Send a generic notification safely
             >>> result = manager.send_notification(
-            ...     title="Test Notification",
-            ...     message="Hello World!",
-            ...     urgency=NotificationUrgency.LOW,
+            ...     NotificationPayload(
+            ...         title="Test Notification",
+            ...         message="Hello World!",
+            ...         urgency=NotificationUrgency.LOW,
+            ...     )
             ... )
             >>> isinstance(result, bool)
             True
         """
         if not self._notify_send_available:
-            logger.warning(f"Skipping notification (notify-send not available): {title}")
+            logger.warning(f"Skipping notification (notify-send not available): {payload.title}")
             return False
 
         try:
             # Convert icon to string if it's an enum
-            icon_str = str(icon) if isinstance(icon, NotificationIcon) else icon
+            icon_str = (
+                str(payload.icon) if isinstance(payload.icon, NotificationIcon) else payload.icon
+            )
 
             # Build notify-send command
             cmd = [
                 "notify-send",
                 "--app-name",
-                app_name,
+                payload.app_name,
                 "--urgency",
-                str(urgency),
+                str(payload.urgency),
                 "--icon",
                 icon_str,
                 "--expire-time",
-                str(timeout),
-                title,
-                message,
+                str(payload.timeout),
+                payload.title,
+                payload.message,
             ]
 
-            result = run_command(cmd, timeout=5)
+            result = run_command(cmd, options=CommandOptions(timeout=5))
 
             if not result.success:
                 logger.error(
@@ -232,7 +251,7 @@ class NotificationManager:
                 )
                 return False
 
-            logger.debug(f"Notification sent: {title}")
+            logger.debug(f"Notification sent: {payload.title}")
             return True
 
         except subprocess.TimeoutExpired:
@@ -303,11 +322,13 @@ class NotificationManager:
         message = f"{tasks_count} {task_word} need attention.\n{summary}"
 
         return self.send_notification(
-            title=config["title"],
-            message=message,
-            urgency=config["urgency"],
-            icon=config["icon"],
-            timeout=timeout,
+            NotificationPayload(
+                title=config["title"],
+                message=message,
+                urgency=config["urgency"],
+                icon=config["icon"],
+                timeout=timeout,
+            )
         )
 
     def send_task_result_notification(
@@ -350,20 +371,22 @@ class NotificationManager:
             True
         """
         if success:
-            title = f"✓ {task_name} completed"
+            title = f"✔ {task_name} completed"
             urgency = NotificationUrgency.LOW
             icon = NotificationIcon.SUCCESS
         else:
-            title = f"✗ {task_name} failed"
+            title = f"✘ {task_name} failed"
             urgency = NotificationUrgency.NORMAL
             icon = NotificationIcon.ERROR
 
         body = message or ("Task completed successfully" if success else "Task failed")
 
         return self.send_notification(
-            title=title,
-            message=body,
-            urgency=urgency,
-            icon=icon,
-            timeout=timeout,
+            NotificationPayload(
+                title=title,
+                message=body,
+                urgency=urgency,
+                icon=icon,
+                timeout=timeout,
+            )
         )

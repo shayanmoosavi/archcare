@@ -201,7 +201,7 @@ class TaskScheduler:
         """
         due_tasks = []
 
-        for task_name in self.tasks_config.get_enabled_tasks().keys():
+        for task_name in self.tasks_config.get_enabled_tasks():
             info = self.get_schedule_info(task_name)
             if info.is_due:
                 due_tasks.append(info)
@@ -225,7 +225,7 @@ class TaskScheduler:
         """
         all_info = []
 
-        for task_name in self.tasks_config.get_enabled_tasks().keys():
+        for task_name in self.tasks_config.get_enabled_tasks():
             info = self.get_schedule_info(task_name)
             all_info.append(info)
 
@@ -262,10 +262,12 @@ class TaskScheduler:
 
         # Count upcoming (due within 7 days but not yet due)
         upcoming_count = 0
+        DAYS_IN_A_WEEK = 7
+
         for info in all_info:
             if not info.is_due and info.next_due is not None:
                 days_until = (info.next_due - datetime.now()).days
-                if days_until <= 7:
+                if days_until <= DAYS_IN_A_WEEK:
                     upcoming_count += 1
 
         return {

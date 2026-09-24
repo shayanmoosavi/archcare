@@ -92,29 +92,24 @@ from .task_details import (
 from .task_registry import TaskDescriptor, TaskRegistry
 
 __all__ = [
-    # Base task
     "BaseTask",
-    # Models
+    "FailedServiceInfo",
+    "FailedServicesDetails",
+    "HealthCheckDetails",
+    "HealthCheckSummary",
     "IssueSeverity",
+    "MaintenanceCheckDetails",
+    "MaintenanceCheckSummary",
     "MaintenanceIssue",
+    "MirrorlistUpdateDetails",
+    "TaskDescriptor",
+    "TaskRegistry",
     "TaskResult",
+    "TaskScheduleInfo",
+    "TaskScheduler",
     "TaskStep",
     "failed",
     "partial",
     "skipped",
     "success",
-    # Scheduler
-    "TaskScheduler",
-    "TaskScheduleInfo",
-    # Task details
-    "FailedServiceInfo",
-    "FailedServicesDetails",
-    "HealthCheckDetails",
-    "HealthCheckSummary",
-    "MaintenanceCheckDetails",
-    "MaintenanceCheckSummary",
-    "MirrorlistUpdateDetails",
-    # Task registry
-    "TaskRegistry",
-    "TaskDescriptor",
 ]

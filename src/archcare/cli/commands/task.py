@@ -103,7 +103,7 @@ def run(
     except Exception as e:
         # is_interactive isn't known here since the error happened before
         # the service could compute it - default to interactive formatting.
-        presenter.error(f"Failed to run task {repr(task_name)}: {e}")
+        presenter.error(f"Failed to run task {task_name!r}: {e}")
         raise typer.Exit(1) from e
 
     presenter.render_run(response, settings=ctx.obj.settings, verbose=verbose)

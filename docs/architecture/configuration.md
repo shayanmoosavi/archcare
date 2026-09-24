@@ -109,6 +109,7 @@ groups, and is the source of every computed path on the system.
 | `user`               | <code>str &#124; None</code>                                                  | `None`         | Target username; feeds the `home_dir` ladder [above](#the-file-map) |
 | `mirrorlist`         | [`MirrorlistSettings`][archcare.config.models.MirrorlistSettings]             | model defaults | Settings specific to the `mirrorlist-update` task                   |
 | `maintenance_check`  | [`MaintenanceCheckSettings`][archcare.config.models.MaintenanceCheckSettings] | model defaults | Settings specific to the `maintenance-check` task                   |
+| `health_check`       | [`HealthCheckSettings`][archcare.config.models.HealthCheckSettings]           | model defaults | Settings specific to the `health-check` task                        |
 
 The path properties (`home_dir`, `config_dir`, `state_file`, `log_dir`, `report_dir`) are computed,
 excluded from serialization, and covered [above](#the-file-map).
@@ -124,6 +125,12 @@ against a fixed allowlist), the `latest` / `number_of_mirrors` count caps, and t
 model validator), `output_mode` (`terminal` / `file` / `both`), `show_notifications` gated by
 `notification_level` (`info` / `warning` / `critical` minimum severity), `report_retention_days`,
 and `require_acknowledgment` for critical issues.
+
+[`HealthCheckSettings`][archcare.config.models.HealthCheckSettings] configures the system health
+thresholds: `cpu_warning_percent`, `memory_critical_percent`, `memory_warning_percent`,
+`swap_warning_percent`, `disk_critical_percent`, and `disk_warning_percent`. All are percentage
+integers 0-100 with cross-field validators ensuring warning thresholds are strictly below their
+corresponding critical thresholds (e.g., `memory_warning_percent` < `memory_critical_percent`).
 
 ### `ignored-services.toml` — what to forgive
 

@@ -70,9 +70,9 @@ def print_success(message: str) -> None:
     Examples:
         >>> from archcare.utils.output import print_success
         >>> print_success("Database initialized successfully.")
-        ✓ Database initialized successfully.
+        ✔ Database initialized successfully.
     """
-    console.print(f"✓ {message}", style="bold green")
+    console.print(f"✔ {message}", style="bold green")
 
 
 def print_error(message: str) -> None:
@@ -88,9 +88,9 @@ def print_error(message: str) -> None:
     Examples:
         >>> from archcare.utils.output import print_error
         >>> print_error("Failed to connect to mirror servers.")
-        ✗ Failed to connect to mirror servers.
+        ✘ Failed to connect to mirror servers.
     """
-    console.print(f"✗ {message}", style="bold red")
+    console.print(f"✘ {message}", style="bold red")
 
 
 def print_warning(message: str) -> None:
@@ -106,9 +106,9 @@ def print_warning(message: str) -> None:
     Examples:
         >>> from archcare.utils.output import print_warning
         >>> print_warning("Disk utilization has exceeded 80%.")
-        ⚠ Disk utilization has exceeded 80%.
+         Disk utilization has exceeded 80%.
     """
-    console.print(f"⚠ {message}", style="bold yellow")
+    console.print(f" {message}", style="bold yellow")
 
 
 def print_info(message: str) -> None:
@@ -124,9 +124,9 @@ def print_info(message: str) -> None:
     Examples:
         >>> from archcare.utils.output import print_info
         >>> print_info("Checking systemd service states...")
-        ℹ Checking systemd service states...
+         Checking systemd service states...
     """
-    console.print(f"ℹ {message}", style="bold blue")
+    console.print(f" {message}", style="bold blue")
 
 
 def print_header(title: str) -> None:

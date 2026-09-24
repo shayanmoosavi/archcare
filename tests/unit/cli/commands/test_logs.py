@@ -76,8 +76,11 @@ class TestLogsCallback:
         logs(ctx, lines=2)  # ty:ignore[invalid-argument-type]
 
         out = capsys.readouterr().out
-        assert "line4" in out and "line5" in out
-        assert "line1" not in out and "line2" not in out and "line3" not in out
+        assert "line4" in out
+        assert "line5" in out
+        assert "line1" not in out
+        assert "line2" not in out
+        assert "line3" not in out
 
     def test_shows_all_lines_when_fewer_than_requested(self, tmp_path: Path, capsys, mocker):
         """
@@ -92,4 +95,5 @@ class TestLogsCallback:
         logs(ctx, lines=50)  # ty:ignore[invalid-argument-type]
 
         out = capsys.readouterr().out
-        assert "line1" in out and "line2" in out
+        assert "line1" in out
+        assert "line2" in out

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from archcare.core.notifications import NotificationManager
+from archcare.core.notifications import NotificationManager, NotificationPayload
 from archcare.services import DebugService
 from archcare.services.exceptions import (
     InvalidSeverityError,
@@ -87,17 +87,17 @@ class TestSendNotification:
 
     @pytest.mark.parametrize("severity", ["critical", "warning", "info"])
     def test_send_called_with_matching_title(self, service: DebugService, mocker, severity):
-        calls = []
+        calls: list[NotificationPayload] = []
         mock_manager = service.notification_manager
         mocker.patch.object(mock_manager, "is_available", return_value=True)
         mocker.patch.object(
             mock_manager,
             "send_notification",
-            lambda **kwargs: calls.append(kwargs) or True,
+            lambda payload: calls.append(payload) or True,
         )
 
         service.test_notification(severity)
-        assert calls[0]["title"] == f"Testing severity `{severity}`"
+        assert calls[0].title == f"Testing severity `{severity}`"
 
     def test_response_carries_severity_and_title(self, service: DebugService, mocker):
         mock_manager = service.notification_manager

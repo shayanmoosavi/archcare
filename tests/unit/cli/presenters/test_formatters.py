@@ -144,7 +144,7 @@ class TestHealthCheckFormatter:
         assert "low memory" in output
 
     @pytest.mark.parametrize(
-        "key,pct,expected_color",
+        ("key", "pct", "expected_color"),
         [
             ("disk_usage_percent", 95.0, "red"),
             ("disk_usage_percent", 85.0, "yellow"),
@@ -190,7 +190,7 @@ class TestHealthCheckFormatter:
         assert "2" in output
 
     @pytest.mark.parametrize(
-        "key,healthy,expected_fragment",
+        ("key", "healthy", "expected_fragment"),
         [
             ("pacman_healthy", True, "Healthy"),
             ("pacman_healthy", False, "Issues Detected"),
@@ -253,7 +253,7 @@ class TestMaintenanceCheckFormatter:
         assert "Tasks needing attention:" not in output
 
     @pytest.mark.parametrize(
-        "severity,expected_fragment",
+        ("severity", "expected_fragment"),
         [
             (IssueSeverity.CRITICAL, "CRITICAL"),
             (IssueSeverity.WARNING, "WARNING"),
@@ -300,7 +300,7 @@ class TestMirrorlistUpdateFormatter:
         assert "8" in output
 
     @pytest.mark.parametrize(
-        "old_mirrors,new_mirrors",
+        ("old_mirrors", "new_mirrors"),
         [
             (None, 8),
             (5, None),

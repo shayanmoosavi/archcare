@@ -123,7 +123,6 @@ class NonInteractive:
             message (str): The human-readable message content.
             level (str): The urgency level of the message. Defaults to `'info'`.
         """
-        pass
 
     @staticmethod
     def confirm(prompt: str) -> bool:
