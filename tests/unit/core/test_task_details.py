@@ -14,6 +14,7 @@ from archcare.core import (
     MaintenanceCheckSummary,
     MaintenanceIssue,
     MirrorlistUpdateDetails,
+    SystemUpdateDetails,
 )
 from archcare.utils.info_models import MirrorlistInfo
 
@@ -418,3 +419,67 @@ class TestMirrorlistUpdateDetails:
 
         assert first.old_info is not second.old_info
         assert first.new_info is not second.new_info
+
+
+# ---------------------------------------------------------------------------
+# SystemUpdateDetails
+# ---------------------------------------------------------------------------
+
+
+class TestSystemUpdateDetails:
+    def test_defaults(self):
+        details = SystemUpdateDetails()
+
+        assert details.repo_updates_count == 0
+        assert details.aur_updates_count == 0
+        assert details.packages_upgraded == []
+        assert details.aur_packages_upgraded == []
+        assert details.aur_packages_failed == []
+        assert details.packages_removed == []
+        assert details.pacnew_files == []
+        assert details.pre_update_snapshot_id is None
+        assert details.cache_freed_bytes is None
+
+    def test_custom_values(self):
+        REPO_UPDATES = 3
+        AUR_UPDATES = 1
+        SNAPSHOT_ID = 42
+        CACHE_FREED_BYTES = 734003200
+
+        details = SystemUpdateDetails(
+            repo_updates_count=REPO_UPDATES,
+            aur_updates_count=AUR_UPDATES,
+            packages_upgraded=["linux", "pacman"],
+            aur_packages_upgraded=["paru"],
+            aur_packages_failed=["yay-bin"],
+            packages_removed=["linux-lts"],
+            pacnew_files=["/etc/pacman.conf.pacnew"],
+            pre_update_snapshot_id=SNAPSHOT_ID,
+            cache_freed_bytes=CACHE_FREED_BYTES,
+        )
+
+        assert details.repo_updates_count == REPO_UPDATES
+        assert details.aur_updates_count == AUR_UPDATES
+        assert details.packages_upgraded == ["linux", "pacman"]
+        assert details.aur_packages_upgraded == ["paru"]
+        assert details.aur_packages_failed == ["yay-bin"]
+        assert details.packages_removed == ["linux-lts"]
+        assert details.pacnew_files == ["/etc/pacman.conf.pacnew"]
+        assert details.pre_update_snapshot_id == SNAPSHOT_ID
+        assert details.cache_freed_bytes == CACHE_FREED_BYTES
+
+    def test_is_frozen(self):
+        details = SystemUpdateDetails()
+
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            details.repo_updates_count = 1  # ty:ignore[invalid-assignment]
+
+    def test_lists_not_shared_across_instances(self):
+        first = SystemUpdateDetails()
+        second = SystemUpdateDetails()
+
+        assert first.packages_upgraded is not second.packages_upgraded
+        assert first.aur_packages_upgraded is not second.aur_packages_upgraded
+        assert first.aur_packages_failed is not second.aur_packages_failed
+        assert first.packages_removed is not second.packages_removed
+        assert first.pacnew_files is not second.pacnew_files

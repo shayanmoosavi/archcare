@@ -33,6 +33,22 @@ class TestBuildSettingsToml:
             == defaults.maintenance_check.critical_threshold_days
         )
 
+    def test_system_update_section_matches_appsettings_defaults(self):
+        """The [system_update] section is built from the model, never re-typed."""
+        doc = build_settings_toml()
+        defaults = AppSettings()
+
+        assert (
+            doc["system_update"]["min_repo_updates_threshold"]
+            == defaults.system_update.min_repo_updates_threshold
+        )
+        assert doc["system_update"]["cache_keep_versions"] == (
+            defaults.system_update.cache_keep_versions
+        )
+        assert doc["system_update"]["cache_keep_uninstalled_versions"] == (
+            defaults.system_update.cache_keep_uninstalled_versions
+        )
+
     def test_produces_valid_toml_that_round_trips(self):
         doc = build_settings_toml()
         reparsed = tomlkit.parse(tomlkit.dumps(doc))

@@ -21,7 +21,12 @@ from archcare.config.exceptions import (
     InvalidTaskTypeFilterError,
     UnknownTaskError,
 )
-from archcare.config.models import HealthCheckSettings, MaintenanceCheckSettings, MirrorlistSettings
+from archcare.config.models import (
+    HealthCheckSettings,
+    MaintenanceCheckSettings,
+    MirrorlistSettings,
+    SystemUpdateSettings,
+)
 
 # Test-specific constants for HealthCheckSettings validation tests (below/above thresholds)
 TEST_WARNING_PERCENT = 70
@@ -195,6 +200,18 @@ class TestAppSettingsPaths:
         settings = AppSettings(user="alice")
         assert getattr(settings, path) == expected
 
+    def test_recovery_dir_is_under_state_dir(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+        settings = AppSettings(user=None)
+
+        assert settings.recovery_dir == settings.state_file.parent / "recovery"
+
+    def test_recovery_dir_is_absolute(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+        settings = AppSettings(user=None)
+
+        assert settings.recovery_dir.is_absolute()
+
 
 class TestValidatePaths:
     def test_validate_paths_accepts_valid_paths(self, mock_pwd: MagicMock):
@@ -360,6 +377,57 @@ class TestMirrorlistSettings:
     def test_invalid_backup_retention_rejected(self, value):
         with pytest.raises(ValidationError):
             MirrorlistSettings(backup_retention_count=value)
+
+
+# ---------------------------------------------------------------------------
+# SystemUpdateSettings validators
+# ---------------------------------------------------------------------------
+
+
+class TestSystemUpdateSettings:
+    def test_defaults(self):
+        DEFAULT_MIN_REPO_UPDATES = 30
+        DEFAULT_CACHE_KEEP_VERSIONS = 2
+        DEFAULT_CACHE_KEEP_UNINSTALLED = 1
+
+        settings = SystemUpdateSettings()
+
+        assert settings.min_repo_updates_threshold == DEFAULT_MIN_REPO_UPDATES
+        assert settings.cache_keep_versions == DEFAULT_CACHE_KEEP_VERSIONS
+        assert settings.cache_keep_uninstalled_versions == DEFAULT_CACHE_KEEP_UNINSTALLED
+
+    def test_keeps_one_uninstalled_version_for_recovery(self):
+        """A package removed by an upgrade is uninstalled, so only this setting keeps its artifact
+        in the cache for `archcare task recover` to find. Setting it to 0 silently removes the
+        recovery path."""
+        assert SystemUpdateSettings().cache_keep_uninstalled_versions >= 1
+
+    @pytest.mark.parametrize(
+        "field",
+        [
+            "min_repo_updates_threshold",
+            "cache_keep_versions",
+            "cache_keep_uninstalled_versions",
+        ],
+    )
+    def test_zero_is_accepted(self, field):
+        """Every field treats 0 as meaningful: act on every package update / purge everything."""
+        assert getattr(SystemUpdateSettings(**{field: 0}), field) == 0
+
+    @pytest.mark.parametrize(
+        "field",
+        [
+            "min_repo_updates_threshold",
+            "cache_keep_versions",
+            "cache_keep_uninstalled_versions",
+        ],
+    )
+    def test_negative_values_rejected(self, field):
+        with pytest.raises(ValidationError):
+            SystemUpdateSettings(**{field: -1})
+
+    def test_app_settings_wires_it_in(self):
+        assert isinstance(AppSettings().system_update, SystemUpdateSettings)
 
 
 # ---------------------------------------------------------------------------
