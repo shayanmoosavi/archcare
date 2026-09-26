@@ -250,6 +250,8 @@ def build_settings_toml() -> TOMLDocument:
         True
         >>> "maintenance_check" in toml_str
         True
+        >>> "system_update" in toml_str
+        True
     """
     data: dict[str, Any] = AppSettings().model_dump(exclude={"user"}, exclude_computed_fields=True)
     doc = document()
@@ -285,6 +287,12 @@ def build_settings_toml() -> TOMLDocument:
     health_check_section = table()
     health_check_section.update(data["health_check"])
     doc.add("health_check", health_check_section)
+    doc.add(nl())
+
+    doc.add(comment("System Update Settings"))
+    system_update_section = table()
+    system_update_section.update(data["system_update"])
+    doc.add("system_update", system_update_section)
 
     return doc
 
