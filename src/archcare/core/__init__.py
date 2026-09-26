@@ -54,12 +54,13 @@ Public API:
     - [`TaskScheduler`][]: Computes due/overdue status from config and state.
     - [`TaskScheduleInfo`][]: Per-task schedule snapshot returned by the scheduler.
     - [`FailedServiceInfo`][]: Diagnostic details for one failed systemd unit.
-    - [`FailedServicesDetails`][]: Details payload of the failed-services task.
-    - [`HealthCheckDetails`][]: Details payload of the health-check task.
+    - [`FailedServicesDetails`][]: Details payload of the `failed-services` task.
+    - [`HealthCheckDetails`][]: Details payload of the `health-check` task.
     - [`HealthCheckSummary`][]: Aggregated health metrics snapshot.
-    - [`MaintenanceCheckDetails`][]: Details payload of the maintenance-check task.
+    - [`MaintenanceCheckDetails`][]: Details payload of the `maintenance-check` task.
     - [`MaintenanceCheckSummary`][]: Aggregated counts/message for maintenance issues.
-    - [`MirrorlistUpdateDetails`][]: Details payload of the mirrorlist-update task.
+    - [`MirrorlistUpdateDetails`][]: Details payload of the `mirrorlist-update` task.
+    - [`SystemUpdateDetails`][]: Details payload of the `system-update` task.
     - [`TaskRegistry`][]: Static lookup of task name -> execution/formatter classes.
     - [`TaskDescriptor`][]: One registry entry binding a name to its classes.
 
@@ -88,6 +89,7 @@ from .task_details import (
     MaintenanceCheckDetails,
     MaintenanceCheckSummary,
     MirrorlistUpdateDetails,
+    SystemUpdateDetails,
 )
 from .task_registry import TaskDescriptor, TaskRegistry
 
@@ -102,6 +104,7 @@ __all__ = [
     "MaintenanceCheckSummary",
     "MaintenanceIssue",
     "MirrorlistUpdateDetails",
+    "SystemUpdateDetails",
     "TaskDescriptor",
     "TaskRegistry",
     "TaskResult",
