@@ -1,5 +1,6 @@
 """Unit tests for system utility parsing and formatting logic."""
 
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from subprocess import CalledProcessError, TimeoutExpired
@@ -21,6 +22,7 @@ from archcare.utils.system import (
     format_bytes,
     get_system_uptime,
     get_systemd_failed_services,
+    has_interactive_terminal,
     is_valid_systemd_unit_name,
     run_command,
     run_command_with_sudo,
@@ -32,7 +34,8 @@ _PATCH_SUBPROCESS_RUN = f"{_MODULE}.subprocess.run"
 _PATCH_IS_ROOT = f"{_MODULE}.is_root"
 _PATCH_RUN_COMMAND = f"{_MODULE}.run_command"
 _PATCH_RUN_SYSTEMCTL = f"{_MODULE}.run_systemctl"
-
+_PATCH_STDIN_ISATTY = "sys.stdin.isatty"
+_PATCH_STDOUT_ISATTY = "sys.stdout.isatty"
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -306,6 +309,29 @@ class TestRunCommand:
         result = run_command(["some-other-command"])
         assert result.success is False
 
+    def test_checkupdates_exit_code_2_counts_as_success(self, mocker):
+        """
+        checkupdates returns 2 for the case where no updates are available, which
+        is a successful case for us.
+        """
+        mocker.patch(
+            _PATCH_SUBPROCESS_RUN,
+            return_value=MagicMock(returncode=2, stdout="", stderr=""),
+        )
+
+        result = run_command(["checkupdates"])
+        assert result.success is True
+
+    def test_non_checkupdates_exit_code_2_is_a_failure(self, mocker):
+        """same as systemctl case above"""
+        mocker.patch(
+            _PATCH_SUBPROCESS_RUN,
+            return_value=MagicMock(returncode=2, stdout="", stderr=""),
+        )
+
+        result = run_command(["some-other-command"])
+        assert result.success is False
+
     def test_strips_whitespace_from_stdout_and_stderr(self, mocker):
         mocker.patch(
             _PATCH_SUBPROCESS_RUN,
@@ -559,3 +585,55 @@ class TestIsValidSystemdUnitName:
     )
     def test_invalid_chars_are_invalid(self, invalid: str):
         assert not is_valid_systemd_unit_name(invalid)
+
+
+# ---------------------------------------------------------------------------
+# has_interactive_terminal
+# ---------------------------------------------------------------------------
+
+
+class TestHasInteractiveTerminal:
+    def test_true_when_both_streams_are_ttys(self, mocker):
+        mocker.patch(_PATCH_STDIN_ISATTY, return_value=True)
+        mocker.patch(_PATCH_STDOUT_ISATTY, return_value=True)
+
+        assert has_interactive_terminal() is True
+
+    def test_false_when_stdin_is_not_a_tty(self, mocker):
+        mocker.patch(_PATCH_STDIN_ISATTY, return_value=False)
+        mocker.patch(_PATCH_STDOUT_ISATTY, return_value=True)
+
+        assert has_interactive_terminal() is False
+
+    def test_false_when_stdout_is_not_a_tty(self, mocker):
+        mocker.patch(_PATCH_STDIN_ISATTY, return_value=True)
+        mocker.patch(_PATCH_STDOUT_ISATTY, return_value=False)
+
+        assert has_interactive_terminal() is False
+
+    def test_false_when_stream_is_closed(self, mocker):
+        mocker.patch(_PATCH_STDIN_ISATTY, side_effect=ValueError("I/O operation on closed file"))
+
+        assert has_interactive_terminal() is False
+
+    def test_false_when_stream_lacks_isatty(self, mocker):
+        """A detached/replaced stream (e.g. pytest capture) may not implement isatty."""
+        mocker.patch.object(sys, "stdin", mocker.Mock(spec=[]))
+
+        assert has_interactive_terminal() is False
+
+    def test_false_when_isatty_raises_oserror(self, mocker):
+        """A device that disappears mid-run must not crash the guard."""
+        mocker.patch(_PATCH_STDIN_ISATTY, side_effect=OSError("device not ready"))
+
+        assert has_interactive_terminal() is False
+
+    def test_returns_actual_bool_for_truthy_non_bool_streams(self, mocker):
+        """`and` returns its second operand, so the result must be coerced to bool."""
+        mocker.patch(_PATCH_STDIN_ISATTY, return_value="yes")
+        mocker.patch(_PATCH_STDOUT_ISATTY, return_value="yes")
+
+        result = has_interactive_terminal()
+
+        assert result is True
+        assert isinstance(result, bool)

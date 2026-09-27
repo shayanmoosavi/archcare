@@ -9,6 +9,7 @@ from archcare.utils.info_models import (
     DiskUsageInfo,
     MemoryInfo,
     MirrorlistInfo,
+    PackageUpdateInfo,
     ServiceStatusInfo,
 )
 
@@ -181,3 +182,30 @@ class TestMirrorlistInfo:
         info = MirrorlistInfo()
         with pytest.raises(dataclasses.FrozenInstanceError):
             info.total_mirrors = 10  # ty:ignore[invalid-assignment]
+
+
+# ---------------------------------------------------------------------------
+# PackageUpdateInfo
+# ---------------------------------------------------------------------------
+
+
+class TestPackageUpdateInfo:
+    def test_custom(self):
+        NAME = "linux"
+        OLD_VERSION = "6.10.1.arch1-1"
+        NEW_VERSION = "6.10.2.arch1-1"
+
+        info = PackageUpdateInfo(
+            name=NAME,
+            old_version=OLD_VERSION,
+            new_version=NEW_VERSION,
+        )
+
+        assert info.name == NAME
+        assert info.old_version == OLD_VERSION
+        assert info.new_version == NEW_VERSION
+
+    def test_is_frozen(self):
+        info = PackageUpdateInfo(name="linux", old_version="1", new_version="2")
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            info.name = "other"  # ty:ignore[invalid-assignment]
