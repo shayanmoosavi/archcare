@@ -1,7 +1,7 @@
 """
 One-time setup Typer commands for Archcare.
 
-Defines the `archcare setup` sub-app and its two commands:
+Defines the `archcare setup` sub-app and its three commands:
 
 - `setup config`: writes default TOML config files
     (`settings.toml`, `tasks.toml`, `ignored-services.toml`)
@@ -10,6 +10,8 @@ Defines the `archcare setup` sub-app and its two commands:
     `/etc/systemd/system/`, reloads the daemon, and optionally enables+starts one timer per
     automated task. Must run via `sudo` since it touches `/etc/systemd/system/`; the target user is
     resolved from `SUDO_USER`.
+- `setup check-deps`: verifies that required and optional packages for the
+    system-update task are present on `PATH`.
 
 All terminal output is delegated to [`SetupPresenter`][]; commands stay thin and translate each
 failure mode into a presenter call plus a non-zero exit.
@@ -33,6 +35,31 @@ from archcare.services.exceptions import (
 )
 
 setup_app = typer.Typer(help="One-time setup commands for bootstrapping Archcare.")
+
+
+@setup_app.command(
+    "check-deps",
+    help="""
+Verify package dependencies for Archcare functionality.
+
+This gives errors for the packages that are missing and provides a command for installing them.
+""",
+)
+def setup_check_deps():
+    """
+    Verify package dependencies for Archcare functionality.
+
+    Checks `paru`, `pacman-contrib` (required) and `snap-pac`, `grub-btrfs` (conditional,
+    Btrfs only) via [`ConfigService.check_dependencies`][] and renders the result via
+    [`SetupPresenter.render_dependency_check`][]. Exits non-zero when any required package
+    is missing.
+    """
+    response = ConfigService.check_dependencies()
+    SetupPresenter.render_dependency_check(response)
+
+    missing_required = [p.name for p in response.required if not p.installed]
+    if missing_required:
+        raise typer.Exit(1)
 
 
 @setup_app.command(

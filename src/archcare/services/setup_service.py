@@ -157,7 +157,8 @@ class ConfigService:
             skipped_files=skipped,
         )
 
-    def check_dependencies(self) -> DependencyCheckResponse:
+    @staticmethod
+    def check_dependencies() -> DependencyCheckResponse:
         """
         Verify that the packages required for Archcare functionality are present.
 
