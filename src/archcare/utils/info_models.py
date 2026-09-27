@@ -13,6 +13,7 @@ Key Models:
     - [`CpuInfo`][]: CPU core counts, load averages, and active utilization levels.
     - [`MirrorlistInfo`][]: Parsed pacman mirror lists containing mirror counts, modification dates,
         and protocols.
+    - [`PackageUpdateInfo`][]: One pending package update reported by a non-mutating update check.
 
 See Also:
     - [`archcare.utils.hardware`][]: Low-level psutil hardware querying functions.
@@ -184,3 +185,42 @@ class MirrorlistInfo:
     total_mirrors: int = 0
     protocols: set[str] = field(default_factory=set)
     last_modified: str | None = None
+
+
+@dataclass(frozen=True)
+class PackageUpdateInfo:
+    """
+    Represents a single pending package update reported by an update check.
+
+    Produced by the non-mutating update queries — `checkupdates` for official-repository
+    packages and `paru -Qua` for AUR packages — and consumed by the `system-update` task
+    to build its confirmation preview. Both tools print one line per pending update as
+    `name old_version -> new_version`, which maps directly onto the three fields below.
+
+    Attributes:
+        name (str): Package name (e.g., `'linux'`, `'neovim-git'`).
+        old_version (str): Currently installed version (e.g., `'6.10.1.arch1-1'`).
+        new_version (str): Version available upstream (e.g., `'6.10.2.arch1-1'`).
+
+    Examples:
+        >>> from archcare.utils.info_models import PackageUpdateInfo
+        >>> update = PackageUpdateInfo(
+        ...     name="linux",
+        ...     old_version="6.10.1.arch1-1",
+        ...     new_version="6.10.2.arch1-1",
+        ... )
+        >>> update.name
+        'linux'
+        >>> f"{update.old_version} -> {update.new_version}"
+        '6.10.1.arch1-1 -> 6.10.2.arch1-1'
+
+    See Also:
+        - [`archcare.utils.pacman`][]: Repo update checks, package manifests, and pacman
+            transaction wrappers that produce these entries.
+        - [`SystemUpdateDetails`][archcare.core.task_details.SystemUpdateDetails]:
+            Per-run details payload that aggregates these updates.
+    """
+
+    name: str
+    old_version: str
+    new_version: str
