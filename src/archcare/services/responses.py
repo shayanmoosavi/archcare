@@ -10,11 +10,10 @@ Response families:
 
 - **Task operations** ([`TaskRunResponse`][], [`TaskListResponse`][], [`TaskStatusResponse`][]):
     returned by `TaskService` for running, listing, and checking task schedules.
-- **Setup operations** ([`ConfigInitResponse`][], [`InstallTemplatesResponse`][],
-    [`ReloadSystemdResponse`][], [`TimerEnableResponse`][], [`TimerSetupResponse`][]): returned by
-    [`ConfigService`][archcare.services.setup_service.ConfigService] and
-    [`TimerService`][archcare.services.setup_service.TimerService] for configuration creation and
-    systemd timer installation.
+- **Setup operations** (see `ConfigInitResponse`, `DependencyCheckResponse`, … below):
+    returned by [`ConfigService`][archcare.services.setup_service.ConfigService] and
+    [`TimerService`][archcare.services.setup_service.TimerService] for configuration creation,
+    dependency verification, and systemd timer installation.
 - **Debug operations** ([`NotificationTestResponse`][]): returned by `DebugService` for
     notification testing.
 
@@ -236,3 +235,43 @@ class NotificationTestResponse:
 
     severity: str
     title: str
+
+
+@dataclass
+class PackageCheck:
+    """
+    Result of checking whether a single package is installed.
+
+    Attributes:
+        name (str): Package name as it appears in the dependency list.
+        installed (bool): `True` when the package (or its command) is found on `PATH`.
+    """
+
+    name: str
+    installed: bool
+
+
+@dataclass
+class DependencyCheckResponse:
+    """
+    Result of
+    [`ConfigService.check_dependencies`][archcare.services.setup_service.ConfigService.check_dependencies].
+
+    `required` packages must be present for core operation. `conditional` packages are only relevant
+    on Btrfs filesystems and enhance the recovery story.
+
+    Attributes:
+        required (list[PackageCheck]): Core dependencies — `paru`
+            and `pacman-contrib`.
+        conditional (list[PackageCheck]): Btrfs-specific tooling
+            — `snap-pac` and `grub-btrfs`.
+
+    See also:
+        - [`check_dependencies`][archcare.services.setup_service.ConfigService]: Producer of
+            this response
+        - [`render_dependency_check`][archcare.cli.presenters.setup_presenter.SetupPresenter]:
+            Consumer of this response
+    """
+
+    required: list[PackageCheck]
+    conditional: list[PackageCheck]
