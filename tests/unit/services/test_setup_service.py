@@ -7,10 +7,14 @@ import pytest
 
 from archcare.config import AppSettings, TaskConfig
 from archcare.services.exceptions import SystemdReloadError
+from archcare.services.responses import DependencyCheckResponse
 from archcare.services.setup_service import ConfigService, TimerService
 
 _MODULE = "archcare.services.setup_service"
 _PATCH_SYSTEMCTL = f"{_MODULE}.run_systemctl"
+_PATCH_RUN_COMMAND = f"{_MODULE}.run_command"
+_PATCH_CHECK_COMMAND_EXISTS = f"{_MODULE}.check_command_exists"
+_PATCH_IS_PACKAGE_INSTALLED = f"{_MODULE}.is_package_installed"
 
 # ---------------------------------------------------------------------------
 # Helpers and fixtures
@@ -106,6 +110,45 @@ class TestConfigService:
     def test_initialize_reflects_force_flag(self, tmp_path, mock_create_config: MagicMock):
         ConfigService(config_dir=tmp_path).initialize(force=True)
         assert mock_create_config.call_args.kwargs["force"] is True
+
+    def test_check_dependencies_returns_response(self, mocker) -> None:
+        mocker.patch(_PATCH_CHECK_COMMAND_EXISTS, return_value=True)
+        mocker.patch(_PATCH_IS_PACKAGE_INSTALLED, return_value=True)
+
+        result = ConfigService.check_dependencies()
+
+        assert isinstance(result, DependencyCheckResponse)
+
+    def test_check_dependencies_required_are_present(self, mocker) -> None:
+        mocker.patch(_PATCH_CHECK_COMMAND_EXISTS, return_value=True)
+        mocker.patch(_PATCH_IS_PACKAGE_INSTALLED, return_value=True)
+
+        EXPECTED_REQUIRED_COUNT = 2
+        result = ConfigService.check_dependencies()
+
+        assert all(pkg.installed for pkg in result.required)
+        assert len(result.required) == EXPECTED_REQUIRED_COUNT
+        assert [p.name for p in result.required] == ["paru", "pacman-contrib"]
+
+    def test_check_dependencies_conditional_are_present(self, mocker) -> None:
+        mocker.patch(_PATCH_CHECK_COMMAND_EXISTS, return_value=True)
+        mocker.patch(_PATCH_IS_PACKAGE_INSTALLED, return_value=True)
+
+        EXPECTED_CONDITIONAL_COUNT = 2
+        result = ConfigService.check_dependencies()
+
+        assert all(pkg.installed for pkg in result.conditional)
+        assert len(result.conditional) == EXPECTED_CONDITIONAL_COUNT
+        assert [p.name for p in result.conditional] == ["snap-pac", "grub-btrfs"]
+
+    def test_check_dependencies_reports_missing(self, mocker) -> None:
+        mocker.patch(_PATCH_CHECK_COMMAND_EXISTS, return_value=False)
+        mocker.patch(_PATCH_IS_PACKAGE_INSTALLED, return_value=False)
+
+        result = ConfigService.check_dependencies()
+
+        assert not any(pkg.installed for pkg in result.required)
+        assert not any(pkg.installed for pkg in result.conditional)
 
 
 # ---------------------------------------------------------------------------

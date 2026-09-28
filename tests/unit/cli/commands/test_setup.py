@@ -1,17 +1,19 @@
 """Unit tests for the `setup` command group."""
 
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 import typer
 
-from archcare.cli.commands.setup import setup_config, setup_timers
+from archcare.cli.commands.setup import setup_check_deps, setup_config, setup_timers
 from archcare.services.exceptions import (
     NotRootError,
     SystemdReloadError,
     UserDetectionError,
 )
+from archcare.services.responses import DependencyCheckResponse, PackageCheck
 
 _MODULE = "archcare.cli.commands.setup"
 
@@ -62,7 +64,7 @@ class TestSetupConfig:
         mock_presenter.render_config_init.assert_called_once_with("RESULT_SENTINEL")
 
     def test_config_header_uses_service_config_dir(
-        self, tmp_path, mock_presenter: MagicMock, mock_config_service: MagicMock
+        self, tmp_path: Path, mock_presenter: MagicMock, mock_config_service: MagicMock
     ):
         mock_config_service.check_existing.return_value = []
         mock_config_service.config_dir = tmp_path
@@ -237,3 +239,44 @@ class TestSetupTimersMainFlow:
 
         assert "disk on fire" in mock_presenter.error.call_args.args[0]
         assert exc_info.value.exit_code == 1
+
+
+# ---------------------------------------------------------------------------
+# setup check-deps
+# ---------------------------------------------------------------------------
+
+
+class TestSetupCheckDeps:
+    def test_renders_dependency_check(self, mocker, mock_presenter: MagicMock):
+        mock_service: MagicMock = mocker.patch(f"{_MODULE}.ConfigService")
+        mock_service.check_dependencies.return_value = DependencyCheckResponse(
+            required=[],
+            conditional=[],
+        )
+
+        setup_check_deps()
+
+        mock_service.check_dependencies.assert_called_once()
+        mock_presenter.render_dependency_check.assert_called_once()
+
+    @pytest.mark.usefixtures("mock_presenter")
+    def test_exits_1_when_required_missing(self, mocker):
+        mock_service = mocker.patch(f"{_MODULE}.ConfigService")
+        mock_service.check_dependencies.return_value = DependencyCheckResponse(
+            required=[PackageCheck(name="paru", installed=False)], conditional=[]
+        )
+
+        with pytest.raises(typer.Exit) as exc_info:
+            setup_check_deps()
+
+        assert exc_info.value.exit_code == 1
+
+    def test_exits_0_when_all_required_present(self, mocker, mock_presenter: MagicMock):
+        mock_service = mocker.patch(f"{_MODULE}.ConfigService").return_value
+        mock_service.check_dependencies.return_value = DependencyCheckResponse(
+            required=[PackageCheck(name="paru", installed=True)], conditional=[]
+        )
+
+        setup_check_deps()
+
+        mock_presenter.render_dependency_check.assert_called_once()

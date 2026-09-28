@@ -9,7 +9,9 @@ from archcare.cli.presenters.setup_presenter import SetupPresenter, _list_timers
 from archcare.config import TaskConfig
 from archcare.services.responses import (
     ConfigInitResponse,
+    DependencyCheckResponse,
     InstallTemplatesResponse,
+    PackageCheck,
     ReloadSystemdResponse,
     TimerEnableResponse,
     TimerSetupResponse,
@@ -17,8 +19,6 @@ from archcare.services.responses import (
 
 _MODULE = "archcare.cli.presenters.setup_presenter"
 
-_PATCH_WARNINGS = f"{_MODULE}.print_warning"
-_PATCH_SUCCESS = f"{_MODULE}.print_success"
 _PATCH_CONSOLE = f"{_MODULE}.console"
 
 # ---------------------------------------------------------------------------
@@ -42,6 +42,16 @@ def _was_called_with(mock, *args, **kwargs) -> bool:
     return any(c.args == args and c.kwargs == kwargs for c in mock.call_args_list)
 
 
+def _dep_response(
+    required: list[PackageCheck] | None = None,
+    conditional: list[PackageCheck] | None = None,
+) -> DependencyCheckResponse:
+    return DependencyCheckResponse(
+        required=required or [],
+        conditional=conditional or [],
+    )
+
+
 @pytest.fixture(autouse=True)
 def mock_info(mocker) -> MagicMock:
     return mocker.patch(f"{_MODULE}.print_info")
@@ -49,12 +59,12 @@ def mock_info(mocker) -> MagicMock:
 
 @pytest.fixture
 def mock_warning(mocker) -> MagicMock:
-    return mocker.patch(_PATCH_WARNINGS)
+    return mocker.patch(f"{_MODULE}.print_warning")
 
 
 @pytest.fixture
 def mock_success(mocker) -> MagicMock:
-    return mocker.patch(_PATCH_SUCCESS)
+    return mocker.patch(f"{_MODULE}.print_success")
 
 
 @pytest.fixture(autouse=True)
@@ -74,8 +84,8 @@ class TestExistingFilesWarning:
 
         mock_warning.assert_called_once_with("Configuration files already exist:")
 
-    def test_prints_each_file_name(self, tmp_path, mocker, mock_print: MagicMock):
-        mocker.patch(_PATCH_WARNINGS)
+    @pytest.mark.usefixtures("mock_warning")
+    def test_prints_each_file_name(self, tmp_path, mock_print: MagicMock):
 
         files = [tmp_path / "settings.toml", tmp_path / "tasks.toml"]
         FILE_COUNT = 2
@@ -85,8 +95,8 @@ class TestExistingFilesWarning:
         assert "settings.toml" in mock_print.call_args_list[0].args[0]
         assert "tasks.toml" in mock_print.call_args_list[1].args[0]
 
-    def test_no_file_lines_when_list_empty(self, mocker, mock_print: MagicMock):
-        mocker.patch(_PATCH_WARNINGS)
+    @pytest.mark.usefixtures("mock_warning")
+    def test_no_file_lines_when_list_empty(self, mock_print: MagicMock):
 
         SetupPresenter.existing_files_warning([])
 
@@ -155,8 +165,8 @@ class TestRenderTemplateInstallation:
         assert expected_verb in mock_success.call_args_list[0].args[0]
         assert expected_verb in mock_success.call_args_list[1].args[0]
 
-    def test_mentions_both_file_paths(self, tmp_path, mocker, mock_info: MagicMock):
-        mocker.patch(_PATCH_SUCCESS)
+    @pytest.mark.usefixtures("mock_success")
+    def test_mentions_both_file_paths(self, tmp_path, mock_info: MagicMock):
 
         response = InstallTemplatesResponse(
             service_file=tmp_path / "archcare.service",
@@ -339,8 +349,8 @@ class TestStaticMethods:
 
 
 class TestListTimers:
-    def test_enabled_timer_prints_success(self, mocker, mock_success: MagicMock):
-        mocker.patch(_PATCH_WARNINGS)
+    @pytest.mark.usefixtures("mock_warning")
+    def test_enabled_timer_prints_success(self, mock_success: MagicMock):
 
         response = _timer_setup_response(
             enabled_timers=[TimerEnableResponse(timer_name="archcare@foo.timer", enabled=True)]
@@ -349,8 +359,8 @@ class TestListTimers:
 
         assert "archcare@foo.timer" in mock_success.call_args.args[0]
 
-    def test_failed_timer_prints_warning(self, mocker, mock_warning: MagicMock):
-        mocker.patch(_PATCH_SUCCESS)
+    @pytest.mark.usefixtures("mock_success")
+    def test_failed_timer_prints_warning(self, mock_warning: MagicMock):
 
         response = _timer_setup_response(
             enabled_timers=[TimerEnableResponse(timer_name="archcare@bar.timer", enabled=False)]
@@ -358,3 +368,56 @@ class TestListTimers:
         _list_timers(response)
 
         assert "archcare@bar.timer" in mock_warning.call_args.args[0]
+
+
+# ---------------------------------------------------------------------------
+# render_dependency_check
+# ---------------------------------------------------------------------------
+
+
+class TestRenderDependencyCheck:
+    @pytest.fixture(autouse=True)
+    @staticmethod
+    def mock_header(mocker) -> MagicMock:
+        return mocker.patch(f"{_MODULE}.print_header")
+
+    @pytest.mark.usefixtures("mock_success")
+    def test_prints_header(self, mock_header: MagicMock) -> None:
+        SetupPresenter.render_dependency_check(_dep_response())
+        mock_header.assert_called_once_with("Dependency Check")
+
+    def test_prints_required_when_present(
+        self, mock_info: MagicMock, mock_print: MagicMock
+    ) -> None:
+        response = _dep_response(
+            required=[PackageCheck(name="paru", installed=True)],
+        )
+        SetupPresenter.render_dependency_check(response)
+        assert mock_info.call_args_list[0].args[0] == "Required dependencies:"
+        assert "paru" in mock_print.call_args_list[0].args[0]
+
+    def test_prints_conditional_when_present(
+        self, mock_info: MagicMock, mock_print: MagicMock
+    ) -> None:
+        response = _dep_response(
+            conditional=[PackageCheck(name="snap-pac", installed=True)],
+        )
+        SetupPresenter.render_dependency_check(response)
+        assert mock_info.call_args_list[0].args[0] == "Conditional (Btrfs) dependencies:"
+        assert "snap-pac" in mock_print.call_args_list[0].args[0]
+
+    def test_shows_missing_hint_when_required_absent(self, mocker, mock_info: MagicMock) -> None:
+        mock_error: MagicMock = mocker.patch(f"{_MODULE}.print_error")
+        response = _dep_response(
+            required=[PackageCheck(name="paru", installed=False)],
+        )
+        SetupPresenter.render_dependency_check(response)
+        mock_error.assert_called_once()
+        assert any("sudo pacman -S paru" in str(c.args) for c in mock_info.call_args_list)
+
+    def test_shows_success_when_all_present(self, mock_success: MagicMock) -> None:
+        response = _dep_response(
+            required=[PackageCheck(name="paru", installed=True)],
+        )
+        SetupPresenter.render_dependency_check(response)
+        mock_success.assert_called_once_with("All required dependencies are present")
