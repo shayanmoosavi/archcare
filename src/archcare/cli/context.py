@@ -26,6 +26,7 @@ from archcare.cli.presenters import (
     HealthCheckFormatter,
     MaintenanceCheckFormatter,
     MirrorlistUpdateFormatter,
+    SystemUpdateFormatter,
 )
 from archcare.cli.progress import RichProgress
 from archcare.config import AppSettings, ConfigLoader, UserContext, setup_logging
@@ -37,6 +38,7 @@ from archcare.tasks import (
     HealthCheckTask,
     MaintenanceCheckTask,
     MirrorlistUpdateTask,
+    SystemUpdateTask,
 )
 
 DEFAULT_TASK_REGISTRY = TaskRegistry(
@@ -47,6 +49,7 @@ DEFAULT_TASK_REGISTRY = TaskRegistry(
         TaskDescriptor("health-check", HealthCheckTask, HealthCheckFormatter),
         TaskDescriptor("mirrorlist-update", MirrorlistUpdateTask, MirrorlistUpdateFormatter),
         TaskDescriptor("maintenance-check", MaintenanceCheckTask, MaintenanceCheckFormatter),
+        TaskDescriptor("system-update", SystemUpdateTask, SystemUpdateFormatter),
     )
 )
 

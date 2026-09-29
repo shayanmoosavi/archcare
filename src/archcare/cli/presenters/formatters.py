@@ -16,6 +16,8 @@ Formatters provided:
 - [`HealthCheckFormatter`][]: health issues plus system resource summary
 - [`MirrorlistUpdateFormatter`][]: mirror count changes, backup path, previous update time
 - [`MaintenanceCheckFormatter`][]: tasks needing attention plus schedule summary
+- [`SystemUpdateFormatter`][]: upgrade counts, AUR build failures, removals, `.pacnew` files,
+  rollback snapshot, and freed cache space
 
 See Also:
     - [`archcare.core.formatter`][]: The port (protocol) these implement
@@ -31,7 +33,9 @@ from archcare.core import (
     MaintenanceCheckDetails,
     MaintenanceCheckSummary,
     MirrorlistUpdateDetails,
+    SystemUpdateDetails,
 )
+from archcare.utils import format_bytes
 
 
 class FailedServicesFormatter:
@@ -302,3 +306,92 @@ class MaintenanceCheckFormatter:
                 f"  Informational issues: {summary.info_count}\n",
             ]
         )
+
+
+class SystemUpdateFormatter:
+    """
+    Formats details for the `system-update` task.
+
+    Renders the pending-update counts, then — and only then — the things that need the user's
+    attention: AUR builds that failed (as a yellow warning, since the transaction itself
+    succeeded), packages that were removed, `.pacnew` files awaiting manual review, the
+    pre-update snapshot ID rendered as a ready-to-paste `snapper rollback` command, and the
+    cache space reclaimed. Every section is omitted when its backing data is absent, so a
+    no-op run adds nothing to the output panel.
+
+    Note: Deliberate ommision of package names
+        The full `packages_upgraded` / `aur_packages_upgraded` name lists are deliberately **not**
+        rendered as they're already shown in `pacman` and `paru` output.
+
+    See also:
+        - [`TaskRegistry`][archcare.core.task_registry.TaskRegistry]: The place where the formatters
+            get registered
+        - [`render_run`][archcare.cli.presenters.task_presenter.TaskPresenter.render_run]: The
+            method which uses this presenter
+        - [`SystemUpdateTask`][archcare.tasks.system_update.SystemUpdateTask]: The task that
+            this formatter renders the details for
+    """
+
+    def format(self, details: SystemUpdateDetails) -> list[str]:
+        """
+        Render `system-update` task details as Rich-markup lines.
+
+        Args:
+            details (SystemUpdateDetails): Upgrade counts plus the failure, removal, `.pacnew`,
+                snapshot, and cache-cleanup data from the `system-update` run.
+
+        Returns:
+            (list[str]): Rich-markup lines: the pending-update counts (when non-zero), the AUR
+                failure warning, the removed packages, the `.pacnew` files, the rollback command
+                (when a snapshot exists), and the freed cache size. Empty when there is nothing
+                to show.
+        """
+        lines = []
+
+        if counts := self._format_counts(details):
+            lines.append(counts)
+
+        if details.aur_packages_failed:
+            lines.append("\n[bold yellow]AUR build failures:[/bold yellow]")
+            lines.extend(f"  • [yellow]{pkg}[/yellow]" for pkg in details.aur_packages_failed)
+
+        if details.packages_removed:
+            lines.append("\n[bold]Packages removed:[/bold]")
+            lines.extend(f"  • {pkg}" for pkg in details.packages_removed)
+
+        if details.pacnew_files:
+            lines.append("\n[bold].pacnew files (review manually):[/bold]")
+            lines.extend(f"  • {path}" for path in details.pacnew_files)
+
+        if (snapshot_id := details.pre_update_snapshot_id) is not None:
+            lines.append(
+                f"\n[blue]  Pre-update snapshot: {snapshot_id}[/blue]\n"
+                f"[dim]  Roll back with: snapper rollback {snapshot_id}[/dim]"
+            )
+
+        if (freed := details.cache_freed_bytes) is not None:
+            lines.append(f"  Cache cleaned: {format_bytes(freed)} freed")
+
+        return lines
+
+    @staticmethod
+    def _format_counts(details: SystemUpdateDetails) -> str:
+        """
+        Build the single `Packages:` counts line.
+
+        Only the non-zero sides are named, so the line reads `3 repository, 1 AUR` or just
+        `7 repository`. A fully up-to-date system yields no line at all.
+
+        Args:
+            details (SystemUpdateDetails): Details whose pending-update counts are rendered.
+
+        Returns:
+            str: The counts line, or an empty string when both counts are zero.
+        """
+        parts = []
+        if repo := details.repo_updates_count:
+            parts.append(f"{repo} repository")
+        if aur := details.aur_updates_count:
+            parts.append(f"{aur} AUR")
+
+        return f"  Packages: {', '.join(parts)}" if parts else ""
