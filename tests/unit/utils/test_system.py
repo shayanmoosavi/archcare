@@ -43,7 +43,7 @@ _PATCH_STDOUT_ISATTY = "sys.stdout.isatty"
 
 
 @pytest.fixture
-def target_file(tmp_path) -> Path:
+def target_file(tmp_path: Path) -> Path:
     target: Path = tmp_path / "target_file"
     target.touch()
     return target

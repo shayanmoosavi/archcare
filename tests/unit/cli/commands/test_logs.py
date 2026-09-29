@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import typer
+from _pytest.capture import CaptureFixture
 
 from archcare.cli.commands.logs import logs
 
@@ -67,7 +68,7 @@ class TestLogsCallback:
 
         mock_header.assert_called_once_with("Logs: archcare.log")
 
-    def test_shows_last_n_lines_only(self, tmp_path: Path, capsys, mocker):
+    def test_shows_last_n_lines_only(self, tmp_path: Path, capsys: CaptureFixture[str], mocker):
         mocker.patch(_PATCH_HEADER)
         ctx = _make_ctx()
         ctx.obj.executor.settings.log_dir = tmp_path
@@ -82,7 +83,9 @@ class TestLogsCallback:
         assert "line2" not in out
         assert "line3" not in out
 
-    def test_shows_all_lines_when_fewer_than_requested(self, tmp_path: Path, capsys, mocker):
+    def test_shows_all_lines_when_fewer_than_requested(
+        self, tmp_path: Path, capsys: CaptureFixture[str], mocker
+    ):
         """
         Confirming the app doesn't crash or drop lines
         when a log file is shorter than the requested tail length.

@@ -1,5 +1,6 @@
 """Unit tests for SetupPresenter."""
 
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -85,7 +86,7 @@ class TestExistingFilesWarning:
         mock_warning.assert_called_once_with("Configuration files already exist:")
 
     @pytest.mark.usefixtures("mock_warning")
-    def test_prints_each_file_name(self, tmp_path, mock_print: MagicMock):
+    def test_prints_each_file_name(self, tmp_path: Path, mock_print: MagicMock):
 
         files = [tmp_path / "settings.toml", tmp_path / "tasks.toml"]
         FILE_COUNT = 2
@@ -105,7 +106,7 @@ class TestExistingFilesWarning:
 
 class TestRenderConfigInit:
     @pytest.mark.usefixtures("mock_success")
-    def test_prints_created_files(self, tmp_path, mock_print: MagicMock):
+    def test_prints_created_files(self, tmp_path: Path, mock_print: MagicMock):
 
         SetupPresenter.render_config_init(
             ConfigInitResponse(
@@ -117,7 +118,7 @@ class TestRenderConfigInit:
 
         assert "settings.toml" in mock_print.call_args_list[0].args[0]
 
-    def test_prints_skipped_files(self, tmp_path, mock_print: MagicMock):
+    def test_prints_skipped_files(self, tmp_path: Path, mock_print: MagicMock):
         SetupPresenter.render_config_init(
             ConfigInitResponse(
                 config_dir=tmp_path,
@@ -129,7 +130,7 @@ class TestRenderConfigInit:
         assert "tasks.toml" in mock_print.call_args_list[0].args[0]
 
     @pytest.mark.usefixtures("mock_success")
-    def test_prints_both_created_and_skipped_files(self, tmp_path, mock_print: MagicMock):
+    def test_prints_both_created_and_skipped_files(self, tmp_path: Path, mock_print: MagicMock):
         SetupPresenter.render_config_init(
             ConfigInitResponse(
                 config_dir=tmp_path,
@@ -152,7 +153,7 @@ class TestRenderTemplateInstallation:
         ("dry_run", "expected_verb"), [(True, "Would create"), (False, "Created")]
     )
     def test_verb_matches_dry_run_flag(
-        self, tmp_path, dry_run, expected_verb, mock_success: MagicMock
+        self, tmp_path: Path, dry_run, expected_verb, mock_success: MagicMock
     ):
 
         response = InstallTemplatesResponse(
@@ -166,7 +167,7 @@ class TestRenderTemplateInstallation:
         assert expected_verb in mock_success.call_args_list[1].args[0]
 
     @pytest.mark.usefixtures("mock_success")
-    def test_mentions_both_file_paths(self, tmp_path, mock_info: MagicMock):
+    def test_mentions_both_file_paths(self, tmp_path: Path, mock_info: MagicMock):
 
         response = InstallTemplatesResponse(
             service_file=tmp_path / "archcare.service",
@@ -217,7 +218,7 @@ class TestRenderTimerSetup:
         ],
     )
     def test_tasks_show_correct_icon(
-        self, task_fixture, expected_icon, request, mock_print: MagicMock
+        self, task_fixture, expected_icon, request: pytest.FixtureRequest, mock_print: MagicMock
     ):
 
         task: TaskConfig = request.getfixturevalue(task_fixture)
@@ -301,7 +302,7 @@ class TestStaticMethods:
     def mock_error(mocker) -> MagicMock:
         return mocker.patch(f"{_MODULE}.print_error")
 
-    def test_config_header(self, tmp_path, mocker, mock_info: MagicMock):
+    def test_config_header(self, tmp_path: Path, mocker, mock_info: MagicMock):
         mocker.patch(f"{_MODULE}.print_header")
 
         SetupPresenter.config_header(tmp_path)

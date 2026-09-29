@@ -3,12 +3,13 @@
 from pathlib import Path
 
 import pytest
+from _pytest.monkeypatch import MonkeyPatch
 
 from archcare.config import AppSettings
 
 
 @pytest.fixture(autouse=True)
-def archcare_home(monkeypatch, tmp_path: Path) -> Path:
+def archcare_home(monkeypatch: MonkeyPatch, tmp_path: Path) -> Path:
     """
     Redirects AppSettings.home_dir to tmp_path for every integration test.
 

@@ -5,6 +5,7 @@ from io import StringIO
 from unittest.mock import patch
 
 import pytest
+from _pytest.monkeypatch import MonkeyPatch
 from loguru import logger
 
 from archcare.config import AppState, TaskConfig, TasksConfig, TaskStatus
@@ -117,7 +118,7 @@ def state_with_overdue_run(automated_task: TaskConfig) -> AppState:
 
 
 @pytest.fixture(autouse=True)
-def clear_archcare_user(monkeypatch):
+def clear_archcare_user(monkeypatch: MonkeyPatch):
     """
     Ensure ARCHCARE_USER and SUDO_USER are never set during tests.
 

@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
+from _pytest.monkeypatch import MonkeyPatch
 
 from archcare.config import (
     AppSettings,
@@ -26,7 +27,7 @@ DEFAULT_CONFIG_FILES_COUNT = 3
 
 
 @pytest.fixture
-def mock_home_dir(monkeypatch, tmp_path):
+def mock_home_dir(monkeypatch: MonkeyPatch, tmp_path: Path) -> Path:
     """
     Prevent AppSettings from hitting the real /home directory.
     By patching the property descriptor on the class, we force all derived
@@ -38,7 +39,7 @@ def mock_home_dir(monkeypatch, tmp_path):
 
 
 @pytest.fixture
-def config_dir(mock_home_dir) -> Path:
+def config_dir(mock_home_dir: Path) -> Path:
     """Provides an isolated configuration directory."""
     d: Path = mock_home_dir / ".config/archcare"
     d.mkdir(parents=True, exist_ok=True)
@@ -52,7 +53,7 @@ def loader(config_dir: Path) -> ConfigLoader:
 
 
 @pytest.fixture
-def state_file(tmp_path) -> Path:
+def state_file(tmp_path: Path) -> Path:
     """Explicit state file path in tmp_path passed to load_state/save_state."""
     return tmp_path / "state.json"
 
@@ -84,7 +85,7 @@ _BAD_TOML = "[[[ this is not valid toml"
 
 
 class TestConfigLoaderInit:
-    def test_creates_config_dir_when_absent(self, tmp_path):
+    def test_creates_config_dir_when_absent(self, tmp_path: Path):
         config_dir: Path = tmp_path / "new" / "archcare"
         ConfigLoader(config_dir=config_dir)
         assert config_dir.exists()
@@ -506,7 +507,7 @@ class TestStateManagement:
         reloaded = loader.load_state(state_file=state_file)
         assert reloaded.get_task_state("test-task").run_count == EXPECTED_RUN_COUNT
 
-    def test_save_creates_parent_directory(self, loader: ConfigLoader, tmp_path):
+    def test_save_creates_parent_directory(self, loader: ConfigLoader, tmp_path: Path):
         nested = tmp_path / "deep" / "nested" / "state.json"
         loader.save_state(AppState(), state_file=nested)
         assert nested.exists()
@@ -524,21 +525,21 @@ class TestStateManagement:
 
 
 class TestCreateDefaultConfigFiles:
-    def test_creates_all_default_files_when_they_are_absent(self, tmp_path):
+    def test_creates_all_default_files_when_they_are_absent(self, tmp_path: Path):
         create_default_config_files(tmp_path)
 
         assert (tmp_path / "tasks.toml").exists()
         assert (tmp_path / "ignored-services.toml").exists()
         assert (tmp_path / "settings.toml").exists()
 
-    def test_created_files_are_returned(self, tmp_path):
+    def test_created_files_are_returned(self, tmp_path: Path):
         created, _ = create_default_config_files(tmp_path)
         assert len(created) == DEFAULT_CONFIG_FILES_COUNT
         assert tmp_path / "tasks.toml" in created
         assert tmp_path / "ignored-services.toml" in created
         assert tmp_path / "settings.toml" in created
 
-    def test_created_files_are_skipped(self, tmp_path):
+    def test_created_files_are_skipped(self, tmp_path: Path):
         # Delibrately calling it twice
         create_default_config_files(tmp_path)
         _, skipped = create_default_config_files(tmp_path)
@@ -549,7 +550,7 @@ class TestCreateDefaultConfigFiles:
         assert tmp_path / "settings.toml" in skipped
 
     @pytest.mark.parametrize("filename", ["tasks.toml", "ignored-services.toml", "settings.toml"])
-    def test_does_not_overwrite_existing_files_without_force(self, tmp_path, filename):
+    def test_does_not_overwrite_existing_files_without_force(self, tmp_path: Path, filename: str):
         sentinel = "sentinel content"
         (tmp_path / filename).write_text(sentinel)
         created, skipped = create_default_config_files(tmp_path, force=False)
@@ -559,19 +560,19 @@ class TestCreateDefaultConfigFiles:
         assert tmp_path / filename in skipped
 
     @pytest.mark.parametrize("filename", ["tasks.toml", "ignored-services.toml", "settings.toml"])
-    def test_overwrites_existing_files_with_force(self, tmp_path, filename):
+    def test_overwrites_existing_files_with_force(self, tmp_path: Path, filename: str):
         sentinel = "sentinel content"
         (tmp_path / filename).write_text(sentinel)
         create_default_config_files(tmp_path, force=True)
 
         assert (tmp_path / filename).read_text() != sentinel
 
-    def test_creates_config_dir_when_absent(self, tmp_path):
+    def test_creates_config_dir_when_absent(self, tmp_path: Path):
         config_dir = tmp_path / "new" / "archcare"
         create_default_config_files(config_dir)
         assert config_dir.exists()
 
-    def test_created_settings_toml_is_valid_toml(self, tmp_path):
+    def test_created_settings_toml_is_valid_toml(self, tmp_path: Path):
         import tomllib
 
         create_default_config_files(tmp_path)
@@ -579,7 +580,7 @@ class TestCreateDefaultConfigFiles:
             data = tomllib.load(f)
         assert isinstance(data, dict)
 
-    def test_created_tasks_toml_is_valid_toml(self, tmp_path):
+    def test_created_tasks_toml_is_valid_toml(self, tmp_path: Path):
         import tomllib
 
         create_default_config_files(tmp_path)
@@ -587,7 +588,7 @@ class TestCreateDefaultConfigFiles:
             data = tomllib.load(f)
         assert isinstance(data, dict)
 
-    def test_created_ignored_services_toml_is_valid_toml(self, tmp_path):
+    def test_created_ignored_services_toml_is_valid_toml(self, tmp_path: Path):
         import tomllib
 
         create_default_config_files(tmp_path)

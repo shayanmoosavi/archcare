@@ -351,7 +351,7 @@ class TestRenderList:
         self,
         task_fixture,
         expected_icon,
-        request,
+        request: pytest.FixtureRequest,
         mock_console: MagicMock,
         presenter: TaskPresenter,
     ):
