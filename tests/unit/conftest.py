@@ -119,13 +119,21 @@ def state_with_overdue_run(automated_task: TaskConfig) -> AppState:
 @pytest.fixture(autouse=True)
 def clear_archcare_user(monkeypatch):
     """
-    Ensure ARCHCARE_USER is never set during tests.
+    Ensure ARCHCARE_USER and SUDO_USER are never set during tests.
 
-    _update_state's chown block requires both is_root() AND ARCHCARE_USER.
-    Clearing the env var makes the condition unconditionally False regardless
-    of whether tests run as root (e.g. in a Docker-based CI pipeline).
+    ARCHCARE_USER: _update_state's chown block requires both is_root() AND
+    ARCHCARE_USER. Clearing the env var makes the condition unconditionally False
+    regardless of whether tests run as root (e.g. in a Docker-based CI pipeline).
+
+    SUDO_USER: AppSettings.home_dir consults SUDO_USER *before* falling back to
+    Path.home() (models.py: `home_dir`). Any test that redirects Path.home() to
+    tmp_path to keep writes out of the real home is silently defeated when the
+    suite runs under sudo, because home_dir then resolves via pwd instead. Tests
+    that exercise the SUDO_USER indirection itself set it explicitly, which still
+    wins since monkeypatch teardown restores the autouse deletion.
     """
     monkeypatch.delenv("ARCHCARE_USER", raising=False)
+    monkeypatch.delenv("SUDO_USER", raising=False)
 
 
 @pytest.fixture
