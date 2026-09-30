@@ -24,7 +24,7 @@ See Also:
     - [`DebugService`][archcare.services.debug_service]: Producer of debug-operation responses
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from archcare.config import TaskConfig
@@ -275,3 +275,49 @@ class DependencyCheckResponse:
 
     required: list[PackageCheck]
     conditional: list[PackageCheck]
+
+
+@dataclass(frozen=True)
+class RecoveryResponse:
+    """
+    Result of
+    [`RecoveryService.get_recovery_info`][archcare.services.recovery_service.RecoveryService.get_recovery_info].
+
+    `commands` is a tuple of ready-to-paste shell commands for the user to run themselves —
+    this command never executes them. See the module docstring of
+    `archcare.cli.commands.task` for why.
+
+    Attributes:
+        available (bool): `True` when a recovery record was found and parsed. `False` means
+            either no record exists or it is malformed; `reason` says which. Defaults to `False`.
+        reason (str | None): Human-readable explanation when `available` is `False`. Defaults
+            to `None`.
+        updated_at (str | None): ISO timestamp of the run that wrote the record. Defaults to `None`.
+        snapshot_id (int | None): `snapper` snapshot ID from the run, the argument to
+            `snapper rollback <id>`. Defaults to `None`.
+        sync_db_backup (str | None): Path to the saved sync-database backup. Defaults to `None`.
+        manifest_before (str | None): Path to the pre-upgrade package manifest. Defaults to `None`.
+        manifest_after (str | None): Path to the post-upgrade package manifest. Defaults to `None`.
+        packages_removed (list[str]): Packages the run removed. Defaults to an empty list.
+        aur_packages_failed (list[str]): AUR packages the run failed to build or install.
+            Defaults to an empty list.
+        commands (tuple[str, ...]): Ready-to-paste recovery commands, most-relevant first.
+            Defaults to an empty tuple.
+
+    See also:
+        - [`RecoveryService`][archcare.services.recovery_service.RecoveryService]: Producer of
+            this response
+        - [`render_recovery`][archcare.cli.presenters.task_presenter.TaskPresenter.render_recovery]:
+            Consumer of this response
+    """
+
+    available: bool = False
+    reason: str | None = None
+    updated_at: str | None = None
+    snapshot_id: int | None = None
+    sync_db_backup: str | None = None
+    manifest_before: str | None = None
+    manifest_after: str | None = None
+    packages_removed: list[str] = field(default_factory=list)
+    aur_packages_failed: list[str] = field(default_factory=list)
+    commands: tuple[str, ...] = ()
