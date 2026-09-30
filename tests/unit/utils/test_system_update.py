@@ -1,11 +1,15 @@
 """Unit tests for AUR, Arch news, and Btrfs snapshot utility functions."""
 
+import shlex
+import subprocess
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
 from archcare.utils.system import CommandResult
 from archcare.utils.system_update import (
+    build_restore_script,
     detect_btrfs_snapshot_tooling,
     get_latest_snapshot_id,
     get_pending_aur_updates,
@@ -281,3 +285,176 @@ class TestGetLatestSnapshotId:
         )
 
         assert get_latest_snapshot_id() == LATEST_SNAPSHOT_ID
+
+
+# ---------------------------------------------------------------------------
+# build_restore_script
+# ---------------------------------------------------------------------------
+
+_BACKUP = Path("/r/sync-db/b")
+_CACHE = Path("/tmp/cache")
+
+
+def _script(**kwargs) -> str:
+    """Render the restore script with sensible defaults for the paths under test."""
+    kwargs.setdefault("sync_db_backup", _BACKUP)
+    kwargs.setdefault("cache_dir", _CACHE)
+    return build_restore_script(**kwargs)
+
+
+class TestBuildRestoreScriptPaths:
+    def test_script_embeds_the_backup_path(self):
+        script = _script()
+
+        assert shlex.quote(str(_BACKUP)) in script
+
+    def test_script_embeds_the_cache_and_sync_target(self):
+        script = _script()
+
+        assert shlex.quote(str(_CACHE)) in script
+        assert shlex.quote("/var/lib/pacman/sync") in script
+
+    def test_default_cache_dir_is_the_pacman_cache(self):
+        script = build_restore_script(_BACKUP)
+
+        assert shlex.quote("/var/cache/pacman/pkg") in script
+
+    def test_quotes_paths_with_shell_metacharacters(self):
+        """The backup path is untrusted file content — no bare interpolation."""
+        hostile = Path('/r/we\'ird $(touch pwned) "; rm -rf /; echo " dir/bk')
+        script = _script(sync_db_backup=hostile)
+
+        assert shlex.quote(str(hostile)) in script
+        # The raw, unquoted form must not appear as a bare assignment value.
+        assignment = next(line for line in script.splitlines() if line.startswith("SYNC_BACKUP="))
+        assert assignment == f"SYNC_BACKUP={shlex.quote(str(hostile))}"
+
+
+class TestBuildRestoreScriptWikiMethod:
+    def test_script_does_not_reference_the_manifest_at_all(self):
+        """The canonical method needs no manifest — pacman reads the restored sync DB itself."""
+        script = _script()
+
+        assert "MANIFEST" not in script
+        assert "pacman -Qi" not in script
+        assert "awk" not in script
+
+    def test_script_uses_the_wiki_native_restore_command(self):
+        script = _script()
+
+        assert "pacman -S -" in script
+
+    def test_native_restore_covers_the_explicitly_installed_set(self):
+        """`-Qe`, not `-Qnq`: dependencies return as dependencies, and it is ~6x less work."""
+        script = _script()
+
+        assert "# pacman -Qe | sudo pacman -S -" in script
+
+    def test_script_handles_foreign_packages_separately(self):
+        """`-S` resolves from sync DBs; AUR packages are not in them."""
+        script = _script()
+
+        assert "# pacman -Qmq" in script
+
+    def test_needed_is_explained_and_never_passed_to_pacman(self):
+        """`--needed` skips anything the restored DB already lists as current — the majority."""
+        script = _script()
+
+        assert "--needed" in script, "its absence must be explained, not silent"
+        offending = [
+            line for line in script.splitlines() if "--needed" in line and "pacman" in line
+        ]
+        assert offending == [], f"--needed must never reach a command line: {offending}"
+
+    def test_script_documents_the_sync_db_dependency(self):
+        """Without the restored sync DB the `-S` command installs NEWER packages, not older ones."""
+        script = _script()
+
+        assert "sync" in script.lower()
+        assert "Restoring pacman sync database" in script
+
+
+class TestBuildRestoreScriptPrecondition:
+    def test_sync_backup_guard_precedes_the_copy(self):
+        """The guard is the whole critical-failure contract: check first, copy second."""
+        script = _script(sync_db_backup=Path("/r/nope"))
+
+        assert script.index("exit 1") < script.index("cp -a")
+
+    def test_the_sync_backup_guard_itself_exits_before_the_copy(self):
+        """Scoped to the sync-backup block: an unrelated earlier `exit 1` must not satisfy it."""
+        script = _script()
+
+        start = script.index('if [ ! -d "$SYNC_BACKUP" ]; then')
+        block = script[start : script.index("\nfi", start)]
+
+        assert "exit 1" in block, "the sync-backup guard must abort, not fall through"
+        assert start < script.index("cp -a")
+
+    def test_guard_tests_for_a_directory(self):
+        script = _script()
+
+        assert '[ ! -d "$SYNC_BACKUP" ]' in script
+
+    def test_merges_rather_than_wiping_the_sync_db(self):
+        """`cp -a <backup>/. <target>/` mirrors restore_sync_db; never `mv` or a wipe-first."""
+        script = _script()
+
+        assert 'cp -a "$SYNC_BACKUP/." "$SYNC_TARGET/"' in script
+        assert "rm -rf" not in script
+        assert "mv " not in script
+
+    def test_script_stops_at_the_first_failing_command(self):
+        """`set -euo pipefail`: a failed `cp -a` must abort, not fall through to a bogus restore."""
+        script = _script()
+
+        assert "set -euo pipefail" in script
+        assert script.index("set -euo pipefail") < script.index("cp -a")
+
+
+class TestBuildRestoreScriptReport:
+    def test_states_the_rotated_out_limitation_rather_than_promising_exact_versions(self):
+        """`-S` resolves from the restored DB, so a version rotated out of it is not restored.
+
+        The old contract here was "report missing artifacts and carry on". There are no
+        artifacts to report any more, so the equivalent contract is that the script says
+        plainly which case it cannot cover, and offers the exact-version route for it.
+        """
+        script = _script()
+
+        assert "rotated out" in script
+        assert "NOT be downgraded" in script
+        assert "pacman -U" in script
+
+    def test_never_runs_the_downgrade_itself(self):
+        """Print-only for the destructive step: every `pacman -S` line stays commented.
+
+        The check is on the whole line, not a prefix: the native command is a pipe
+        (`pacman -Qe | sudo pacman -S -`), so uncommenting it does not produce a line that
+        *starts* with `sudo pacman -S` and a prefix check would sail straight past it.
+        """
+        script = _script()
+
+        assert "# pacman -Qe | sudo pacman -S -" in script
+        uncommented = [
+            line
+            for line in script.splitlines()
+            if "sudo pacman -S" in line and not line.startswith("#")
+        ]
+        assert uncommented == []
+
+
+class TestBuildRestoreScriptSyntax:
+    def test_generated_script_is_syntactically_valid_bash(self):
+        """A syntax error here ships a recovery tool that cannot run at all."""
+        script = _script()
+
+        result = subprocess.run(
+            ["bash", "-n"],
+            input=script,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert result.returncode == 0, result.stderr
