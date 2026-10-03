@@ -2,10 +2,8 @@
 Unit tests for MaintenanceCheckTask (tasks/maintenance_check.py).
 
 Scope: the categorization/scheduling logic that's genuinely this task's
-own - execute()'s orchestration, _check_task()'s branching, and the static
-helper methods. post_execute()/_send_notification()/_save_report()/
-_cleanup_old_reports() are a separate, natural follow-up pass.
-
+own and deserve unit tests. Other aspects of the task are covered by
+integration tests.
 """
 
 import os

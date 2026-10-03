@@ -886,6 +886,96 @@ class MaintenanceCheckSettings(BaseModel):
         return self
 
 
+class SystemUpdateSettings(BaseModel):
+    """
+    Settings for `system-update` task.
+
+    Controls the full pacman + AUR system upgrade performed by the `system-update` task:
+    when the task counts as having work to do, and how aggressively the pacman package
+    cache is pruned afterwards.
+
+    Attributes:
+        min_repo_updates_threshold (int): Minimum number of pending *official repository*
+            updates required before the task does anything. (Range: >= 0 | Default: 30)
+
+            Serves as the `should_run()` gate. With the default of `30` the task runs as
+            soon as at least 30 packages are pending an update in the official repos. This is
+            a whole-task gate — a repo count below the threshold also skips the AUR upgrade step.
+
+        cache_keep_versions (int): Number of cached versions to keep per *installed*
+            package (including the current installed version), passed to `paccache` as `-rk<n>`.
+            (Range: >= 0 | Default: 2)
+
+            `paccache`'s own default is 3. Setting it to `0` purges every cached version
+            of installed packages, which also removes the ability to downgrade a package
+            with `pacman -U` after a bad update.
+
+        cache_keep_uninstalled_versions (int): Number of cached versions to keep per
+            *uninstalled* package, passed to `paccache` as `-ruk<n>`.
+            (Range: >= 0 | Default: 1)
+
+            Defaults to `1` because a package removed by an upgrade is uninstalled, and
+            `archcare task recover system-update` can only reinstall it from the cache.
+            Purging to `0` would delete the artifact that recovery path depends on, so one
+            version is retained.
+
+    Example Configurations:
+        ```toml title="settings.toml"
+        # Default: only update once 30 repo packages are pending, keep 2 versions (current and
+        # previous version); sensible default
+        [system_update]
+        min_repo_updates_threshold = 30
+        cache_keep_versions = 2
+        cache_keep_uninstalled_versions = 1
+
+        # Batched: only update once 200 repo packages are pending, deep downgrade cache
+        [system_update]
+        min_repo_updates_threshold = 200
+        cache_keep_versions = 5
+        cache_keep_uninstalled_versions = 1
+
+        # Aggressive: any single update is enough, trim the cache hard
+        [system_update]
+        min_repo_updates_threshold = 1
+        cache_keep_versions = 1
+        cache_keep_uninstalled_versions = 1
+        ```
+
+    Validation:
+        - `min_repo_updates_threshold` must be >= 0
+        - `cache_keep_versions` must be >= 0
+        - `cache_keep_uninstalled_versions` must be >= 0
+
+    Integration:
+        - `system-update` task reads these via `self.settings.system_update`
+        - Both cache fields map directly onto a single
+          `paccache -rk<cache_keep_versions> -ruk<cache_keep_uninstalled_versions>` call
+          in `post_execute()`
+
+    See also:
+        - [`MirrorlistSettings`][]: Mirrorlist-specific settings
+        - [`HealthCheckSettings`][]: Health check threshold settings
+        - [`SystemUpdateDetails`][archcare.core.task_details.SystemUpdateDetails]: Details
+            payload produced by the task these settings configure
+    """
+
+    min_repo_updates_threshold: int = Field(
+        default=30,
+        ge=0,
+        description="Minimum pending repository updates before the task runs",
+    )
+    cache_keep_versions: int = Field(
+        default=2,
+        ge=0,
+        description="Cached versions to keep per installed package",
+    )
+    cache_keep_uninstalled_versions: int = Field(
+        default=1,
+        ge=0,
+        description="Cached versions to keep per uninstalled package",
+    )
+
+
 class AppSettings(BaseModel):
     """
     Application-wide settings
@@ -907,6 +997,7 @@ class AppSettings(BaseModel):
         mirrorlist (MirrorlistSettings): Mirrorlist settings
         maintenance_check (MaintenanceCheckSettings): Maintenance check settings
         health_check (HealthCheckSettings): Health check threshold settings
+        system_update (SystemUpdateSettings): System update settings
 
     Methods:
         home_dir: *(property)* User's home directory
@@ -921,6 +1012,8 @@ class AppSettings(BaseModel):
 
         ensure_directories: Create necessary directories if missing.
             Called during app initialization; idempotent (safe to call multiple times).
+
+        recovery_dir: *(property)* Recovery record directory
 
     Example Configuration:
         ```toml title="settings.toml"
@@ -964,6 +1057,7 @@ class AppSettings(BaseModel):
         - [`MirrorlistSettings`][]: Mirrorlist-specific settings
         - [`MaintenanceCheckSettings`][]: Maintenance check-specific settings
         - [`HealthCheckSettings`][]: Health check threshold settings
+        - [`SystemUpdateSettings`][]: System update-specific settings
     """
 
     # Global settings
@@ -1000,6 +1094,13 @@ class AppSettings(BaseModel):
     health_check: HealthCheckSettings = Field(
         default_factory=HealthCheckSettings,
         description="Settings for health check task thresholds",
+    )
+
+    # system update specific settings
+    # This corresponds to the [system_update] section in the settings.toml file
+    system_update: SystemUpdateSettings = Field(
+        default_factory=SystemUpdateSettings,
+        description="Settings for system update task",
     )
 
     # Paths
@@ -1149,6 +1250,37 @@ class AppSettings(BaseModel):
             ```
         """
         return self.home_dir / ".local/state/archcare/reports"
+
+    @computed_field
+    @property
+    def recovery_dir(self) -> Path:
+        """
+        Directory for task-owned recovery records.
+
+        Location: `~/.local/state/archcare/recovery`
+
+        Created on demand by the tasks that write into it — deliberately *not* part of
+        [`ensure_directories`][], so a user who never runs a recovery-producing task never
+        gets an empty directory. Callers must `mkdir(parents=True, exist_ok=True)` before
+        writing.
+
+        Currently holds one file per task that produces recovery artifacts, e.g.
+        `system-update.json` written by
+        [`SystemUpdateTask.execute`][archcare.tasks.system_update.SystemUpdateTask.execute].
+
+        Example:
+            ```ansi
+            ~/.local/state/archcare/recovery/
+            ├── system-update.json
+            └── manifests/
+                ├── before_2026-09-28_140000.txt
+                └── after_2026-09-28_140312.txt
+            ```
+
+        See also:
+            - [`state_file`][]: Sibling record; the app-wide task history
+        """
+        return self.state_file.parent / "recovery"
 
     @model_validator(mode="after")
     def validate_paths(self) -> Self:

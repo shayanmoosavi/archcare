@@ -9,6 +9,7 @@ from archcare.cli.presenters import (
     HealthCheckFormatter,
     MaintenanceCheckFormatter,
     MirrorlistUpdateFormatter,
+    SystemUpdateFormatter,
 )
 from archcare.core import (
     FailedServiceInfo,
@@ -20,6 +21,7 @@ from archcare.core import (
     MaintenanceCheckSummary,
     MaintenanceIssue,
     MirrorlistUpdateDetails,
+    SystemUpdateDetails,
 )
 from archcare.utils.info_models import MirrorlistInfo
 
@@ -341,3 +343,132 @@ class TestMirrorlistUpdateFormatter:
         output = _joined(MirrorlistUpdateFormatter().format(details))
 
         assert "Previous update:" not in output
+
+
+# ---------------------------------------------------------------------------
+# SystemUpdateFormatter
+# ---------------------------------------------------------------------------
+
+
+class TestSystemUpdateFormatter:
+    def test_empty_details_produces_no_lines(self):
+        assert SystemUpdateFormatter().format(SystemUpdateDetails()) == []
+
+    def test_full_details_render_every_section(self):
+        details = SystemUpdateDetails(
+            repo_updates_count=3,
+            aur_updates_count=1,
+            packages_upgraded=["linux", "pacman", "nvidia-utils"],
+            aur_packages_upgraded=["paru"],
+            aur_packages_failed=["yay"],
+            packages_removed=["linux-lts"],
+            pacnew_files=["/etc/pacman.conf.pacnew"],
+            pre_update_snapshot_id=42,
+            cache_freed_bytes=1024**3 * 3 // 2,
+        )
+
+        output = _joined(SystemUpdateFormatter().format(details))
+
+        assert "Packages: 3 repository, 1 AUR" in output
+        assert "yay" in output
+        assert "linux-lts" in output
+        assert "/etc/pacman.conf.pacnew" in output
+        assert "42" in output
+        assert "1.50 GB" in output
+
+    def test_counts_omitted_when_both_zero(self):
+        output = _joined(SystemUpdateFormatter().format(SystemUpdateDetails()))
+
+        assert "Packages:" not in output
+
+    def test_counts_show_only_the_non_zero_side(self):
+        details = SystemUpdateDetails(repo_updates_count=7)
+
+        output = _joined(SystemUpdateFormatter().format(details))
+
+        assert "Packages: 7 repository" in output
+        assert "AUR" not in output
+
+    def test_aur_failures_rendered_as_a_yellow_warning(self):
+        details = SystemUpdateDetails(aur_packages_failed=["yay", "some-broken-pkg"])
+
+        lines = SystemUpdateFormatter().format(details)
+
+        assert any("[bold yellow]" in line and "AUR" in line for line in lines)
+        assert any("[yellow]yay[/yellow]" in line for line in lines)
+        assert any("some-broken-pkg" in line for line in lines)
+
+    def test_aur_failures_section_absent_when_empty(self):
+        output = _joined(SystemUpdateFormatter().format(SystemUpdateDetails()))
+
+        assert "yay" not in output
+        assert "[yellow]" not in output
+
+    def test_removed_packages_listed(self):
+        details = SystemUpdateDetails(packages_removed=["linux-lts", "old-thing"])
+
+        output = _joined(SystemUpdateFormatter().format(details))
+
+        assert "linux-lts" in output
+        assert "old-thing" in output
+
+    def test_removed_section_absent_when_empty(self):
+        output = _joined(SystemUpdateFormatter().format(SystemUpdateDetails()))
+
+        assert "Removed:" not in output
+
+    def test_pacnew_files_listed(self):
+        details = SystemUpdateDetails(pacnew_files=["/etc/pacman.conf.pacnew"])
+
+        output = _joined(SystemUpdateFormatter().format(details))
+
+        assert "/etc/pacman.conf.pacnew" in output
+
+    def test_pacnew_section_absent_when_empty(self):
+        output = _joined(SystemUpdateFormatter().format(SystemUpdateDetails()))
+
+        assert "pacnew" not in output.lower()
+
+    def test_snapshot_id_shown_when_present(self):
+        details = SystemUpdateDetails(pre_update_snapshot_id=42)
+
+        output = _joined(SystemUpdateFormatter().format(details))
+
+        assert "42" in output
+        assert "snapper rollback 42" in output
+
+    def test_snapshot_line_absent_when_none(self):
+        output = _joined(
+            SystemUpdateFormatter().format(SystemUpdateDetails(pre_update_snapshot_id=None))
+        )
+
+        assert "snapper rollback" not in output
+
+    def test_cache_freed_rendered_through_format_bytes(self):
+        details = SystemUpdateDetails(cache_freed_bytes=1024**3 * 3 // 2)
+
+        output = _joined(SystemUpdateFormatter().format(details))
+
+        assert "1.50 GB" in output
+
+    def test_cache_line_absent_when_none(self):
+        output = _joined(
+            SystemUpdateFormatter().format(SystemUpdateDetails(cache_freed_bytes=None))
+        )
+
+        assert "freed" not in output.lower()
+
+    def test_does_not_list_every_upgraded_package(self):
+        details = SystemUpdateDetails(
+            repo_updates_count=2,
+            packages_upgraded=["linux", "pacman"],
+            aur_packages_upgraded=["paru"],
+        )
+
+        output = _joined(SystemUpdateFormatter().format(details))
+
+        # Counts are shown, the raw name list is not: on a routine weekly update
+        # that list is dozens of entries and drowns the signal.
+        assert "Packages: 2 repository" in output
+        assert "pacman" not in output
+        assert "paru" not in output

@@ -32,7 +32,6 @@ dependencies = [
     { name = "rich" },
     { name = "tomlkit" },
     { name = "typer" },
-    { name = "types-psutil" },
 ]
 
 [package.dev-dependencies]
@@ -53,6 +52,7 @@ dev = [
     { name = "pytest-mock" },
     { name = "ruff" },
     { name = "ty" },
+    { name = "types-psutil" },
     { name = "zensical" },
 ]
 docs = [
@@ -78,7 +78,6 @@ requires-dist = [
     { name = "rich", specifier = ">=15.0.0,<16.0.0" },
     { name = "tomlkit", specifier = ">=0.15.1,<1.0.0" },
     { name = "typer", specifier = ">=0.21.1,<1.0.0" },
-    { name = "types-psutil", specifier = ">=7.2.1.20260116,<8.0.0.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -99,6 +98,7 @@ dev = [
     { name = "pytest-mock", specifier = ">=3.15.1,<4.0.0" },
     { name = "ruff", specifier = ">=0.15.0,<0.17.0" },
     { name = "ty", specifier = ">=0.0.55,<0.1.0" },
+    { name = "types-psutil", specifier = ">=7.2.1.20260116,<8.0.0.0" },
     { name = "zensical", specifier = ">=0.0.62,<1.0.0" },
 ]
 docs = [

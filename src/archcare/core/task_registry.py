@@ -182,12 +182,11 @@ class TaskRegistry:
             'MyTask'
             >>> issubclass(cls, BaseTask)
             True
-            >>> registry.get_task_class("unknown")  # doctest: +IGNORE_EXCEPTION_DETAIL
+            >>> registry.get_task_class("unknown")  # doctest: +NORMALIZE_WHITESPACE
             Traceback (most recent call last):
             ...
-            archcare.core.exceptions.TaskNotRegisteredError:
-            Task 'No task registered for: unknown. Available tasks:
-            ["my-task"]' is not registered
+            archcare.core.exceptions.TaskNotRegisteredError: No task registered for: 'unknown'.
+            Available tasks: ['my-task']
         """
         descriptor = self._by_name.get(name)
         if descriptor is None:

@@ -14,6 +14,7 @@ This document provides a comprehensive reference for working with the Archcare c
 - Runs health checks (disk, memory, CPU, filesystem, pacman database) (`health-check`)
 - Refreshes mirrorlist via `reflector` with backup/rollback (`mirrorlist-update`)
 - Tracks maintenance task schedules and reports what's due (`maintenance-check`)
+- Runs full-system updates (`system-update`) with recovery via `recovery_service` (`task recover`)
 
 **Tech Stack**: Python 3.13–3.14 (`requires-python = ">=3.13,<3.15.0"`), Typer (CLI), Rich (terminal UI), Loguru (logging), Pydantic (config/validation), psutil (system metrics)
 
@@ -48,30 +49,30 @@ utils/      → subprocess wrappers, system/hardware queries, notifications
 
 ### Core Layer (`src/archcare/core/`)
 
-| File               | Purpose                                                                                                                                |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `base_task.py`     | `BaseTask` - abstract base with `execute()`, `pre_check()`, `should_run()`, `post_execute()`, `rollback()`, `run()`                    |
-| `executor.py`      | `TaskExecutor` - coordinates task instantiation, execution, state updates; `TaskExecutorPorts` - dataclass grouping optional port dependencies              |
-| `task_registry.py` | `TaskRegistry`, `TaskDescriptor` - static mapping of task name → (class, formatter)                                                    |
-| `models.py`        | `TaskResult[TDetails]`, `TaskStep`, `IssueSeverity`, `MaintenanceIssue`, factory functions (`success`, `failed`, `skipped`, `partial`) |
-| `task_details.py`  | Per-task detail dataclasses: `FailedServicesDetails`, `HealthCheckDetails`, `MaintenanceCheckDetails`, `MirrorlistUpdateDetails`       |
-| `scheduler.py`     | `TaskScheduler` - determines if tasks are due based on frequency/last run                                                              |
-| `formatter.py`     | `TaskDetailFormatter` protocol, `DefaultFormatter`                                                                                     |
-| `interaction.py`   | `TaskInteraction` protocol, `NonInteractive` implementation                                                                            |
-| `progress.py`      | `TaskProgress` protocol (`start()`, `advance()`, `stop()`, `pause()`, `spinner()`), `NoOpProgress`                                     |
-| `notifications.py` | `NotificationManager` - desktop notifications via `notify-send`                                                                        |
-| `exceptions.py`    | Core exception hierarchy                                                                                                               |
+| File               | Purpose                                                                                                                                        |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `base_task.py`     | `BaseTask` - abstract base with `execute()`, `pre_check()`, `should_run()`, `post_execute()`, `rollback()`, `run()`                            |
+| `executor.py`      | `TaskExecutor` - coordinates task instantiation, execution, state updates; `TaskExecutorPorts` - dataclass grouping optional port dependencies |
+| `task_registry.py` | `TaskRegistry`, `TaskDescriptor` - static mapping of task name → (class, formatter)                                                            |
+| `models.py`        | `TaskResult[TDetails]`, `TaskStep`, `IssueSeverity`, `MaintenanceIssue`, factory functions (`success`, `failed`, `skipped`, `partial`)         |
+| `task_details.py`  | Per-task detail dataclasses: `FailedServicesDetails`, `HealthCheckDetails`, `MaintenanceCheckDetails`, `MirrorlistUpdateDetails`               |
+| `scheduler.py`     | `TaskScheduler` - determines if tasks are due based on frequency/last run                                                                      |
+| `formatter.py`     | `TaskDetailFormatter` protocol, `DefaultFormatter`                                                                                             |
+| `interaction.py`   | `TaskInteraction` protocol, `NonInteractive` implementation                                                                                    |
+| `progress.py`      | `TaskProgress` protocol (`start()`, `advance()`, `stop()`, `pause()`, `spinner()`), `NoOpProgress`                                             |
+| `notifications.py` | `NotificationManager` - desktop notifications via `notify-send`                                                                                |
+| `exceptions.py`    | Core exception hierarchy                                                                                                                       |
 
 ### Config Layer (`src/archcare/config/`)
 
-| File          | Purpose                                                                                                                                                         |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| File          | Purpose                                                                                                                                                                                |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `models.py`   | Pydantic models: `TaskConfig`, `TasksConfig`, `AppSettings`, `AppState`, `TaskState`, `MirrorlistSettings`, `MaintenanceCheckSettings`, `HealthCheckSettings`, `IgnoredServicesConfig` |
-| `enums.py`    | Enums: `TaskType`, `TaskStatus`, `SkipReason`, `LogLevel`                                                                                                       |
-| `loader.py`   | `ConfigLoader` - loads/saves TOML (settings, tasks, ignored-services) and JSON (state)                                                                          |
-| `defaults.py` | Default TOML document builders for initial config creation                                                                                                      |
-| `logging.py`  | Logging setup with loguru                                                                                                                                       |
-| `user.py`     | `UserContext` - resolves ARCHCARE_USER/SUDO_USER, chown helpers                                                                                                 |
+| `enums.py`    | Enums: `TaskType`, `TaskStatus`, `SkipReason`, `LogLevel`                                                                                                                              |
+| `loader.py`   | `ConfigLoader` - loads/saves TOML (settings, tasks, ignored-services) and JSON (state)                                                                                                 |
+| `defaults.py` | Default TOML document builders for initial config creation                                                                                                                             |
+| `logging.py`  | Logging setup with loguru                                                                                                                                                              |
+| `user.py`     | `UserContext` - resolves ARCHCARE_USER/SUDO_USER, chown helpers                                                                                                                        |
 
 ### Tasks Layer (`src/archcare/tasks/`)
 
@@ -84,13 +85,14 @@ utils/      → subprocess wrappers, system/hardware queries, notifications
 
 ### Services Layer (`src/archcare/services/`)
 
-| File               | Purpose                                                                                                                                             |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `task_service.py`  | `TaskService` - high-level operations: `run_task`, `get_task_status`, `list_tasks`                                                                  |
-| `setup_service.py` | `ConfigService` - config creation; `TimerService` - systemd timer installation                                                                      |
-| `debug_service.py` | `DebugService` - notification testing                                                                                                               |
-| `responses.py`     | Response dataclasses for service layer                                                                                                              |
-| `exceptions.py`    | `ArchcareServiceError` base + service-layer exceptions (`TaskNotFoundError`, `ConfigNotInitializedError`, `NotRootError`, notification errors, ...) |
+| File                  | Purpose                                                                                                                                             |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `task_service.py`     | `TaskService` - high-level operations: `run_task`, `get_task_status`, `list_tasks`                                                                  |
+| `setup_service.py`    | `ConfigService` - config creation; `TimerService` - systemd timer installation                                                                      |
+| `debug_service.py`    | `DebugService` - notification testing                                                                                                               |
+| `recovery_service.py` | `RecoveryService` - reads recovery records, builds executable recovery commands (`snapper rollback`, `bash downgrade.sh`, `pacman -S`)              |
+| `responses.py`        | Response dataclasses for service layer (includes `RecoveryResponse`)                                                                                |
+| `exceptions.py`       | `ArchcareServiceError` base + service-layer exceptions (`TaskNotFoundError`, `ConfigNotInitializedError`, `NotRootError`, notification errors, ...) |
 
 ### CLI Layer (`src/archcare/cli/`)
 
@@ -113,7 +115,7 @@ utils/      → subprocess wrappers, system/hardware queries, notifications
 | `mirrorlist.py`  | Mirrorlist parsing, reflector invocation                                                                                                                         |
 | `info_models.py` | Frozen dataclasses returned by utils queries: `ServiceStatusInfo`, `DiskUsageInfo`, `MemoryInfo`, `CpuInfo`, `MirrorlistInfo`                                    |
 | `output.py`      | Global Rich `Console` + print helpers (`print_success`, `print_error`, `print_panel`, `print_table`); `configure_console()` mutes output in non-interactive runs |
-| `system.py`      | `run_command`, `run_command_with_sudo` - subprocess wrappers (the ONLY OS boundary); `CommandOptions` - dataclass for command options                             |
+| `system.py`      | `run_command`, `run_command_with_sudo` - subprocess wrappers (the ONLY OS boundary); `CommandOptions` - dataclass for command options                            |
 
 ---
 
@@ -381,6 +383,15 @@ archcare setup timers      # Installs systemd timers (needs sudo)
 ```bash
 archcare debug test-notification --severity warning
 ```
+
+---
+
+## Design Notes (`system-update` feature)
+
+- **Executable-command contract**: `RecoveryService.get_recovery_info()` returns executable commands (`snapper rollback <id>`, `bash downgrade.sh`, `pacman -S -`) — not comments or stubs. The CLI presenter (`TaskPresenter.render_recovery()`) renders them with `rich.markup.escape()` to prevent `MarkupError` from package names with brackets (`[linux]-...`).
+- **Full-state restore mechanism**: Before any upgrade, the `system-update` task saves `snapper` snapshot info (if available) and the sync DB. The restore script (`downgrade.sh`) reads `-Qe` (explicitly installed packages, 330) and `-Qmq` (AUR packages, 25) and feeds them to `pacman -S -`. This matches the ArchWiki `pacman -S` dependency-resolution method (`pacman/Installation` page).
+- **Durable recovery artifacts**: The `downgrade.sh` script is written once (guarded by `exists()`) and never regenerated. `cache_keep_uninstalled_versions = 1` (default raised from 0) preserves uninstalled package artifacts for recovery.
+- **Task result typed**: `SystemUpdateDetails` (frozen dataclass) carries `pre_update_snapshot_id`, `packages_upgraded`, `packages_removed`, `aur_packages_failed`, `manifest_before`, `manifest_after`. Registered in `cli/context.py` `DEFAULT_TASK_REGISTRY`.
 
 ---
 

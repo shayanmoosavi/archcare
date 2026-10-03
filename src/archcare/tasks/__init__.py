@@ -21,12 +21,15 @@ Available tasks:
     validation, and rollback.
 - `maintenance-check`: Scheduler-aware report of due/overdue tasks, failed automated tasks, and
     broken systemd timers, with notification and report-file support.
+- `system-update`: Full `pacman -Syu` plus `paru -Sua` upgrade with pre-flight checks, pacman sync
+    database rollback, pacnew and removed-package reporting, and package cache pruning.
 
 Public API:
     - [`FailedServicesTask`][]: Failed systemd service detection and diagnostics
     - [`HealthCheckTask`][]: Comprehensive system health checks
     - [`MirrorlistUpdateTask`][]: Reflector-based mirrorlist refresh with rollback
     - [`MaintenanceCheckTask`][]: Task schedule/overdue monitoring
+    - [`SystemUpdateTask`][]: Full pacman + AUR system upgrade with rollback safety
 
 See Also:
     - [`BaseTask`][archcare.core.base_task.BaseTask]: Abstract task contract and execution workflow
@@ -37,10 +40,12 @@ from .failed_services import FailedServicesTask
 from .health_check import HealthCheckTask
 from .maintenance_check import MaintenanceCheckTask
 from .mirrorlist_update import MirrorlistUpdateTask
+from .system_update import SystemUpdateTask
 
 __all__ = [
     "FailedServicesTask",
     "HealthCheckTask",
     "MaintenanceCheckTask",
     "MirrorlistUpdateTask",
+    "SystemUpdateTask",
 ]

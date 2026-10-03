@@ -26,6 +26,7 @@ Public API:
         - [`HealthCheckFormatter`][]
         - [`MaintenanceCheckFormatter`][]
         - [`MirrorlistUpdateFormatter`][]
+        - [`SystemUpdateFormatter`][]
 
 See Also:
     [`archcare.core.formatter`][]: The port implemented by the formatters
@@ -37,6 +38,7 @@ from .formatters import (
     HealthCheckFormatter,
     MaintenanceCheckFormatter,
     MirrorlistUpdateFormatter,
+    SystemUpdateFormatter,
 )
 from .setup_presenter import SetupPresenter
 from .task_presenter import TaskPresenter
@@ -48,5 +50,6 @@ __all__ = [
     "MaintenanceCheckFormatter",
     "MirrorlistUpdateFormatter",
     "SetupPresenter",
+    "SystemUpdateFormatter",
     "TaskPresenter",
 ]

@@ -20,6 +20,10 @@
 site/
 docs/reference/api/
 
-# Hermes agent
+# Hermes agent / Plan files
 .hermes/
 IDEA.md
+/tasks
+
+# Codebase memory
+.codebase-memory/

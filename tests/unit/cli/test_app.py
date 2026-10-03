@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from _pytest.monkeypatch import MonkeyPatch
 
 from archcare.cli.app import callback, main
 from archcare.config import UserContext
@@ -58,7 +59,9 @@ class TestCallback:
 
         assert mock_context.call_args.kwargs["devel"] is devel_flag
 
-    def test_user_derived_from_archcare_user_env_var(self, mock_context: MagicMock, monkeypatch):
+    def test_user_derived_from_archcare_user_env_var(
+        self, mock_context: MagicMock, monkeypatch: MonkeyPatch
+    ):
         monkeypatch.setenv("ARCHCARE_USER", "alice")
         ctx = SimpleNamespace()
 
@@ -85,7 +88,7 @@ class TestCallback:
 
     @pytest.mark.usefixtures("mock_context")
     def test_configures_console_when_non_interactive(
-        self, mock_configure_console: MagicMock, monkeypatch
+        self, mock_configure_console: MagicMock, monkeypatch: MonkeyPatch
     ):
         monkeypatch.setenv("ARCHCARE_USER", "alice")
         ctx = SimpleNamespace()

@@ -12,6 +12,7 @@ Each task type has a dedicated details class:
 - `HealthCheckDetails`: System health metrics (disk, memory, CPU, filesystem, pacman)
 - `MirrorlistUpdateDetails`: Mirrorlist update results with before/after comparison
 - `MaintenanceCheckDetails`: Scheduled task status with severity categorization
+- `SystemUpdateDetails`: Full system upgrade results (repo + AUR, removals, cache cleanup)
 
 These frozen dataclasses ensure immutability and type safety throughout the
 execution pipeline.
@@ -510,3 +511,96 @@ class MirrorlistUpdateDetails:
     old_info: MirrorlistInfo = field(default_factory=MirrorlistInfo)
     new_info: MirrorlistInfo = field(default_factory=MirrorlistInfo)
     backup_path: str | None = None
+
+
+@dataclass(frozen=True)
+class SystemUpdateDetails:
+    """
+    Details produced by
+    [`SystemUpdateTask.execute`][archcare.tasks.system_update.SystemUpdateTask.execute].
+
+    Captures what a full system upgrade actually did, as opposed to what was merely
+    pending beforehand. The per-package lists describe the *installed* outcome, so they
+    are built after the transaction completes rather than from its preview.
+
+    Attributes:
+        repo_updates_count (int): Number of pending official-repository updates seen before
+            the upgrade (from `checkupdates`). Defaults to `0`.
+        aur_updates_count (int): Number of pending AUR updates seen before the upgrade
+            (from `paru -Qua`). Defaults to `0`.
+        packages_upgraded (list[str]): Repository packages that were upgraded. Defaults to
+            an empty list.
+        aur_packages_upgraded (list[str]): AUR packages that were upgraded. Defaults to an
+            empty list.
+        aur_packages_failed (list[str]): AUR packages that failed to build or install.
+            Defaults to an empty list.
+
+            Non-fatal: AUR failures drive a `partial()` result rather than an exception,
+            because they say nothing about the state of the pacman sync database.
+        packages_removed (list[str]): Packages present before the transaction but gone
+            after it. Defaults to an empty list.
+
+            Computed by diffing the pre- and post-upgrade `pacman -Q` manifests, since the
+            upgrade itself runs with stdio inherited and therefore produces no capturable
+            output to parse.
+        pacnew_files (list[str]): `.pacnew` files left behind for manual review (from
+            `pacdiff -o`). Defaults to an empty list.
+        pre_update_snapshot_id (int | None): `snapper` snapshot ID of the pre-update
+            snapshot created by `snap-pac`, if Btrfs snapshot tooling was detected.
+            Defaults to `None`.
+
+            Used as the argument to `snapper rollback <id>` in the manual recovery
+            guidance printed by `archcare task recover system-update`.
+        cache_freed_bytes (int | None): Bytes reclaimed by the `paccache` cache cleanup.
+            `None` when cache cleanup was skipped (e.g. on failure) or produced no figure.
+            Defaults to `None`.
+
+    Recovery:
+        Because the upgrade runs interactively and therefore cannot be rolled back by
+        parsing output, recovery is split in two:
+
+        - The pacman sync database is restored automatically by
+          [`BaseTask.rollback`][archcare.core.base_task.BaseTask.rollback] when the
+          transaction itself fails.
+        - If the transaction *succeeded* but the system is unhealthy, the saved manifest
+          and `pre_update_snapshot_id` are used to print targeted recovery commands
+          (see `archcare task recover system-update`). Nothing is executed automatically.
+
+    Examples:
+        >>> from archcare.core.task_details import SystemUpdateDetails
+        >>> details = SystemUpdateDetails(
+        ...     repo_updates_count=3,
+        ...     aur_updates_count=1,
+        ...     packages_upgraded=["linux", "pacman", "python"],
+        ...     aur_packages_upgraded=["paru"],
+        ...     packages_removed=["linux-lts"],
+        ...     pacnew_files=["/etc/pacman.conf.pacnew"],
+        ...     pre_update_snapshot_id=42,
+        ...     cache_freed_bytes=734003200,
+        ... )
+        >>> details.repo_updates_count
+        3
+        >>> details.pre_update_snapshot_id
+        42
+        >>> len(details.packages_upgraded)
+        3
+
+    See Also:
+        - [`SystemUpdateSettings`][archcare.config.models.SystemUpdateSettings]: Settings
+            controlling the threshold gate and cache retention.
+        - [`PackageUpdateInfo`][archcare.utils.info_models.PackageUpdateInfo]: One pending
+            update as reported before the upgrade.
+        - [`archcare.utils.pacman`][]: Utils that produce this task's intermediate data.
+        - [`archcare.utils.system_update`][]: AUR upgrade, Arch news, and snapshot
+            detection helpers.
+    """
+
+    repo_updates_count: int = 0
+    aur_updates_count: int = 0
+    packages_upgraded: list[str] = field(default_factory=list)
+    aur_packages_upgraded: list[str] = field(default_factory=list)
+    aur_packages_failed: list[str] = field(default_factory=list)
+    packages_removed: list[str] = field(default_factory=list)
+    pacnew_files: list[str] = field(default_factory=list)
+    pre_update_snapshot_id: int | None = None
+    cache_freed_bytes: int | None = None
