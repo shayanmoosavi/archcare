@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from loguru import logger
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from tomlkit import TOMLDocument, dumps, parse, table
 from tomlkit.exceptions import ParseError
 
@@ -31,9 +31,11 @@ from . import defaults
 from .models import (
     AppSettings,
     AppState,
+    HealthCheckSettings,
     IgnoredServicesConfig,
     MaintenanceCheckSettings,
     MirrorlistSettings,
+    SystemUpdateSettings,
     TaskConfig,
     TasksConfig,
 )
@@ -357,6 +359,14 @@ class ConfigLoader:
 
             settings_data: dict[str, Any] = {"user": self.user}
 
+            # Define the settings sections and their corresponding models
+            SETTINGS_SECTIONS: dict[str, type[BaseModel]] = {
+                "mirrorlist": MirrorlistSettings,
+                "maintenance_check": MaintenanceCheckSettings,
+                "health_check": HealthCheckSettings,
+                "system_update": SystemUpdateSettings,
+            }
+
             # Copy global settings
             for key in [
                 "log_level",
@@ -366,15 +376,9 @@ class ConfigLoader:
                 if key in doc:
                     settings_data[key] = doc[key]
 
-            # Load mirrorlist settings if present
-            if "mirrorlist" in doc:
-                settings_data["mirrorlist"] = MirrorlistSettings(**doc["mirrorlist"])
-
-            # Load maintenance check settings if present
-            if "maintenance_check" in doc:
-                settings_data["maintenance_check"] = MaintenanceCheckSettings(
-                    **doc["maintenance_check"]
-                )
+            # Load task-specific settings sections
+            for section, model in SETTINGS_SECTIONS.items():
+                self._load_settings_section(doc, settings_data, section, model)
 
             settings = AppSettings(**settings_data)
             self._settings = settings
@@ -393,6 +397,24 @@ class ConfigLoader:
             self._settings = self.load_default_settings()
 
         return self._settings
+
+    def _load_settings_section(
+        self,
+        doc: TOMLDocument,
+        settings_data: dict[str, Any],
+        key: str,
+        model_class: type[BaseModel],
+    ) -> None:
+        """Load a settings section from the TOML document into settings_data.
+
+        Args:
+            doc (TOMLDocument): The parsed TOML document.
+            settings_data (dict[str, Any]): Dictionary to populate with the loaded section.
+            key (str): The section key in the TOML document.
+            model_class (type[BaseModel]): The Pydantic model class to instantiate.
+        """
+        if key in doc:
+            settings_data[key] = model_class(**doc[key])
 
     def load_default_settings(self) -> AppSettings:
         """
