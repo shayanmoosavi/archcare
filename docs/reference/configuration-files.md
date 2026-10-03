@@ -115,6 +115,23 @@ Settings for the `health-check` task.
     The same threshold rule applies to disk and memory percentages as for
     `warning_threshold_days` and `critical_threshold_days`.
 
+### `[system_update]`
+
+Settings for the `system-update` task.
+
+| Key                               | Default | Valid values / description                                                                                         |
+| --------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
+| `min_repo_updates_threshold`      | `30`    | Minimum number of pending official repository updates required before the task runs. `0` = any update triggers it. |
+| `cache_keep_versions`             | `2`     | Number of cached versions to keep per installed package (passed to `paccache -rk`).                                |
+| `cache_keep_uninstalled_versions` | `1`     | Number of cached versions to keep per uninstalled package (passed to `paccache -ruk`).                             |
+
+!!! tip
+
+    `cache_keep_uninstalled_versions` defaults to `1` (not `0`) because a package removed by an
+    upgrade becomes uninstalled, and the `archcare task recover system-update` command can only
+    reinstall it from the cache. Purging to `0` would delete the artifact that recovery path
+    depends on.
+
 ## `ignored-services.toml`
 
 A single list of systemd units to exclude from the `failed-services` check —
