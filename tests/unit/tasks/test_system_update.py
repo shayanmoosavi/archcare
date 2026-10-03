@@ -33,6 +33,7 @@ _MODULE = "archcare.tasks.system_update"
 REPO_UPDATE_COUNT = 3
 AUR_UPDATE_COUNT = 2
 TRANSACTION_COUNT = 2
+PAUSE_COUNT = 3  # pacman + paru + backup_sync_db (all need sudo, so all need pause)
 ANNOUNCED_STEPS = 7
 SNAPSHOT_ID = 42
 REMOVED_PACKAGES = ["linux-lts"]
@@ -419,17 +420,17 @@ class TestExecuteHappyPath:
         assert len(list(manifests.glob("before_*.txt"))) == 1
         assert len(list(manifests.glob("after_*.txt"))) == 1
 
-    def test_pauses_progress_around_both_transactions(
+    def test_pauses_progress_around_all_transactions(
         self, task: SystemUpdateTask, transaction: _Wiring
     ):
-        """pacman and paru each inherit stdio, so each needs the bar suspended around it.
-
-        Exactly twice: a third pause would mean a transaction runs while the bar is live and
-        clobbers pacman's prompt.
+        """
+        Both pacman and paru need the progress rendering to be paused around their transactions due
+        to having interactive prompts themselves. `backup_sync_db` also needs to be paused because
+        it`s a sudo operation.
         """
         task.execute()
 
-        assert transaction.progress.pause.call_count == TRANSACTION_COUNT
+        assert transaction.progress.pause.call_count == PAUSE_COUNT
 
     def test_advances_progress_once_per_step(self, task: SystemUpdateTask, transaction: _Wiring):
         """`advance` fires once per `report_progress`, and the counts differ by design.

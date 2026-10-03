@@ -248,12 +248,12 @@ class TestSystemUpdateProgressReporting:
         mock_progress.return_value.stop.assert_called_once()
 
     def test_progress_paused_around_transactions(self, mock_progress):
-        """Progress is paused twice: around pacman and paru transactions."""
+        """Progress is paused three times: around backup_sync_db, pacman, and paru."""
         runner.invoke(app, ["setup", "config"])
         runner.invoke(app, ["task", "run", "system-update", "--force"])
 
-        # Two pauses: one for `pacman -Syu`, one for `paru -Sua`.
-        PAUSE_COUNT = 2
+        # Three pauses: one for `backup_sync_db`, one for `pacman -Syu`, one for `paru -Sua`.
+        PAUSE_COUNT = 3
         assert mock_progress.return_value.pause.call_count == PAUSE_COUNT
 
     @pytest.mark.usefixtures("archcare_home")
