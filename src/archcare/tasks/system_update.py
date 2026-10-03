@@ -169,7 +169,8 @@ class SystemUpdateTask(BaseTask):
                 know whether there is work to do.
         """
         if self._pending_repo is None:
-            self._pending_repo = get_pending_repo_updates()
+            with self.progress.spinner("Checking for pending repository updates..."):
+                self._pending_repo = get_pending_repo_updates()
         return self._pending_repo
 
     def pre_check(self) -> tuple[bool, str]:
@@ -321,7 +322,9 @@ class SystemUpdateTask(BaseTask):
         self.progress.start(total=self._STEP_COUNT)
 
         pending_repo = self._pending_repo_updates()
-        pending_aur = get_pending_aur_updates()
+
+        with self.progress.spinner("Checking for AUR updates"):
+            pending_aur = get_pending_aur_updates()
         logger.info(
             f"Upgrading {len(pending_repo)} repository and {len(pending_aur)} AUR package(s)"
         )
@@ -331,11 +334,12 @@ class SystemUpdateTask(BaseTask):
         self.manifest_before = snapshot_package_manifest(manifests_dir / f"before_{timestamp}.txt")
         self.report_progress(TaskStep(name="Package manifest captured", status=TaskStatus.SUCCESS))
 
-        try:
-            self.sync_db_backup = backup_sync_db(self.settings.recovery_dir / "sync-db")
-        except OSError as e:
-            logger.error(f"Failed to back up the pacman sync database: {e}")
-            return failed(f"Failed to back up the pacman sync database: {e}", error=str(e))
+        with self.progress.pause():
+            try:
+                self.sync_db_backup = backup_sync_db(self.settings.recovery_dir / "sync-db")
+            except OSError as e:
+                logger.error(f"Failed to back up the pacman sync database: {e}")
+                return failed(f"Failed to back up the pacman sync database: {e}", error=str(e))
         self.report_progress(TaskStep(name="Sync database backed up", status=TaskStatus.SUCCESS))
 
         with self.progress.pause():
@@ -465,16 +469,18 @@ class SystemUpdateTask(BaseTask):
             logger.warning("No pacman sync database backup available for rollback")
             return
 
-        try:
-            logger.warning(f"Rolling back the pacman sync database from {self.sync_db_backup}")
-            restore_sync_db(self.sync_db_backup)
-            logger.info("Pacman sync database rollback completed")
-        except Exception as e:
-            logger.error(f"Failed to restore the pacman sync database: {e}")
-            logger.critical(
-                f"Repository databases may not match the installed packages! "
-                f"Manually restore with: sudo cp -a {self.sync_db_backup}/. /var/lib/pacman/sync/"
-            )
+        with self.progress.pause():
+            try:
+                logger.warning(f"Rolling back the pacman sync database from {self.sync_db_backup}")
+                restore_sync_db(self.sync_db_backup)
+                logger.info("Pacman sync database rollback completed")
+            except Exception as e:
+                logger.error(f"Failed to restore the pacman sync database: {e}")
+                logger.critical(
+                    "Repository databases may not match the installed packages! "
+                    "Manually restore with: "
+                    f"sudo cp -a {self.sync_db_backup}/. /var/lib/pacman/sync/"
+                )
 
     def _prune_package_cache(self, result: TaskResult[SystemUpdateDetails]) -> None:
         """
