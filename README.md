@@ -140,7 +140,9 @@ If you want to remove archcare entirely, three parts need cleanup:
 
 - **Binary**: `rm ~/.local/bin/archcare`
 - **Configuration**: `rm -rf ~/.config/archcare/` (removes `tasks.toml`, `settings.toml`,
-  `ignored-services.toml`, state)
+  `ignored-services.toml`)
+- **State**: `rm -rf ~/.local/state/archcare/` (removes `state.json`, logs, report files,
+  and recovery artifacts)
 - **Systemd timers**: there is no uninstall command yet; stop and remove manually:
     ```bash
     systemctl --user stop archcare@*
