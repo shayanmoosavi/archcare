@@ -24,6 +24,7 @@ from archcare.services.exceptions import (
     InvalidTaskTypeError,
     TaskNotFoundError,
 )
+from archcare.services.recovery_service import RecoveryService
 
 task_app = typer.Typer(help="Run and manage maintenance tasks.")
 
@@ -209,3 +210,56 @@ def list_tasks(
         raise typer.Exit(1) from e
 
     presenter.render_list(response)
+
+
+@task_app.command(
+    help="""
+Show recovery guidance for a task.
+
+Prints the commands needed to recover from a failed or unhealthy run. The commands are
+printed, never executed.
+
+Example:
+    archcare task recover system-update
+"""
+)
+def recover(
+    ctx: typer.Context,
+    task_name: Annotated[str, typer.Argument(help="Name of the task to recover")],
+):
+    """
+    Show recovery guidance for a task.
+
+    Sets up logging, then delegates to
+    [`RecoveryService.get_recovery_info`][] and renders the resulting
+    [`RecoveryResponse`][archcare.services.responses.RecoveryResponse] via
+    [`TaskPresenter.render_recovery`][].
+
+    Nothing is executed: rolling back a snapshot or restoring the pacman sync database is
+    destructive and irreversible, so the user reads each command and runs it themselves.
+
+    Args:
+        ctx (typer.Context): Typer context whose `obj` is an
+            [`AppContext`][archcare.cli.context.AppContext].
+        task_name (str): Name of the task to recover.
+    """
+    ctx.obj.setup_logging()
+    presenter = _presenter(ctx)
+
+    try:
+        response = RecoveryService(ctx.obj.settings).get_recovery_info(task_name)
+    except Exception as e:
+        # `get_recovery_info` reports every expected state (missing record, unknown task,
+        # malformed JSON) as `available=False` rather than raising, so reaching this handler
+        # means something unexpected happened - the file being unreadable by permissions, say.
+        presenter.error(f"Failed to read recovery info for {task_name!r}: {e}")
+        raise typer.Exit(1) from e
+
+    presenter.render_recovery(response)
+
+    # `available=False` exits 1: a missing or corrupt record is a real failure to recover, and
+    # consistency with `task status` on an unknown task matters more than treating "nothing to
+    # recover" as benign. The `reason` the presenter printed is what tells the user which of
+    # the two it was.
+    if not response.available:
+        raise typer.Exit(1)

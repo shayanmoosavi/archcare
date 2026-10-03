@@ -38,12 +38,20 @@ from archcare.services.exceptions import (
 )
 from archcare.services.responses import (
     ConfigInitResponse,
+    DependencyCheckResponse,
     InstallTemplatesResponse,
+    PackageCheck,
     ReloadSystemdResponse,
     TimerEnableResponse,
     TimerSetupResponse,
 )
-from archcare.utils import is_root, run_systemctl
+from archcare.utils import (
+    check_command_exists,
+    is_package_installed,
+    is_root,
+    run_systemctl,
+)
+from archcare.utils.system_update import SNAPSHOT_PACKAGES
 
 
 def resolve_systemd_target_user() -> tuple[str, str]:
@@ -148,6 +156,47 @@ class ConfigService:
             created_files=created,
             skipped_files=skipped,
         )
+
+    @staticmethod
+    def check_dependencies() -> DependencyCheckResponse:
+        """
+        Verify that the packages required for Archcare functionality are present.
+
+        Returns a `DependencyCheckResponse` listing which core dependencies (`paru`,
+        `pacman-contrib`) and Btrfs-specific tooling (`snap-pac`, `grub-btrfs`) are installed.
+
+        Returns:
+            DependencyCheckResponse: Per-package availability for both the
+                required and conditional groups.
+
+        See also:
+            - [`ConfigService.initialize`][archcare.services.setup_service.ConfigService]:
+                Sister method that writes config
+            - [`render_dependency_check`][archcare.cli.presenters.setup_presenter.SetupPresenter]:
+                Renders the response to the terminal
+        """
+        from loguru import logger
+
+        logger.remove()  # Silencing the logger for this method
+
+        # paru exposes a CLI binary
+        paru_installed = check_command_exists("paru")
+
+        # pacman-contrib provides checkupdates, paccache, pacdiff but no "pacman-contrib" binary
+        pacman_contrib_installed = is_package_installed("pacman-contrib")
+
+        required = [
+            PackageCheck(name="paru", installed=paru_installed),
+            PackageCheck(name="pacman-contrib", installed=pacman_contrib_installed),
+        ]
+
+        # Btrfs tooling: snap-pac + grub-btrfs (both must be present)
+        conditional = [
+            PackageCheck(name=package, installed=is_package_installed(package))
+            for package in SNAPSHOT_PACKAGES
+        ]
+
+        return DependencyCheckResponse(required=required, conditional=conditional)
 
 
 class TimerService:

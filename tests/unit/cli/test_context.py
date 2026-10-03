@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from _pytest.monkeypatch import MonkeyPatch
 
 from archcare.cli.context import DEFAULT_TASK_REGISTRY, AppContext
 from archcare.cli.interaction import CliInteraction
@@ -28,7 +29,7 @@ def context() -> AppContext:
 
 
 @pytest.fixture
-def mock_home(monkeypatch, tmp_path) -> Path:
+def mock_home(monkeypatch: MonkeyPatch, tmp_path: Path) -> Path:
     """
     Redirect AppSettings.home_dir to a fixed tmp_path, ignoring both `user`
     and SUDO_USER.
@@ -45,7 +46,7 @@ def mock_home(monkeypatch, tmp_path) -> Path:
 
 
 @pytest.fixture
-def per_user_home_dir(monkeypatch, tmp_path) -> Path:
+def per_user_home_dir(monkeypatch: MonkeyPatch, tmp_path: Path) -> Path:
     """
     AppSettings.home_dir resolves the way the real implementation does -
     via SUDO_USER first, falling back to the `user` field - but rooted in
@@ -326,7 +327,7 @@ class TestExecutorForUser:
     def test_resolves_target_user_via_sudo_user_env(
         self,
         per_user_home_dir: Path,
-        monkeypatch,
+        monkeypatch: MonkeyPatch,
         mock_executor: MagicMock,
         context: AppContext,
     ):
@@ -338,7 +339,9 @@ class TestExecutorForUser:
         assert result is mock_executor.return_value
 
     @pytest.mark.usefixtures("per_user_home_dir")
-    def test_raises_when_target_users_config_missing(self, monkeypatch, context: AppContext):
+    def test_raises_when_target_users_config_missing(
+        self, monkeypatch: MonkeyPatch, context: AppContext
+    ):
         monkeypatch.setenv("SUDO_USER", "alice")
         # alice's config dir is deliberately never created.
 
@@ -346,7 +349,7 @@ class TestExecutorForUser:
             context.executor_for_user("alice")
 
     def test_does_not_pass_interaction_kwarg(
-        self, per_user_home_dir: Path, monkeypatch, mock_executor: MagicMock
+        self, per_user_home_dir: Path, monkeypatch: MonkeyPatch, mock_executor: MagicMock
     ):
         """
         Unlike the `executor` property, executor_for_user() omits
@@ -364,7 +367,7 @@ class TestExecutorForUser:
         assert "interaction" not in kwargs
 
     def test_does_not_pass_user_context_kwarg(
-        self, per_user_home_dir: Path, monkeypatch, mock_executor: MagicMock
+        self, per_user_home_dir: Path, monkeypatch: MonkeyPatch, mock_executor: MagicMock
     ):
         """
         Also deliberately omitted: this executor never calls execute_task()
@@ -399,7 +402,7 @@ class TestExecutorForUser:
 
     def test_builds_a_fresh_instance_each_call(
         self,
-        monkeypatch,
+        monkeypatch: MonkeyPatch,
         per_user_home_dir: Path,
         mock_executor: MagicMock,
         context: AppContext,

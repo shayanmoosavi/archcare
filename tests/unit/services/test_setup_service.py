@@ -4,13 +4,18 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from _pytest.monkeypatch import MonkeyPatch
 
 from archcare.config import AppSettings, TaskConfig
 from archcare.services.exceptions import SystemdReloadError
+from archcare.services.responses import DependencyCheckResponse
 from archcare.services.setup_service import ConfigService, TimerService
 
 _MODULE = "archcare.services.setup_service"
 _PATCH_SYSTEMCTL = f"{_MODULE}.run_systemctl"
+_PATCH_RUN_COMMAND = f"{_MODULE}.run_command"
+_PATCH_CHECK_COMMAND_EXISTS = f"{_MODULE}.check_command_exists"
+_PATCH_IS_PACKAGE_INSTALLED = f"{_MODULE}.is_package_installed"
 
 # ---------------------------------------------------------------------------
 # Helpers and fixtures
@@ -25,7 +30,9 @@ def _systemctl_result(success: bool, stdout: str = "") -> MagicMock:
 
 
 @pytest.fixture
-def timer_service(tmp_path, mock_executor: MagicMock, monkeypatch) -> TimerService:
+def timer_service(
+    tmp_path: Path, mock_executor: MagicMock, monkeypatch: MonkeyPatch
+) -> TimerService:
     """
     TimerService with SYSTEMD_DIR redirected to tmp_path.
 
@@ -56,22 +63,22 @@ class TestConfigService:
         service = ConfigService()
         assert service.config_dir == AppSettings().home_dir / ".config/archcare"
 
-    def test_custom_config_dir_is_accepted(self, tmp_path):
+    def test_custom_config_dir_is_accepted(self, tmp_path: Path):
         service = ConfigService(config_dir=tmp_path)
         assert service.config_dir == tmp_path
 
-    def test_check_existing_returns_empty_when_dir_absent(self, tmp_path):
+    def test_check_existing_returns_empty_when_dir_absent(self, tmp_path: Path):
         service = ConfigService(config_dir=tmp_path / "nonexistent")
         assert service.check_existing() == []
 
-    def test_check_existing_returns_empty_when_dir_has_no_toml(self, tmp_path):
+    def test_check_existing_returns_empty_when_dir_has_no_toml(self, tmp_path: Path):
         config_dir: Path = tmp_path / "archcare"
         config_dir.mkdir()
         (config_dir / "readme.txt").touch()
         service = ConfigService(config_dir=config_dir)
         assert service.check_existing() == []
 
-    def test_check_existing_finds_toml_files(self, tmp_path):
+    def test_check_existing_finds_toml_files(self, tmp_path: Path):
         config_dir: Path = tmp_path / "archcare"
         config_dir.mkdir()
         (config_dir / "settings.toml").touch()
@@ -81,7 +88,7 @@ class TestConfigService:
         found = service.check_existing()
         assert len(found) == EXPECTED_FILE_COUNT
 
-    def test_check_existing_excludes_non_toml_files(self, tmp_path):
+    def test_check_existing_excludes_non_toml_files(self, tmp_path: Path):
         config_dir: Path = tmp_path / "archcare"
         config_dir.mkdir()
         (config_dir / "settings.toml").touch()
@@ -91,21 +98,60 @@ class TestConfigService:
         assert all(f.suffix == ".toml" for f in found)
 
     @pytest.mark.usefixtures("mock_create_config")
-    def test_initialize_returns_response_with_correct_values(self, tmp_path):
+    def test_initialize_returns_response_with_correct_values(self, tmp_path: Path):
         result = ConfigService(config_dir=tmp_path).initialize()
         assert result.config_dir == tmp_path
         assert result.created_files == ["settings", "tasks", "ignored"]
         assert result.skipped_files == []
 
     def test_initialize_calls_create_with_correct_dir(
-        self, tmp_path, mock_create_config: MagicMock
+        self, tmp_path: Path, mock_create_config: MagicMock
     ):
         ConfigService(config_dir=tmp_path).initialize()
         mock_create_config.assert_called_once_with(tmp_path, force=False)
 
-    def test_initialize_reflects_force_flag(self, tmp_path, mock_create_config: MagicMock):
+    def test_initialize_reflects_force_flag(self, tmp_path: Path, mock_create_config: MagicMock):
         ConfigService(config_dir=tmp_path).initialize(force=True)
         assert mock_create_config.call_args.kwargs["force"] is True
+
+    def test_check_dependencies_returns_response(self, mocker) -> None:
+        mocker.patch(_PATCH_CHECK_COMMAND_EXISTS, return_value=True)
+        mocker.patch(_PATCH_IS_PACKAGE_INSTALLED, return_value=True)
+
+        result = ConfigService.check_dependencies()
+
+        assert isinstance(result, DependencyCheckResponse)
+
+    def test_check_dependencies_required_are_present(self, mocker) -> None:
+        mocker.patch(_PATCH_CHECK_COMMAND_EXISTS, return_value=True)
+        mocker.patch(_PATCH_IS_PACKAGE_INSTALLED, return_value=True)
+
+        EXPECTED_REQUIRED_COUNT = 2
+        result = ConfigService.check_dependencies()
+
+        assert all(pkg.installed for pkg in result.required)
+        assert len(result.required) == EXPECTED_REQUIRED_COUNT
+        assert [p.name for p in result.required] == ["paru", "pacman-contrib"]
+
+    def test_check_dependencies_conditional_are_present(self, mocker) -> None:
+        mocker.patch(_PATCH_CHECK_COMMAND_EXISTS, return_value=True)
+        mocker.patch(_PATCH_IS_PACKAGE_INSTALLED, return_value=True)
+
+        EXPECTED_CONDITIONAL_COUNT = 2
+        result = ConfigService.check_dependencies()
+
+        assert all(pkg.installed for pkg in result.conditional)
+        assert len(result.conditional) == EXPECTED_CONDITIONAL_COUNT
+        assert [p.name for p in result.conditional] == ["snap-pac", "grub-btrfs"]
+
+    def test_check_dependencies_reports_missing(self, mocker) -> None:
+        mocker.patch(_PATCH_CHECK_COMMAND_EXISTS, return_value=False)
+        mocker.patch(_PATCH_IS_PACKAGE_INSTALLED, return_value=False)
+
+        result = ConfigService.check_dependencies()
+
+        assert not any(pkg.installed for pkg in result.required)
+        assert not any(pkg.installed for pkg in result.conditional)
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +216,9 @@ class TestInstallTemplates:
 
 
 class TestReload:
-    def test_dry_run_does_not_call_systemctl(self, timer_service: TimerService, monkeypatch):
+    def test_dry_run_does_not_call_systemctl(
+        self, timer_service: TimerService, monkeypatch: MonkeyPatch
+    ):
         calls = []
         monkeypatch.setattr(_PATCH_SYSTEMCTL, lambda *a: calls.append(a))
         timer_service.reload(dry_run=True)
@@ -178,13 +226,15 @@ class TestReload:
 
     @pytest.mark.parametrize("dry_run", [True, False])
     def test_dry_run_parameter_flows_through_reload(
-        self, timer_service: TimerService, monkeypatch, dry_run
+        self, timer_service: TimerService, monkeypatch: MonkeyPatch, dry_run
     ):
         monkeypatch.setattr(_PATCH_SYSTEMCTL, lambda *_: _systemctl_result(True))
         response = timer_service.reload(dry_run=dry_run)
         assert response.dry_run is dry_run
 
-    def test_failed_daemon_reload_raises(self, timer_service: TimerService, monkeypatch):
+    def test_failed_daemon_reload_raises(
+        self, timer_service: TimerService, monkeypatch: MonkeyPatch
+    ):
         monkeypatch.setattr(_PATCH_SYSTEMCTL, lambda *_: _systemctl_result(False))
         with pytest.raises(SystemdReloadError):
             timer_service.reload(dry_run=False)
@@ -197,7 +247,7 @@ class TestReload:
 
 class TestSetupTimers:
     def test_dry_run_makes_no_systemctl_calls(
-        self, timer_service: TimerService, automated_task: TaskConfig, monkeypatch
+        self, timer_service: TimerService, automated_task: TaskConfig, monkeypatch: MonkeyPatch
     ):
         calls = []
         monkeypatch.setattr(_PATCH_SYSTEMCTL, lambda *a: calls.append(a))
@@ -205,7 +255,7 @@ class TestSetupTimers:
         assert not calls
 
     def test_enable_false_makes_no_systemctl_calls(
-        self, timer_service: TimerService, automated_task: TaskConfig, monkeypatch
+        self, timer_service: TimerService, automated_task: TaskConfig, monkeypatch: MonkeyPatch
     ):
         calls = []
         monkeypatch.setattr(_PATCH_SYSTEMCTL, lambda *a: calls.append(a))
@@ -231,7 +281,7 @@ class TestSetupTimers:
         assert response.timer_status is None
 
     def test_enabled_response_has_one_entry_per_task(
-        self, timer_service: TimerService, automated_task: TaskConfig, monkeypatch
+        self, timer_service: TimerService, automated_task: TaskConfig, monkeypatch: MonkeyPatch
     ):
         monkeypatch.setattr(_PATCH_SYSTEMCTL, lambda *_: _systemctl_result(True, ""))
         response = timer_service.setup_timers(
@@ -240,7 +290,7 @@ class TestSetupTimers:
         assert len(response.enabled_timers) == 1
 
     def test_timer_name_follows_archcare_convention(
-        self, timer_service: TimerService, automated_task: TaskConfig, monkeypatch
+        self, timer_service: TimerService, automated_task: TaskConfig, monkeypatch: MonkeyPatch
     ):
         monkeypatch.setattr(_PATCH_SYSTEMCTL, lambda *_: _systemctl_result(True, ""))
         response = timer_service.setup_timers(
@@ -250,7 +300,7 @@ class TestSetupTimers:
         assert response.enabled_timers[0].timer_name == expected
 
     def test_successful_enable_marked_in_response(
-        self, timer_service: TimerService, automated_task: TaskConfig, monkeypatch
+        self, timer_service: TimerService, automated_task: TaskConfig, monkeypatch: MonkeyPatch
     ):
         monkeypatch.setattr(_PATCH_SYSTEMCTL, lambda *_: _systemctl_result(True, ""))
         response = timer_service.setup_timers(
@@ -259,7 +309,7 @@ class TestSetupTimers:
         assert response.enabled_timers[0].enabled is True
 
     def test_failed_enable_marked_in_response(
-        self, timer_service: TimerService, automated_task: TaskConfig, monkeypatch
+        self, timer_service: TimerService, automated_task: TaskConfig, monkeypatch: MonkeyPatch
     ):
         monkeypatch.setattr(_PATCH_SYSTEMCTL, lambda *_: _systemctl_result(False))
         response = timer_service.setup_timers(
@@ -268,7 +318,7 @@ class TestSetupTimers:
         assert response.enabled_timers[0].enabled is False
 
     def test_timer_status_populated_from_list_timers_output(
-        self, timer_service: TimerService, automated_task: TaskConfig, monkeypatch
+        self, timer_service: TimerService, automated_task: TaskConfig, monkeypatch: MonkeyPatch
     ):
         """The last run_systemctl call (list-timers) provides timer_status."""
         monkeypatch.setattr(
@@ -281,7 +331,7 @@ class TestSetupTimers:
         assert response.timer_status == f"archcare@{automated_task.name}.timer"
 
     def test_response_carries_automated_tasks(
-        self, timer_service: TimerService, automated_task: TaskConfig, monkeypatch
+        self, timer_service: TimerService, automated_task: TaskConfig, monkeypatch: MonkeyPatch
     ):
         monkeypatch.setattr(_PATCH_SYSTEMCTL, lambda *_: _systemctl_result(True, ""))
         tasks = {automated_task.name: automated_task}

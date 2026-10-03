@@ -250,22 +250,37 @@ def build_settings_toml() -> TOMLDocument:
         True
         >>> "maintenance_check" in toml_str
         True
+        >>> "system_update" in toml_str
+        True
     """
+    SECTION_RULE = "=" * 60
     data: dict[str, Any] = AppSettings().model_dump(exclude={"user"}, exclude_computed_fields=True)
     doc = document()
 
+    doc.add(comment("Archcare Settings"))
+    doc.add(comment(""))
+    doc.add(comment("This file is used to configure Archcare's behavior."))
+    doc.add(comment("It contains global and task-specific settings."))
+    doc.add(comment(""))
+    doc.add(comment("For more information, see the configuration reference."))
+    doc.add(comment("https://shayanmoosavi.github.io/archcare/reference/configuration-files/"))
+    doc.add(nl())
+
     doc.add(comment("Global Settings"))
+    doc.add(comment(SECTION_RULE))
     for key in ("log_level", "log_retention_days", "dry_run"):
         doc.add(key, data[key])
     doc.add(nl())
 
     doc.add(comment("Mirrorlist Update Settings"))
+    doc.add(comment(SECTION_RULE))
     mirrorlist_section = table()
     mirrorlist_section.update(data["mirrorlist"])
     doc.add("mirrorlist", mirrorlist_section)
     doc.add(nl())
 
     doc.add(comment("Maintenance Check Settings"))
+    doc.add(comment(SECTION_RULE))
     maintenance_section = table()
     maintenance_section.update(data["maintenance_check"])
 
@@ -280,11 +295,20 @@ def build_settings_toml() -> TOMLDocument:
     maintenance_section["require_acknowledgment"] = require_acknowledgment
 
     doc.add("maintenance_check", maintenance_section)
+    doc.add(nl())
 
     doc.add(comment("Health Check Settings"))
+    doc.add(comment(SECTION_RULE))
     health_check_section = table()
     health_check_section.update(data["health_check"])
     doc.add("health_check", health_check_section)
+    doc.add(nl())
+
+    doc.add(comment("System Update Settings"))
+    doc.add(comment(SECTION_RULE))
+    system_update_section = table()
+    system_update_section.update(data["system_update"])
+    doc.add("system_update", system_update_section)
 
     return doc
 

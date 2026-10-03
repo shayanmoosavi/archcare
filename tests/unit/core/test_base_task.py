@@ -1,6 +1,7 @@
 """Unit tests for BaseTask.run() method."""
 
 from dataclasses import dataclass
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -17,7 +18,7 @@ pytestmark = pytest.mark.usefixtures("no_task_logging")
 
 
 @pytest.fixture
-def app_settings(mocker, tmp_path) -> AppSettings:
+def app_settings(mocker, tmp_path: Path) -> AppSettings:
     """Provide a minimal AppSettings instance."""
     mocker.patch.object(AppSettings, "home_dir", property(lambda _: tmp_path))
     return AppSettings()
@@ -344,7 +345,9 @@ class TestCreateResult:
     sequence.
     """
 
-    def test_duration_seconds_reflects_elapsed_time(self, automated_task, app_settings, mocker):
+    def test_duration_seconds_reflects_elapsed_time(
+        self, automated_task: TaskConfig, app_settings: AppSettings, mocker
+    ):
         mocker.patch("archcare.core.base_task.time.time", side_effect=[1000.0, 1000.5])
         context = TaskContext()
         task = DummyTask(automated_task, app_settings, context)
@@ -363,12 +366,12 @@ class TestCreateResult:
 
 
 class TestNameProperty:
-    def test_name_mirrors_config_name(self, automated_task, app_settings):
+    def test_name_mirrors_config_name(self, automated_task: TaskConfig, app_settings: AppSettings):
         task = DummyTask(automated_task, app_settings, TaskContext())
 
         assert task.name == automated_task.name
 
-    def test_name_is_read_only(self, automated_task, app_settings):
+    def test_name_is_read_only(self, automated_task: TaskConfig, app_settings: AppSettings):
         task = DummyTask(automated_task, app_settings, TaskContext())
 
         with pytest.raises(AttributeError):
@@ -381,12 +384,14 @@ class TestNameProperty:
 
 
 class TestStringRepresentations:
-    def test_str_includes_class_name_and_task_name(self, automated_task, app_settings):
+    def test_str_includes_class_name_and_task_name(
+        self, automated_task: TaskConfig, app_settings: AppSettings
+    ):
         task = DummyTask(automated_task, app_settings, TaskContext())
 
         assert str(task) == f"DummyTask(name={automated_task.name})"
 
-    def test_repr_includes_key_fields(self, automated_task, app_settings):
+    def test_repr_includes_key_fields(self, automated_task: TaskConfig, app_settings: AppSettings):
         task = DummyTask(automated_task, app_settings, TaskContext())
 
         result = repr(task)

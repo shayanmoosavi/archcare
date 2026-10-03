@@ -6,6 +6,7 @@ from subprocess import CalledProcessError
 from unittest.mock import MagicMock
 
 import pytest
+from _pytest.monkeypatch import MonkeyPatch
 
 from archcare.utils.mirrorlist import (
     ReflectorArgs,
@@ -28,7 +29,7 @@ _PATCH_RUN_SUDO = "archcare.utils.mirrorlist.run_command_with_sudo"
 
 
 @pytest.fixture
-def write_src_file(tmp_path) -> Path:
+def write_src_file(tmp_path: Path) -> Path:
     src: Path = tmp_path / "source_file"
     src.write_text("source file contents\n")
     return src
@@ -50,12 +51,12 @@ def _reflector_result(success: bool = True) -> CommandResult:
 
 
 class TestValidateMirrorlist:
-    def test_returns_false_if_file_missing(self, tmp_path):
+    def test_returns_false_if_file_missing(self, tmp_path: Path):
         is_valid, msg = validate_mirrorlist(tmp_path / "missing_mirrorlist")
         assert is_valid is False
         assert "does not exist" in msg
 
-    def test_returns_false_if_file_empty(self, tmp_path):
+    def test_returns_false_if_file_empty(self, tmp_path: Path):
         empty_file: Path = tmp_path / "empty"
         empty_file.touch()
 
@@ -63,7 +64,7 @@ class TestValidateMirrorlist:
         assert is_valid is False
         assert "empty" in msg.lower()
 
-    def test_returns_false_if_no_active_servers(self, tmp_path):
+    def test_returns_false_if_no_active_servers(self, tmp_path: Path):
         no_servers: Path = tmp_path / "no_servers"
         no_servers.write_text("# Server = https://mirror.example.com\n# Just comments")
 
@@ -71,7 +72,7 @@ class TestValidateMirrorlist:
         assert is_valid is False
         assert "No valid mirror" in msg
 
-    def test_returns_true_for_valid_mirrorlist(self, tmp_path):
+    def test_returns_true_for_valid_mirrorlist(self, tmp_path: Path):
         valid_file: Path = tmp_path / "valid"
         valid_file.write_text(
             "Server = https://mirror1.com/$repo/os/$arch\n"
@@ -82,7 +83,7 @@ class TestValidateMirrorlist:
         assert is_valid is True
         assert "2 mirrors" in msg
 
-    def test_indented_server_lines_are_counted(self, tmp_path):
+    def test_indented_server_lines_are_counted(self, tmp_path: Path):
         """
         The implementation strips each line before checking the
         "Server = " prefix, so leading whitespace (spaces or tabs) must
@@ -105,13 +106,13 @@ class TestValidateMirrorlist:
 
 
 class TestGetMirrorlistInfo:
-    def test_returns_defaults_if_missing(self, tmp_path):
+    def test_returns_defaults_if_missing(self, tmp_path: Path):
         info = get_mirrorlist_info(tmp_path / "missing")
         assert info.total_mirrors == 0
         assert info.protocols == set()
         assert info.last_modified is None
 
-    def test_extracts_protocols_and_counts(self, tmp_path):
+    def test_extracts_protocols_and_counts(self, tmp_path: Path):
         mirrorlist: Path = tmp_path / "mirrorlist"
         mirrorlist.write_text(
             "Server = https://mirror1.com\n"
@@ -130,7 +131,7 @@ class TestGetMirrorlistInfo:
         # Ensure timestamp was generated
         assert info.last_modified is not None
 
-    def test_unrecognized_protocol_counted_but_not_categorized(self, tmp_path):
+    def test_unrecognized_protocol_counted_but_not_categorized(self, tmp_path: Path):
         mirrorlist: Path = tmp_path / "mirrorlist"
         mirrorlist.write_text("Server = https://mirror1.com\nServer = ftp://mirror2.com\n")
 
@@ -147,11 +148,13 @@ class TestGetMirrorlistInfo:
 
 
 class TestBackupFile:
-    def test_raises_os_error_if_source_missing(self, tmp_path):
+    def test_raises_os_error_if_source_missing(self, tmp_path: Path):
         with pytest.raises(OSError, match="does not exist"):
             backup_file(tmp_path / "missing")
 
-    def test_creates_backup_with_default_suffix(self, monkeypatch, write_src_file: Path):
+    def test_creates_backup_with_default_suffix(
+        self, monkeypatch: MonkeyPatch, write_src_file: Path
+    ):
         """
         is_root() is mocked so run_command_with_sudo skips prepending
         'sudo' (which would hang/fail without a real privilege escalation
@@ -167,7 +170,9 @@ class TestBackupFile:
         assert backup_path.read_text() == source.read_text()
         assert backup_path.name.endswith(".backup")
 
-    def test_creates_backup_with_custom_suffix(self, monkeypatch, write_src_file: Path):
+    def test_creates_backup_with_custom_suffix(
+        self, monkeypatch: MonkeyPatch, write_src_file: Path
+    ):
         monkeypatch.setattr(_PATCH_IS_ROOT, lambda: True)
         source = write_src_file
         backup_path = backup_file(source, backup_suffix=".bak")
@@ -176,7 +181,7 @@ class TestBackupFile:
         assert backup_path.name.endswith(".bak")
 
     def test_backup_filename_includes_source_name_and_timestamp(
-        self, monkeypatch, write_src_file: Path
+        self, monkeypatch: MonkeyPatch, write_src_file: Path
     ):
         monkeypatch.setattr(_PATCH_IS_ROOT, lambda: True)
         source = write_src_file
@@ -185,7 +190,9 @@ class TestBackupFile:
         assert "source_file_" in backup_path.name
         assert datetime.now().strftime("%Y-%m-%d") in backup_path.name
 
-    def test_wraps_called_process_error_as_os_error(self, monkeypatch, write_src_file: Path):
+    def test_wraps_called_process_error_as_os_error(
+        self, monkeypatch: MonkeyPatch, write_src_file: Path
+    ):
         source = write_src_file
 
         # Simulate a CalledProcessError being raised by run_command_with_sudo
@@ -201,11 +208,11 @@ class TestBackupFile:
 
 
 class TestRestoreBackup:
-    def test_raises_os_error_if_backup_missing(self, tmp_path):
+    def test_raises_os_error_if_backup_missing(self, tmp_path: Path):
         with pytest.raises(OSError, match="does not exist"):
             restore_backup(tmp_path / "missing.backup", tmp_path / "target")
 
-    def test_restores_content_to_target(self, tmp_path, monkeypatch):
+    def test_restores_content_to_target(self, tmp_path: Path, monkeypatch: MonkeyPatch):
         monkeypatch.setattr(_PATCH_IS_ROOT, lambda: True)
         backup: Path = tmp_path / "target.backup"
         backup.write_text("backed up content\n")
@@ -216,7 +223,7 @@ class TestRestoreBackup:
 
         assert target.read_text() == backup.read_text()
 
-    def test_wraps_called_process_error_as_os_error(self, tmp_path, monkeypatch):
+    def test_wraps_called_process_error_as_os_error(self, tmp_path: Path, monkeypatch: MonkeyPatch):
         backup: Path = tmp_path / "target.backup"
         backup.write_text("backed up content\n")
 
@@ -232,13 +239,13 @@ class TestRestoreBackup:
 
 
 class TestUpdateMirrorlist:
-    def test_raises_when_reflector_not_found(self, monkeypatch):
+    def test_raises_when_reflector_not_found(self, monkeypatch: MonkeyPatch):
         monkeypatch.setattr(_PATCH_CHECK_COMMAND, lambda _: False)
 
         with pytest.raises(RuntimeError):
             update_mirrorlist(ReflectorArgs())
 
-    def test_builds_command_with_string_country_and_protocol(self, monkeypatch):
+    def test_builds_command_with_string_country_and_protocol(self, monkeypatch: MonkeyPatch):
         monkeypatch.setattr(_PATCH_CHECK_COMMAND, lambda _: True)
         mock_run = MagicMock(return_value=_reflector_result())
         monkeypatch.setattr(_PATCH_RUN_SUDO, mock_run)
@@ -251,7 +258,7 @@ class TestUpdateMirrorlist:
         assert "--protocol" in cmd
         assert "https" in cmd
 
-    def test_builds_command_with_list_country_and_protocol(self, monkeypatch):
+    def test_builds_command_with_list_country_and_protocol(self, monkeypatch: MonkeyPatch):
         """Lists are comma-joined into a single reflector argument."""
         monkeypatch.setattr(_PATCH_CHECK_COMMAND, lambda _: True)
         mock_run = MagicMock(return_value=_reflector_result())
@@ -263,7 +270,7 @@ class TestUpdateMirrorlist:
         assert "Germany,France" in cmd
         assert "https,http" in cmd
 
-    def test_omits_country_and_protocol_when_not_given(self, monkeypatch):
+    def test_omits_country_and_protocol_when_not_given(self, monkeypatch: MonkeyPatch):
         monkeypatch.setattr(_PATCH_CHECK_COMMAND, lambda _: True)
         mock_run = MagicMock(return_value=_reflector_result())
         monkeypatch.setattr(_PATCH_RUN_SUDO, mock_run)
@@ -274,7 +281,7 @@ class TestUpdateMirrorlist:
         assert "--country" not in cmd
         assert "--protocol" not in cmd
 
-    def test_includes_save_path_when_given(self, tmp_path, monkeypatch):
+    def test_includes_save_path_when_given(self, tmp_path: Path, monkeypatch: MonkeyPatch):
         monkeypatch.setattr(_PATCH_CHECK_COMMAND, lambda _: True)
         mock_run = MagicMock(return_value=_reflector_result())
         monkeypatch.setattr(_PATCH_RUN_SUDO, mock_run)
@@ -286,7 +293,7 @@ class TestUpdateMirrorlist:
         assert "--save" in cmd
         assert str(save_path) in cmd
 
-    def test_omits_save_path_when_not_given(self, monkeypatch):
+    def test_omits_save_path_when_not_given(self, monkeypatch: MonkeyPatch):
         monkeypatch.setattr(_PATCH_CHECK_COMMAND, lambda _: True)
         mock_run = MagicMock(return_value=_reflector_result())
         monkeypatch.setattr(_PATCH_RUN_SUDO, mock_run)
@@ -296,7 +303,7 @@ class TestUpdateMirrorlist:
         cmd = mock_run.call_args[0][0]
         assert "--save" not in cmd
 
-    def test_timeout_formula_matches_latest_value(self, monkeypatch):
+    def test_timeout_formula_matches_latest_value(self, monkeypatch: MonkeyPatch):
         """cmd_timeout = latest * 5 + 30 seconds of padding."""
         monkeypatch.setattr(_PATCH_CHECK_COMMAND, lambda _: True)
         mock_run = MagicMock(return_value=_reflector_result())
@@ -306,7 +313,7 @@ class TestUpdateMirrorlist:
 
         assert mock_run.call_args.kwargs["options"].timeout == 10 * 5 + 30
 
-    def test_returns_command_result_from_run_sudo(self, monkeypatch):
+    def test_returns_command_result_from_run_sudo(self, monkeypatch: MonkeyPatch):
         monkeypatch.setattr(_PATCH_CHECK_COMMAND, lambda _: True)
         expected = _reflector_result()
         monkeypatch.setattr(_PATCH_RUN_SUDO, MagicMock(return_value=expected))

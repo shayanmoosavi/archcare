@@ -164,7 +164,7 @@ class TestRenderIssueDispatch:
     def test_issues_render_table(
         self,
         mock_console: MagicMock,
-        request,
+        request: pytest.FixtureRequest,
         mocker,
         issue_fixture: str,
         title: str,

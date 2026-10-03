@@ -14,10 +14,12 @@ See Also:
 """
 
 from rich.console import RenderableType
+from rich.markup import escape
 
 from archcare.config import AppSettings, TaskStatus
 from archcare.core import MaintenanceCheckDetails, TaskRegistry, TaskResult
 from archcare.services.responses import (
+    RecoveryResponse,
     TaskListResponse,
     TaskRunResponse,
     TaskStatusResponse,
@@ -143,6 +145,48 @@ class TaskPresenter:
                 for key, value in response.summary.items()
             ]
             print_panel("Summary", "\n".join(lines))
+
+    @staticmethod
+    def render_recovery(response: RecoveryResponse) -> None:
+        """
+        Render `archcare task recover` guidance to console.
+
+        Prints what the last run left behind, then the commands needed to recover from it. The
+        commands are printed and never executed: a snapshot rollback or a pacman sync-database
+        restore is destructive and irreversible, and the decision belongs to the user.
+
+        When `available` is `False` only `reason` is printed — no panel and no commands. A
+        record that failed to parse is exactly the case where showing its leftovers would
+        suggest a recovery path for an unverified file.
+
+        Args:
+            response (RecoveryResponse): Recovery information from
+                [`RecoveryService.get_recovery_info`][archcare.services.recovery_service.RecoveryService.get_recovery_info].
+        """
+        if not response.available:
+            print_info(response.reason or "No recovery information available.")
+            return
+
+        lines = []
+        if response.snapshot_id is not None:
+            lines.append(f"  Pre-update snapshot: {response.snapshot_id}")
+        if response.updated_at:
+            lines.append(f"  Last update attempt: {response.updated_at}")
+        if response.aur_packages_failed:
+            lines.append(f"  AUR packages that failed: {', '.join(response.aur_packages_failed)}")
+        if response.packages_removed:
+            lines.append(f"  Packages removed: {', '.join(response.packages_removed)}")
+        if lines:
+            print_panel("Recovery Info", "\n".join(lines))
+
+        if response.commands:
+            print_header("Suggested commands (run these yourself)")
+            for command in response.commands:
+                # Escaped, not printed raw: Rich reads `[...]` as console markup, so a command
+                # carrying a glob like `[linux]-6.9.pkg.tar.zst` would silently lose the bracketed
+                # part and a stray `[/...]` would raise `MarkupError`. These lines are meant to be
+                # copied and pasted verbatim, so markup must not apply to them.
+                console.print(f"  {escape(command)}")
 
     @staticmethod
     def _print_schedule_table(response: TaskStatusResponse):

@@ -19,7 +19,8 @@ archcare [--devel]
 ├── task                        Run and manage maintenance tasks
 │   ├── run <task_name>         [--force/-f] [--verbose/-v]
 │   ├── status [task_name]      [--due]
-│   └── list                    [--type/-t automated|manual]
+│   ├── list                    [--type/-t automated|manual]
+│   └── recover <task_name>     Show recovery commands for a task
 ├── setup                       One-time bootstrapping
 │   ├── config
 │   └── timers                  [--enable/--no-enable] [--dry-run]
@@ -78,6 +79,34 @@ archcare task list --type manual  # Manual tasks
 | Argument / option    | Description                             | Default |
 | -------------------- | --------------------------------------- | ------- |
 | `--type`, `-t <str>` | Filter by type: `automated` or `manual` | _       |
+
+### `task recover`
+
+Show recovery commands for a specific task. Prints the recovery artifacts (left by the last run) and
+the commands needed to restore the system state. The commands are displayed only — they are
+**not executed**. A snapshot rollback or database restore is destructive and irreversible; the
+decision to run them belongs to the user.
+
+```bash
+archcare task recover system-update
+```
+
+| Argument / option | Description                 | Default      |
+| ----------------- | --------------------------- | ------------ |
+| `task_name`       | Name of the task to recover | **required** |
+
+!!! note
+
+    A recovery record must exist from a previous run. If no record is found, the command exits `1`
+    with "No recovery information available."
+
+    The `system-update` task writes a recovery record (snapshot ID, sync DB backup, package
+    manifests) on every run. The `recover` command reads that record and prints:
+
+    - `snapper rollback <id>` — if a Btrfs snapshot was created
+    - `bash /path/to/downgrade.sh` — the restore script (runs `pacman -S -` to reinstall the
+        pre-upgrade package set)
+    - `ls /var/cache/pacman/pkg/` — cache pointer for removed packages
 
 ## `archcare setup`
 

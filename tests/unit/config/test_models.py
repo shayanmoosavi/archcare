@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from _pytest.monkeypatch import MonkeyPatch
 from pydantic import ValidationError
 
 from archcare.config import (
@@ -21,7 +22,12 @@ from archcare.config.exceptions import (
     InvalidTaskTypeFilterError,
     UnknownTaskError,
 )
-from archcare.config.models import HealthCheckSettings, MaintenanceCheckSettings, MirrorlistSettings
+from archcare.config.models import (
+    HealthCheckSettings,
+    MaintenanceCheckSettings,
+    MirrorlistSettings,
+    SystemUpdateSettings,
+)
 
 # Test-specific constants for HealthCheckSettings validation tests (below/above thresholds)
 TEST_WARNING_PERCENT = 70
@@ -33,7 +39,7 @@ TEST_CRITICAL_PERCENT = 90
 
 
 @pytest.fixture(autouse=True)
-def clear_sudo_user(monkeypatch):
+def clear_sudo_user(monkeypatch: MonkeyPatch):
     monkeypatch.delenv("SUDO_USER", raising=False)
 
 
@@ -150,7 +156,7 @@ class TestAppSettingsPaths:
         assert settings.home_dir == Path("/home/alice")
         assert mock_pwd.call_args_list[0].args[0] == "alice"
 
-    def test_prefers_sudo_user(self, monkeypatch, mock_pwd: MagicMock):
+    def test_prefers_sudo_user(self, monkeypatch: MonkeyPatch, mock_pwd: MagicMock):
         monkeypatch.setenv("SUDO_USER", "bob")
         mock_pwd.return_value.pw_dir = "/home/bob"
 
@@ -195,6 +201,18 @@ class TestAppSettingsPaths:
         settings = AppSettings(user="alice")
         assert getattr(settings, path) == expected
 
+    def test_recovery_dir_is_under_state_dir(self, tmp_path: Path, monkeypatch: MonkeyPatch):
+        monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+        settings = AppSettings(user=None)
+
+        assert settings.recovery_dir == settings.state_file.parent / "recovery"
+
+    def test_recovery_dir_is_absolute(self, tmp_path: Path, monkeypatch: MonkeyPatch):
+        monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+        settings = AppSettings(user=None)
+
+        assert settings.recovery_dir.is_absolute()
+
 
 class TestValidatePaths:
     def test_validate_paths_accepts_valid_paths(self, mock_pwd: MagicMock):
@@ -205,7 +223,7 @@ class TestValidatePaths:
         settings = AppSettings(user="alice")
         assert settings.home_dir == Path("/home/alice")
 
-    def test_validate_paths_rejects_relative_paths(self, monkeypatch):
+    def test_validate_paths_rejects_relative_paths(self, monkeypatch: MonkeyPatch):
         """Relative paths should raise ValidationError."""
         # Force Path.home() to return a relative path
         monkeypatch.setattr(Path, "home", staticmethod(lambda: Path("relative/path")))
@@ -231,7 +249,7 @@ class TestValidatePaths:
 
 
 class TestAppSettingsEnsureDirectories:
-    def test_all_required_directories_are_created(self, tmp_path, monkeypatch):
+    def test_all_required_directories_are_created(self, tmp_path: Path, monkeypatch: MonkeyPatch):
         """
         Redirect Path.home() to tmp_path so ensure_directories() writes to a
         temp location instead of the real home directory.
@@ -246,7 +264,7 @@ class TestAppSettingsEnsureDirectories:
         assert settings.state_file.parent.exists()
         assert settings.report_dir.exists()
 
-    def test_ensure_directories_is_idempotent(self, tmp_path, monkeypatch):
+    def test_ensure_directories_is_idempotent(self, tmp_path: Path, monkeypatch: MonkeyPatch):
         """Calling twice must not raise even if directories already exist."""
         monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
         settings = AppSettings(user=None)
@@ -333,7 +351,7 @@ class TestIgnoredServicesConfig:
 
 class TestMirrorlistSettings:
     @pytest.mark.parametrize("protocol", ["http", "https", "rsync"])
-    def test_valid_protocol_accepted(self, protocol):
+    def test_valid_protocol_accepted(self, protocol: str):
         assert MirrorlistSettings(protocol=protocol).protocol == protocol
 
     def test_invalid_protocol_raises(self):
@@ -341,7 +359,7 @@ class TestMirrorlistSettings:
             MirrorlistSettings(protocol="ftp")
 
     @pytest.mark.parametrize("sort", ["age", "rate", "country", "score", "delay"])
-    def test_valid_sort_accepted(self, sort):
+    def test_valid_sort_accepted(self, sort: str):
         assert MirrorlistSettings(sort=sort).sort == sort
 
     def test_invalid_sort_raises(self):
@@ -353,13 +371,64 @@ class TestMirrorlistSettings:
         assert MirrorlistSettings().backup_retention_count == DEFAULT_BACKUP_RETENTION
 
     @pytest.mark.parametrize("value", [1, 5, 10, 100])
-    def test_valid_backup_retention_accepted(self, value):
+    def test_valid_backup_retention_accepted(self, value: int):
         assert MirrorlistSettings(backup_retention_count=value).backup_retention_count == value
 
     @pytest.mark.parametrize("value", [0, -1])
-    def test_invalid_backup_retention_rejected(self, value):
+    def test_invalid_backup_retention_rejected(self, value: int):
         with pytest.raises(ValidationError):
             MirrorlistSettings(backup_retention_count=value)
+
+
+# ---------------------------------------------------------------------------
+# SystemUpdateSettings validators
+# ---------------------------------------------------------------------------
+
+
+class TestSystemUpdateSettings:
+    def test_defaults(self):
+        DEFAULT_MIN_REPO_UPDATES = 30
+        DEFAULT_CACHE_KEEP_VERSIONS = 2
+        DEFAULT_CACHE_KEEP_UNINSTALLED = 1
+
+        settings = SystemUpdateSettings()
+
+        assert settings.min_repo_updates_threshold == DEFAULT_MIN_REPO_UPDATES
+        assert settings.cache_keep_versions == DEFAULT_CACHE_KEEP_VERSIONS
+        assert settings.cache_keep_uninstalled_versions == DEFAULT_CACHE_KEEP_UNINSTALLED
+
+    def test_keeps_one_uninstalled_version_for_recovery(self):
+        """A package removed by an upgrade is uninstalled, so only this setting keeps its artifact
+        in the cache for `archcare task recover` to find. Setting it to 0 silently removes the
+        recovery path."""
+        assert SystemUpdateSettings().cache_keep_uninstalled_versions >= 1
+
+    @pytest.mark.parametrize(
+        "field",
+        [
+            "min_repo_updates_threshold",
+            "cache_keep_versions",
+            "cache_keep_uninstalled_versions",
+        ],
+    )
+    def test_zero_is_accepted(self, field: str):
+        """Every field treats 0 as meaningful: act on every package update / purge everything."""
+        assert getattr(SystemUpdateSettings(**{field: 0}), field) == 0
+
+    @pytest.mark.parametrize(
+        "field",
+        [
+            "min_repo_updates_threshold",
+            "cache_keep_versions",
+            "cache_keep_uninstalled_versions",
+        ],
+    )
+    def test_negative_values_rejected(self, field: str):
+        with pytest.raises(ValidationError):
+            SystemUpdateSettings(**{field: -1})
+
+    def test_app_settings_wires_it_in(self):
+        assert isinstance(AppSettings().system_update, SystemUpdateSettings)
 
 
 # ---------------------------------------------------------------------------
@@ -377,7 +446,7 @@ class TestHealthCheckSettings:
             ("swap_warning_percent", 100),
         ],
     )
-    def test_valid_percentages_accepted(self, field, value):
+    def test_valid_percentages_accepted(self, field: str, value: int):
         settings = HealthCheckSettings(**{field: value})
         assert getattr(settings, field) == value
 
@@ -390,7 +459,7 @@ class TestHealthCheckSettings:
             ("swap_warning_percent", 101),
         ],
     )
-    def test_invalid_percentages_rejected(self, field, value):
+    def test_invalid_percentages_rejected(self, field: str, value: int):
         with pytest.raises(ValidationError):
             HealthCheckSettings(**{field: value})
 
@@ -403,7 +472,7 @@ class TestHealthCheckSettings:
             (100, 99),
         ],
     )
-    def test_valid_memory_threshold_combinations(self, critical, warning):
+    def test_valid_memory_threshold_combinations(self, critical: int, warning: int):
         settings = HealthCheckSettings(
             memory_critical_percent=critical, memory_warning_percent=warning
         )
@@ -419,7 +488,7 @@ class TestHealthCheckSettings:
             (100, 99),
         ],
     )
-    def test_valid_disk_threshold_combinations(self, critical, warning):
+    def test_valid_disk_threshold_combinations(self, critical: int, warning: int):
         settings = HealthCheckSettings(disk_critical_percent=critical, disk_warning_percent=warning)
         assert settings.disk_critical_percent == critical
         assert settings.disk_warning_percent == warning
@@ -434,7 +503,7 @@ class TestHealthCheckSettings:
             (90, 90),  # equal
         ],
     )
-    def test_invalid_memory_threshold_combinations_rejected(self, critical, warning):
+    def test_invalid_memory_threshold_combinations_rejected(self, critical: int, warning: int):
         with pytest.raises(
             ValidationError, match="memory_warning_percent must be < memory_critical_percent"
         ):
@@ -450,7 +519,7 @@ class TestHealthCheckSettings:
             (90, 90),  # equal
         ],
     )
-    def test_invalid_disk_threshold_combinations_rejected(self, critical, warning):
+    def test_invalid_disk_threshold_combinations_rejected(self, critical: int, warning: int):
         with pytest.raises(
             ValidationError, match="disk_warning_percent must be < disk_critical_percent"
         ):
@@ -520,7 +589,7 @@ class TestHealthCheckSettings:
 
 class TestMaintenanceCheckSettings:
     @pytest.mark.parametrize("mode", ["terminal", "file", "both"])
-    def test_valid_output_mode_accepted(self, mode):
+    def test_valid_output_mode_accepted(self, mode: str):
         assert MaintenanceCheckSettings(output_mode=mode).output_mode == mode
 
     def test_invalid_output_mode_raises(self):
@@ -528,7 +597,7 @@ class TestMaintenanceCheckSettings:
             MaintenanceCheckSettings(output_mode="stdout")
 
     @pytest.mark.parametrize("level", ["critical", "warning", "info"])
-    def test_valid_notification_level_accepted(self, level):
+    def test_valid_notification_level_accepted(self, level: str):
         assert MaintenanceCheckSettings(notification_level=level).notification_level == level
 
     def test_invalid_notification_level_raises(self):
@@ -536,7 +605,7 @@ class TestMaintenanceCheckSettings:
             MaintenanceCheckSettings(notification_level="debug")
 
     @pytest.mark.parametrize(("critical", "warning"), [(7, 0), (10, 5), (1, 0), (30, 29)])
-    def test_valid_threshold_combinations_accepted(self, critical, warning):
+    def test_valid_threshold_combinations_accepted(self, critical: str, warning: str):
         settings = MaintenanceCheckSettings(
             critical_threshold_days=critical, warning_threshold_days=warning
         )
@@ -548,7 +617,7 @@ class TestMaintenanceCheckSettings:
         assert settings.warning_threshold_days < settings.critical_threshold_days
 
     @pytest.mark.parametrize(("critical", "warning"), [(7, 7), (5, 10), (0, 1)])
-    def test_warning_not_below_critical_raises(self, critical, warning):
+    def test_warning_not_below_critical_raises(self, critical: str, warning: str):
         """Cross-field rule: warning_threshold_days must be strictly below
         critical_threshold_days (equal or reversed values are rejected)."""
         with pytest.raises(ValidationError, match="must be less than"):

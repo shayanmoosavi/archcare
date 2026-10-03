@@ -1,9 +1,10 @@
 """
 Unit tests for the `task` command group (cli/commands/task.py).
 
-Commands are called as plain functions with a lightweight fake ctx, not
-through Typer's CliRunner - CliRunner exercises Click's own argument
-parsing, which belongs to a later integration-test pass, not here.
+Commands are called as plain functions with a lightweight fake ctx, not through Typer's CliRunner -
+CliRunner exercises Click's own argument parsing, which belongs to integration tests, not here.
+`recover` additionally pins the command's presence on the sub-app, which is a real Click-level fact
+the fake-ctx style cannot see.
 """
 
 from types import SimpleNamespace
@@ -12,12 +13,13 @@ from unittest.mock import MagicMock
 import pytest
 import typer
 
-from archcare.cli.commands.task import list_tasks, run, status
+from archcare.cli.commands.task import list_tasks, recover, run, status
 from archcare.services.exceptions import (
     InvalidTasksFileError,
     InvalidTaskTypeError,
     TaskNotFoundError,
 )
+from archcare.services.responses import RecoveryResponse
 
 _MODULE = "archcare.cli.commands.task"
 
@@ -52,6 +54,22 @@ def mock_service(mocker) -> MagicMock:
 @pytest.fixture
 def mock_presenter(mocker) -> MagicMock:
     return mocker.patch(f"{_MODULE}.TaskPresenter").return_value
+
+
+@pytest.fixture
+def mock_recovery_service(mocker) -> MagicMock:
+    """Patch the service class; tests set `.get_recovery_info.return_value` themselves.
+
+    Only the one method is stubbed - a real `RecoveryResponse` is returned so the command and
+    the presenter's contract are exercised as written, and the service's own file reading
+    stays in `tests/unit/services/test_recovery_service.py` where it belongs. Nothing here
+    writes a record or touches `recovery_dir`.
+    """
+    return mocker.patch(f"{_MODULE}.RecoveryService")
+
+
+def _recovery(**kwargs) -> RecoveryResponse:
+    return RecoveryResponse(**kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -281,3 +299,118 @@ class TestListTasks:
 
         mock_service.list_tasks.assert_called_once_with("manual")
         mock_presenter.render_list.assert_called_once_with("RESPONSE_SENTINEL")
+
+
+# ---------------------------------------------------------------------------
+# task recover
+# ---------------------------------------------------------------------------
+
+
+class TestRecover:
+    @pytest.mark.usefixtures("mock_presenter")
+    def test_calls_setup_logging(self, mock_recovery_service: MagicMock):
+        mock_recovery_service.return_value.get_recovery_info.return_value = _recovery(
+            available=True
+        )
+        ctx = _make_ctx()
+
+        recover(ctx, task_name="system-update")  # ty:ignore[invalid-argument-type]
+
+        ctx.obj.setup_logging.assert_called_once()
+
+    @pytest.mark.usefixtures("mock_presenter")
+    def test_service_built_from_context_settings_and_given_the_task_name(
+        self, mock_recovery_service: MagicMock
+    ):
+        """Settings come from the context, which resolves the archcare user and honours
+        `ARCHCARE_USER`; constructing `AppSettings()` directly would read the wrong home."""
+        service = mock_recovery_service.return_value
+        service.get_recovery_info.return_value = _recovery(available=True)
+        ctx = _make_ctx()
+        ctx.obj.settings = "SETTINGS_SENTINEL"
+
+        recover(ctx, task_name="system-update")  # ty:ignore[invalid-argument-type]
+
+        mock_recovery_service.assert_called_once_with("SETTINGS_SENTINEL")
+        service.get_recovery_info.assert_called_once_with("system-update")
+
+    def test_renders_the_response_it_received(
+        self, mock_recovery_service: MagicMock, mock_presenter: MagicMock
+    ):
+        response = _recovery(available=True, commands=("snapper rollback 42",))
+        mock_recovery_service.return_value.get_recovery_info.return_value = response
+        ctx = _make_ctx()
+
+        recover(ctx, task_name="system-update")  # ty:ignore[invalid-argument-type]
+
+        mock_presenter.render_recovery.assert_called_once_with(response)
+
+    def test_returns_cleanly_when_a_record_exists(
+        self, mock_recovery_service: MagicMock, mock_presenter: MagicMock
+    ):
+        """No `Exit` is raised on the success path — Click maps a clean return to 0.
+
+        This matches `status` and `list`; only `run` needs an explicit `Exit(0)` because it has
+        a failure fallthrough. The observable 0 is asserted at the Click level below.
+        """
+        mock_recovery_service.return_value.get_recovery_info.return_value = _recovery(
+            available=True, commands=("snapper rollback 42",)
+        )
+        ctx = _make_ctx()
+
+        recover(ctx, task_name="system-update")  # ty:ignore[invalid-argument-type]
+
+        mock_presenter.error.assert_not_called()
+
+    def test_exits_one_when_the_record_is_unreadable(
+        self, mock_recovery_service: MagicMock, mock_presenter: MagicMock
+    ):
+        """`reason` is the only thing distinguishing "never ran" from "corrupt record".
+
+        The service never raises for a bad record, so the command renders that reason and
+        exits 1. If the reason were swallowed the user would have no way to tell a missing
+        file from a corrupt one.
+        """
+        reason = (
+            "Recovery record for 'system-update' is unreadable: Expecting value: line 1 column 2"
+        )
+        mock_recovery_service.return_value.get_recovery_info.return_value = _recovery(
+            available=False, reason=reason
+        )
+        ctx = _make_ctx()
+
+        with pytest.raises(typer.Exit) as exc_info:
+            recover(ctx, task_name="system-update")  # ty:ignore[invalid-argument-type]
+
+        assert exc_info.value.exit_code == 1
+        assert mock_presenter.render_recovery.call_args.args[0].reason == reason
+
+    @pytest.mark.usefixtures("mock_presenter")
+    def test_exits_one_when_no_record_exists(self, mock_recovery_service: MagicMock):
+        mock_recovery_service.return_value.get_recovery_info.return_value = _recovery(
+            available=False, reason="No recovery record found for 'system-update'."
+        )
+        ctx = _make_ctx()
+
+        with pytest.raises(typer.Exit) as exc_info:
+            recover(ctx, task_name="system-update")  # ty:ignore[invalid-argument-type]
+
+        assert exc_info.value.exit_code == 1
+
+    def test_generic_exception_shows_error_and_exits_1(
+        self, mock_recovery_service: MagicMock, mock_presenter: MagicMock
+    ):
+        """The service's never-raises contract covers the expected states only; an unexpected
+        failure must still become a message and exit 1 rather than a traceback."""
+        mock_recovery_service.return_value.get_recovery_info.side_effect = OSError(
+            "permission denied"
+        )
+        ctx = _make_ctx()
+
+        with pytest.raises(typer.Exit) as exc_info:
+            recover(ctx, task_name="system-update")  # ty:ignore[invalid-argument-type]
+
+        assert "system-update" in mock_presenter.error.call_args.args[0]
+        assert "permission denied" in mock_presenter.error.call_args.args[0]
+        assert exc_info.value.exit_code == 1
+        mock_presenter.render_recovery.assert_not_called()

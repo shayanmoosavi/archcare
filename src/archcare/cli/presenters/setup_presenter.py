@@ -16,6 +16,7 @@ from pathlib import Path
 
 from archcare.services.responses import (
     ConfigInitResponse,
+    DependencyCheckResponse,
     InstallTemplatesResponse,
     ReloadSystemdResponse,
     TimerSetupResponse,
@@ -92,6 +93,41 @@ class SetupPresenter:
         print_success("Configuration initialized!")
         print_info(f"Edit config files in: {response.config_dir}")
         print_info("Run 'archcare task list' to see available tasks")
+
+    @staticmethod
+    def render_dependency_check(response: DependencyCheckResponse) -> None:
+        """
+        Render the result of
+        [`ConfigService.check_dependencies`][archcare.services.setup_service.ConfigService.check_dependencies].
+
+        Prints each required and conditional package with an install/ok marker,
+        then prints a summary hint pointing at the package manager.
+
+        Args:
+            response (DependencyCheckResponse): Result from
+                [`ConfigService.check_dependencies`][archcare.services.setup_service.ConfigService.check_dependencies].
+        """
+        print_header("Dependency Check")
+
+        if response.required:
+            print_info("Required dependencies:")
+            for pkg in response.required:
+                marker = "✔" if pkg.installed else "✘"
+                status = "installed" if pkg.installed else "missing"
+                console.print(f"  {marker} {pkg.name} ({status})")
+
+        if response.conditional:
+            print_info("Conditional (Btrfs) dependencies:")
+            for pkg in response.conditional:
+                marker = "✔" if pkg.installed else "✘"
+                status = "installed" if pkg.installed else "missing"
+                console.print(f"  {marker} {pkg.name} ({status})")
+
+        if missing_required := [p.name for p in response.required if not p.installed]:
+            print_error("Required packages are missing! Archcare cannot function without them :(")
+            print_info("Install with: sudo pacman -S " + " ".join(missing_required))
+        else:
+            print_success("All required dependencies are present")
 
     # -- setup timers -------------------------------------------------------
 

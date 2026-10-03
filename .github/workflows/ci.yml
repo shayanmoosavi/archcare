@@ -16,7 +16,7 @@ jobs:
       - name: Set up environment
         uses: ./.github/actions/setup
         with:
-          python-version: 3.13
+          python-version: "3.13"
           install-groups: dev
           cache-key-suffix: ci
 
@@ -51,8 +51,8 @@ jobs:
       - name: Set up environment
         uses: ./.github/actions/setup
         with:
-          python-version: 3.13
-          install-groups: docs
+          python-version: "3.13"
+          install-groups: docs,test
           cache-key-suffix: ci-docs
 
       # libcairo2 is required by mkdocs-material[imaging] (cairosvg), used by

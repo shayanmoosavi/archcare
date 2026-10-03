@@ -26,6 +26,7 @@ See Also:
 import re
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -74,10 +75,9 @@ class CommandResult:
         stdout (str): The trimmed standard output stream from the command execution.
         stderr (str): The trimmed standard error stream from the command execution.
         success (bool): Indicates whether the command completed successfully.
-
-    Info: Exit code
-        For `systemctl status` commands, an exit code of 3 (for loaded but
-        inactive status) is treated as successful.
+            For `systemctl status`, an exit code of 3 (loaded but inactive) is treated
+            as successful. For `checkupdates`, an exit code of 2 ("No updates") is also
+            treated as a successful, empty result rather than a failure.
 
     Examples:
         >>> from archcare.utils.system import CommandResult
@@ -191,6 +191,9 @@ def run_command(
                 # Systemctl status returns an exit code of 3 for failed services
                 result.returncode in {3, 0}
                 if "systemctl" in command_str
+                # checkupdates signals "no updates" with exit code 2
+                else result.returncode in {0, 2}
+                if "checkupdates" in command_str
                 else result.returncode == 0
             ),
         )
@@ -321,6 +324,39 @@ def is_root() -> bool:
     import os
 
     return os.geteuid() == 0
+
+
+def has_interactive_terminal() -> bool:
+    """
+    Report whether this process is attached to an interactive terminal.
+
+    Commands that inherit stdio — a pacman transaction, an AUR helper, a `sudo` password
+    prompt — need a real terminal to render against. Under a systemd timer, a CI job, or a
+    pipe, those prompts either fail with a confusing error or appear to hang, so callers
+    use this to refuse the operation up front instead.
+
+    Checks *both* stdin and stdout: pacman reads confirmations from stdin and writes progress
+    to stdout, and a half-attached process is not interactive.
+
+    Returns:
+        bool: `True` only when both standard streams report a TTY. `False` when either is
+            redirected, closed, or does not implement `isatty` — never raises.
+
+    Examples:
+        >>> from archcare.utils.system import has_interactive_terminal
+        >>> isinstance(has_interactive_terminal(), bool)
+        True
+
+    See Also:
+        [`run_command`][]: Caller-side check pairs with `CommandOptions(capture_output=False)`
+    """
+    try:
+        return bool(sys.stdin.isatty() and sys.stdout.isatty())
+    except (AttributeError, OSError, ValueError):
+        # AttributeError: a detached or replaced stream without isatty().
+        # OSError: the device went away; ValueError: the stream was closed.
+        logger.debug("Could not determine terminal interactivity; assuming none")
+        return False
 
 
 def get_systemd_failed_services() -> list[str]:

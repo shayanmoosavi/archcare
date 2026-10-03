@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from _pytest.monkeypatch import MonkeyPatch
 
 from archcare.config.user import UserContext
 
@@ -29,12 +30,12 @@ class TestIsInteractive:
 
 
 class TestFromEnv:
-    def test_resolves_none_when_unset(self, monkeypatch):
+    def test_resolves_none_when_unset(self, monkeypatch: MonkeyPatch):
         monkeypatch.delenv("ARCHCARE_USER", raising=False)
 
         assert UserContext.from_env().archcare_user is None
 
-    def test_resolves_value_when_set(self, monkeypatch):
+    def test_resolves_value_when_set(self, monkeypatch: MonkeyPatch):
         monkeypatch.setenv("ARCHCARE_USER", "alice")
 
         assert UserContext.from_env().archcare_user == "alice"

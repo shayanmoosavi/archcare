@@ -14,6 +14,7 @@ from archcare.core import (
     TaskScheduleInfo,
 )
 from archcare.services.responses import (
+    RecoveryResponse,
     TaskListResponse,
     TaskRunResponse,
     TaskStatusResponse,
@@ -23,6 +24,9 @@ _MODULE = "archcare.cli.presenters.task_presenter"
 
 _PATCH_INFO = f"{_MODULE}.print_info"
 _PATCH_WARNING = f"{_MODULE}.print_warning"
+_PATCH_HEADER = f"{_MODULE}.print_header"
+_PATCH_PANEL = f"{_MODULE}.print_panel"
+_PATCH_CONSOLE = f"{_MODULE}.console"
 
 
 # ---------------------------------------------------------------------------
@@ -351,7 +355,7 @@ class TestRenderList:
         self,
         task_fixture,
         expected_icon,
-        request,
+        request: pytest.FixtureRequest,
         mock_console: MagicMock,
         presenter: TaskPresenter,
     ):
@@ -520,3 +524,169 @@ class TestFormatTaskDetails:
         assert "Details:" in output
         assert "cpu: 12%" in output
         assert "mem: 34%" in output
+
+
+# ---------------------------------------------------------------------------
+# render_recovery
+# ---------------------------------------------------------------------------
+
+
+class TestRenderRecovery:
+    @pytest.fixture(autouse=True)
+    def mock_panel(self, mocker) -> MagicMock:
+        return mocker.patch(_PATCH_PANEL)
+
+    def test_available_false_prints_reason_and_returns(
+        self,
+        presenter: TaskPresenter,
+        mock_info: MagicMock,
+        mock_panel: MagicMock,
+        mock_console: MagicMock,
+        mock_header: MagicMock,
+    ):
+        response = RecoveryResponse(available=False, reason="No recovery record found")
+        presenter.render_recovery(response)
+
+        mock_info.assert_called_once_with("No recovery record found")
+        mock_panel.assert_not_called()
+        mock_header.assert_not_called()
+        mock_console.print.assert_not_called()
+
+    def test_available_false_with_none_reason_prints_default_message(
+        self, presenter: TaskPresenter, mock_info: MagicMock, mock_header: MagicMock
+    ):
+        response = RecoveryResponse(available=False, reason=None)
+        presenter.render_recovery(response)
+
+        mock_info.assert_called_once_with("No recovery information available.")
+        mock_header.assert_not_called()
+
+    def test_available_true_with_snapshot_id_prints_recovery_info_panel(
+        self, presenter: TaskPresenter, mock_panel: MagicMock, mock_header: MagicMock
+    ):
+        response = RecoveryResponse(
+            available=True,
+            snapshot_id=42,
+            updated_at="2024-01-15T10:30:00",
+            aur_packages_failed=[],
+            packages_removed=[],
+            commands=(),
+        )
+        presenter.render_recovery(response)
+
+        mock_panel.assert_called_once()
+        panel_title, panel_content = mock_panel.call_args.args[0], mock_panel.call_args.args[1]
+        assert panel_title == "Recovery Info"
+        assert "Pre-update snapshot: 42" in panel_content
+        assert "Last update attempt: 2024-01-15T10:30:00" in panel_content
+        mock_header.assert_not_called()
+
+    def test_available_true_with_aur_packages_failed_prints_in_panel(
+        self, presenter: TaskPresenter, mock_panel: MagicMock, mock_header: MagicMock
+    ):
+        response = RecoveryResponse(
+            available=True,
+            snapshot_id=None,
+            updated_at=None,
+            aur_packages_failed=["yay-bin", "paru"],
+            packages_removed=[],
+            commands=(),
+        )
+        presenter.render_recovery(response)
+
+        mock_panel.assert_called_once()
+        panel_content = mock_panel.call_args.args[1]
+        assert "AUR packages that failed: yay-bin, paru" in panel_content
+        mock_header.assert_not_called()
+
+    def test_available_true_with_packages_removed_prints_in_panel(
+        self, presenter: TaskPresenter, mock_panel: MagicMock, mock_header: MagicMock
+    ):
+        response = RecoveryResponse(
+            available=True,
+            snapshot_id=None,
+            updated_at=None,
+            aur_packages_failed=[],
+            packages_removed=["linux-lts", "linux-lts-headers"],
+            commands=(),
+        )
+        presenter.render_recovery(response)
+
+        mock_panel.assert_called_once()
+        panel_content = mock_panel.call_args.args[1]
+        assert "Packages removed: linux-lts, linux-lts-headers" in panel_content
+        mock_header.assert_not_called()
+
+    def test_available_true_with_no_details_prints_no_panel(
+        self,
+        presenter: TaskPresenter,
+        mock_panel: MagicMock,
+        mock_info: MagicMock,
+        mock_header: MagicMock,
+    ):
+        response = RecoveryResponse(
+            available=True,
+            snapshot_id=None,
+            updated_at=None,
+            aur_packages_failed=[],
+            packages_removed=[],
+            commands=(),
+        )
+        presenter.render_recovery(response)
+
+        mock_panel.assert_not_called()
+        mock_info.assert_not_called()
+        mock_header.assert_not_called()
+
+    def test_available_true_with_commands_prints_header_and_commands(
+        self,
+        presenter: TaskPresenter,
+        mock_header: MagicMock,
+        mock_console: MagicMock,
+        mock_panel: MagicMock,
+    ):
+        response = RecoveryResponse(
+            available=True,
+            snapshot_id=None,
+            updated_at=None,
+            aur_packages_failed=[],
+            packages_removed=[],
+            commands=("snapper rollback 42", "pacman -Sy"),
+        )
+        presenter.render_recovery(response)
+
+        mock_header.assert_called_once_with("Suggested commands (run these yourself)")
+        EXPECTED_COMMAND_COUNT = 2
+        assert mock_console.print.call_count == EXPECTED_COMMAND_COUNT
+        # Commands should be escaped (not raw) - verify they were printed
+        call_args = [call.args[0] for call in mock_console.print.call_args_list]
+        assert "snapper rollback 42" in call_args[0]
+        assert "pacman -Sy" in call_args[1]
+        mock_panel.assert_not_called()
+
+    def test_commands_are_escaped_for_rich_markup(
+        self,
+        presenter: TaskPresenter,
+        mock_console: MagicMock,
+        mock_header: MagicMock,
+        mock_panel: MagicMock,
+    ):
+        # Command with brackets that would be interpreted as Rich markup
+        response = RecoveryResponse(
+            available=True,
+            snapshot_id=None,
+            updated_at=None,
+            aur_packages_failed=[],
+            packages_removed=[],
+            commands=("pacman -U '[linux]-6.9.pkg.tar.zst'",),
+        )
+        presenter.render_recovery(response)
+
+        # The command should be printed as-is (escaped), not interpreted as markup
+        printed_command = mock_console.print.call_args.args[0]
+        assert "[linux]-6.9.pkg.tar.zst" in printed_command
+        # Verify no markup interpretation happened (no double brackets or missing parts)
+        assert "[" in printed_command
+        assert "]" in printed_command
+        mock_header.assert_called_once_with("Suggested commands (run these yourself)")
+        mock_panel.assert_not_called()

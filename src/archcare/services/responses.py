@@ -10,11 +10,10 @@ Response families:
 
 - **Task operations** ([`TaskRunResponse`][], [`TaskListResponse`][], [`TaskStatusResponse`][]):
     returned by `TaskService` for running, listing, and checking task schedules.
-- **Setup operations** ([`ConfigInitResponse`][], [`InstallTemplatesResponse`][],
-    [`ReloadSystemdResponse`][], [`TimerEnableResponse`][], [`TimerSetupResponse`][]): returned by
-    [`ConfigService`][archcare.services.setup_service.ConfigService] and
-    [`TimerService`][archcare.services.setup_service.TimerService] for configuration creation and
-    systemd timer installation.
+- **Setup operations** (see `ConfigInitResponse`, `DependencyCheckResponse`, … below):
+    returned by [`ConfigService`][archcare.services.setup_service.ConfigService] and
+    [`TimerService`][archcare.services.setup_service.TimerService] for configuration creation,
+    dependency verification, and systemd timer installation.
 - **Debug operations** ([`NotificationTestResponse`][]): returned by `DebugService` for
     notification testing.
 
@@ -25,7 +24,7 @@ See Also:
     - [`DebugService`][archcare.services.debug_service]: Producer of debug-operation responses
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from archcare.config import TaskConfig
@@ -236,3 +235,89 @@ class NotificationTestResponse:
 
     severity: str
     title: str
+
+
+@dataclass
+class PackageCheck:
+    """
+    Result of checking whether a single package is installed.
+
+    Attributes:
+        name (str): Package name as it appears in the dependency list.
+        installed (bool): `True` when the package (or its command) is found on `PATH`.
+    """
+
+    name: str
+    installed: bool
+
+
+@dataclass
+class DependencyCheckResponse:
+    """
+    Result of
+    [`ConfigService.check_dependencies`][archcare.services.setup_service.ConfigService.check_dependencies].
+
+    `required` packages must be present for core operation. `conditional` packages are only relevant
+    on Btrfs filesystems and enhance the recovery story.
+
+    Attributes:
+        required (list[PackageCheck]): Core dependencies — `paru`
+            and `pacman-contrib`.
+        conditional (list[PackageCheck]): Btrfs-specific tooling
+            — `snap-pac` and `grub-btrfs`.
+
+    See also:
+        - [`check_dependencies`][archcare.services.setup_service.ConfigService]: Producer of
+            this response
+        - [`render_dependency_check`][archcare.cli.presenters.setup_presenter.SetupPresenter]:
+            Consumer of this response
+    """
+
+    required: list[PackageCheck]
+    conditional: list[PackageCheck]
+
+
+@dataclass(frozen=True)
+class RecoveryResponse:
+    """
+    Result of
+    [`RecoveryService.get_recovery_info`][archcare.services.recovery_service.RecoveryService.get_recovery_info].
+
+    `commands` is a tuple of ready-to-paste shell commands for the user to run themselves —
+    this command never executes them. See the module docstring of
+    `archcare.cli.commands.task` for why.
+
+    Attributes:
+        available (bool): `True` when a recovery record was found and parsed. `False` means
+            either no record exists or it is malformed; `reason` says which. Defaults to `False`.
+        reason (str | None): Human-readable explanation when `available` is `False`. Defaults
+            to `None`.
+        updated_at (str | None): ISO timestamp of the run that wrote the record. Defaults to `None`.
+        snapshot_id (int | None): `snapper` snapshot ID from the run, the argument to
+            `snapper rollback <id>`. Defaults to `None`.
+        sync_db_backup (str | None): Path to the saved sync-database backup. Defaults to `None`.
+        manifest_before (str | None): Path to the pre-upgrade package manifest. Defaults to `None`.
+        manifest_after (str | None): Path to the post-upgrade package manifest. Defaults to `None`.
+        packages_removed (list[str]): Packages the run removed. Defaults to an empty list.
+        aur_packages_failed (list[str]): AUR packages the run failed to build or install.
+            Defaults to an empty list.
+        commands (tuple[str, ...]): Ready-to-paste recovery commands, most-relevant first.
+            Defaults to an empty tuple.
+
+    See also:
+        - [`RecoveryService`][archcare.services.recovery_service.RecoveryService]: Producer of
+            this response
+        - [`render_recovery`][archcare.cli.presenters.task_presenter.TaskPresenter.render_recovery]:
+            Consumer of this response
+    """
+
+    available: bool = False
+    reason: str | None = None
+    updated_at: str | None = None
+    snapshot_id: int | None = None
+    sync_db_backup: str | None = None
+    manifest_before: str | None = None
+    manifest_after: str | None = None
+    packages_removed: list[str] = field(default_factory=list)
+    aur_packages_failed: list[str] = field(default_factory=list)
+    commands: tuple[str, ...] = ()
