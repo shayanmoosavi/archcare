@@ -1,3 +1,24 @@
+## v0.6.0 (2026-10-04)
+
+### Feat
+
+- **cli**: add presenter and CLI command for recovery service
+- **services**: add recovery service
+- **utils**: add helper to build restore script
+- **cli**: add formatter for `system-update` task and registered it
+- **tasks**: add `system-update` task implementation
+- **cli**: add `setup check-deps` command to the CLI for verifying software dependencies
+- **services**: add `check_dependencies` method to `ConfigService`
+- **utils**: add required helpers for system update
+- **core**: add system update task details dataclass
+- **config**: add system update-specific settings and a new computed field
+
+### Fix
+
+- **config**: fix inconsistent formatting of built settings.toml file and add guidance header
+- **loader**: fix `health-check` and `system-update` settings silently not overwriting defaults
+- **system-update**: fix task hanging due to sudo prompt not appearing
+
 ## v0.5.0 (2026-09-24)
 
 ### Feat
