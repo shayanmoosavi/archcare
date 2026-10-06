@@ -8,7 +8,8 @@ users as the `system-update` command; that registration lands with the CLI wirin
 
 Workflow:
     1. `pre_check()` verifies that `pacman`, `paru`, and `checkupdates` are installed, that
-        this process owns an interactive terminal, and that the user has no unread Arch news.
+        this process owns an interactive terminal, and that the user has no unread Arch news,
+        a stale mirrorlist, or a pending kernel update requiring reboot.
     2. `should_run()` applies the `min_repo_updates_threshold` gate, so the system is only
         upgraded once enough packages are actually pending.
     3. `execute()` captures a pre-upgrade package manifest, backs up the pacman sync
@@ -80,9 +81,12 @@ from archcare.utils import (
     list_pacnew_files,
     restore_sync_db,
     run_aur_upgrade,
+    run_command,
     run_system_upgrade,
     snapshot_package_manifest,
 )
+from archcare.utils.mirrorlist import get_mirrorlist_info
+from archcare.utils.system import CommandOptions
 
 
 class SystemUpdateTask(BaseTask):
@@ -96,7 +100,7 @@ class SystemUpdateTask(BaseTask):
     This task follows the [`BaseTask`][] Template Method contract:
 
     - `pre_check()`: requires `pacman`, `paru`, and `checkupdates`, an attached terminal,
-        and no unread Arch news
+        no unread Arch news, a fresh mirrorlist, and no pending kernel update (reboot)
     - `should_run()`: requires at least `min_repo_updates_threshold` pending repo updates
     - `execute()`: manifest -> sync-db backup -> pacman -> snapshot id -> AUR -> manifest ->
         diff -> pacnew -> recovery record
@@ -177,13 +181,16 @@ class SystemUpdateTask(BaseTask):
         """
         Verify prerequisites for the system update.
 
-        Three classes of precondition, each with an actionable message:
+        Five classes of precondition, each with an actionable message:
 
         1. Required commands — `pacman`, `paru`, and `checkupdates` (from `pacman-contrib`).
         2. An attached interactive terminal — both transaction halves inherit stdio, so
            without a TTY pacman's confirmation and paru's diff review have nowhere to render.
         3. No unread Arch news — upgrading past a news item that demands manual intervention
            is the single most common way to break an Arch install.
+        4. A fresh mirrorlist — stale mirrors cause download and upgrade failures.
+        5. No pending kernel update — upgrading the running kernel in place can corrupt
+           modules and leave the system unbootable; a reboot is required first.
 
         Returns:
             (tuple[bool, str]): A tuple of:
@@ -200,49 +207,230 @@ class SystemUpdateTask(BaseTask):
             [`SkipReason`][archcare.config.enums.SkipReason]: The skip reason enum.
         """
 
-        # A missing `pacman` is a much more serious issue, deserving a separate branch.
+        reason = ""
+
+        # A missing `pacman` is an extremely serious issue; hard fail.
         if not check_command_exists("pacman"):
-            return (
-                False,
+            reason = (
                 "`pacman` not found. What have you done? 💀\n"
                 "Follow this guide in Arch wiki to manually re-install it:\n"
-                "https://wiki.archlinux.org/title/Pacman#Manually_reinstalling_pacman",
+                "https://wiki.archlinux.org/title/Pacman#Manually_reinstalling_pacman"
             )
 
-        # `paru` lives in the AUR, not the official repositories, so the generic
-        # "install with pacman" hint would send the user into a dead end.
-        if not check_command_exists("paru"):
-            return (
-                False,
+        # Paru is needed for AUR updates.
+        elif not check_command_exists("paru"):
+            reason = (
                 "'paru' not found. Build and install it from the AUR:\n"
                 "    sudo pacman -S --needed base-devel\n"
                 "    git clone https://aur.archlinux.org/paru.git\n"
                 "    cd paru && makepkg -si\n"
                 "(or use another AUR helper, e.g. `yay -S paru`). "
-                "See https://wiki.archlinux.org/title/Paru",
+                "See https://wiki.archlinux.org/title/Paru"
             )
 
-        if not check_command_exists("checkupdates"):
-            return (
-                False,
-                "'checkupdates' command not found. Install with: sudo pacman -S pacman-contrib",
-            )
+        # `pacman-contrib` is needed for `checkupdates`.
+        elif not check_command_exists("checkupdates"):
+            reason = "'checkupdates' command not found. Install with: sudo pacman -S pacman-contrib"
 
-        if not has_interactive_terminal():
-            return False, (
+        # Updates must be run interactively and sometimes need manual intervention, it's not safe
+        # to update Arch Linux unattended.
+        elif not has_interactive_terminal():
+            reason = (
                 "system-update needs an interactive terminal: pacman and paru must be able "
                 "to show confirmations and conflicts. Run it directly from a shell, not from "
                 "a pipe, a script, or a systemd timer."
             )
 
-        if has_unread_arch_news():
-            return False, (
+        # It's usually a good idea to check the news first, as there might be breaking changes
+        # that require manual intervention.
+        elif has_unread_arch_news():
+            reason = (
                 "Unread Arch Linux news. Read it before updating (run `sudo informant read`, "
                 "or visit https://archlinux.org/news/) and then re-run — some updates require "
                 "manual intervention."
             )
+        else:
+            reason = self._has_stale_mirrorlist() or self._requires_reboot()
 
-        return True, ""
+        if reason:
+            return False, reason
+        return True, reason
+
+    def _has_stale_mirrorlist(self) -> str:
+        """
+        Check if mirrorlist is stale.
+
+        Returns:
+            str: Helpful message if the mirrorlist is stale, or an empty string if the
+                mirrorlist is not stale.
+        """
+        # A stale mirrorlist is a common source of errors and slow / failing downloads.
+        info = get_mirrorlist_info(self.settings.mirrorlist.path)
+        if info.last_modified is not None:
+            STALE_THRESHOLD = 7
+            mtime = datetime.strptime(info.last_modified, "%Y-%m-%d %H:%M:%S")
+            if (datetime.now() - mtime).days > STALE_THRESHOLD:
+                return (
+                    f"Mirrorlist ({self.settings.mirrorlist.path}) is "
+                    f"older than {STALE_THRESHOLD} days; "
+                    "run `archcare task run mirrorlist-update` first."
+                )
+        return ""
+
+    def _requires_reboot(self) -> str:
+        """
+        Check if a reboot is pending due to a kernel update.
+
+        Compares the currently loaded kernel version (from `uname -r`)
+        against the installed kernel package version. If the installed
+        version is newer, a reboot is required.
+
+        Returns:
+            str: A message indicating if a reboot is pending, or an empty
+                string if no reboot is required.
+        """
+        loaded_kernel = self._get_loaded_kernel()
+        if not loaded_kernel:
+            return ""
+
+        pkg_name = self._get_kernel_package_owner(loaded_kernel)
+        if not pkg_name:
+            return ""
+
+        installed_ver = self._get_installed_package_version(pkg_name)
+        if not installed_ver:
+            return ""
+
+        if self._is_reboot_required(loaded_kernel, installed_ver):
+            return (
+                f"Pending reboot: loaded {loaded_kernel} but "
+                f"{pkg_name} {installed_ver} is installed."
+            )
+
+        return ""
+
+    def _get_loaded_kernel(self) -> str:
+        """Get the currently loaded kernel version from `uname -r`."""
+        loaded_res = run_command(["uname", "-r"], options=CommandOptions(check=False))
+        return loaded_res.stdout.strip() if loaded_res.success else ""
+
+    def _get_kernel_package_owner(self, loaded_kernel: str) -> str | None:
+        """Find the package that owns the loaded kernel's modules directory."""
+        owner_res = run_command(
+            ["pacman", "-Qo", f"/usr/lib/modules/{loaded_kernel}"],
+            options=CommandOptions(check=False),
+        )
+        if not owner_res.success:
+            return None
+        # Example output format: "/usr/lib/modules/6.9.1-arch1-1 is owned by linux 6.9.1.arch1-1"
+        # We need the package name (5th token after splitting: file, is, owned, by, pkg, ver)
+        parts = owner_res.stdout.strip().split()
+        PKG_NAME_INDEX = 4
+        MIN_PARTS = 5
+        return parts[PKG_NAME_INDEX] if len(parts) >= MIN_PARTS else None
+
+    def _get_installed_package_version(self, pkg_name: str) -> str | None:
+        """Get the installed version of a package."""
+        pkg_res = run_command(["pacman", "-Q", pkg_name], options=CommandOptions(check=False))
+        if not pkg_res.success:
+            return None
+        parts = pkg_res.stdout.strip().split()
+        VERSION_INDEX = 1
+        MIN_PARTS = 2
+        return parts[VERSION_INDEX] if len(parts) >= MIN_PARTS else None
+
+    def _is_reboot_required(self, loaded_kernel: str, installed_ver: str) -> bool:
+        """Check if installed kernel version is newer than loaded kernel."""
+        load_clean = self._clean_kernel_version(loaded_kernel)
+        try:
+            # Parse both versions into comparable tuples
+            installed_tuple = self._parse_kernel_version(installed_ver)
+            load_tuple = self._parse_kernel_version(load_clean)
+            return installed_tuple > load_tuple
+        except Exception:
+            return False
+
+    def _parse_kernel_version(self, version: str) -> tuple[int, ...]:
+        """
+        Parse Arch kernel version into a comparable tuple.
+
+        Arch kernel versions have two formats:
+        - linux/linux-zen: X.Y.Z.flavorN-P  (e.g., 7.2.8.arch1-2, 7.2.9.zen1-1)
+        - linux-lts: X.Y.Z-P                (e.g., 6.18.55-1)
+
+        Returns tuple: (major, minor, patch, flavor_ver, pkgrel)
+        where flavor_ver=0 for linux-lts (no flavor version)
+        """
+        KERNEL_VERSION_TUPLE_SIZE = 5
+        DOT_COUNT_LTS = 2
+        DASH_COUNT_LTS = 1
+
+        # linux-lts: 6.18.55-1 -> (6, 18, 55, 0, 1)
+        if version.count(".") == DOT_COUNT_LTS and version.count("-") == DASH_COUNT_LTS:
+            base, pkgrel = version.rsplit("-", 1)
+            major, minor, patch = map(int, base.split("."))
+            return (major, minor, patch, 0, int(pkgrel))
+
+        # linux: 7.2.8.arch1-2 -> (7, 2, 8, 1, 2)
+        # linux-zen: 7.2.9.zen1-1 -> (7, 2, 9, 1, 1)
+        if ".arch" in version or ".zen" in version:
+            # Split on last "-" to get pkgrel
+            base, pkgrel = version.rsplit("-", 1)
+            # base is like "7.2.8.arch1" or "7.2.9.zen1"
+            # Split on ".arch" or ".zen"
+            if ".arch" in base:
+                upstream, flavor_ver = base.split(".arch")
+            else:
+                upstream, flavor_ver = base.split(".zen")
+            major, minor, patch = map(int, upstream.split("."))
+            return (major, minor, patch, int(flavor_ver), int(pkgrel))
+
+        # Fallback: simple X.Y.Z
+        parts = list(map(int, version.split(".")))
+        while len(parts) < KERNEL_VERSION_TUPLE_SIZE:
+            parts.append(0)
+        return tuple(parts[:KERNEL_VERSION_TUPLE_SIZE])
+
+    def _clean_kernel_version(self, kernel: str) -> str:
+        """
+        Normalize kernel release string (from `uname -r`) to match pacman package version format.
+
+        Kernel release format (uname -r)          -> Package version format (pacman -Q)
+        --------------------------------------------------------------------------------
+        linux:       7.2.8-arch1-2                -> 7.2.8.arch1-2
+        linux-zen:   7.2.9-zen1-1-zen             -> 7.2.9.zen1-1
+        linux-lts:   6.18.55-1-lts                -> 6.18.55-1
+
+        The transformation:
+        1. Replace hyphens with dots (except the last component which is pkgrel)
+        2. Remove the trailing flavor suffix (-arch, -zen, -lts) that appears in
+           kernel release but not in package version
+        """
+        # linux-lts: 6.18.55-1-lts -> 6.18.55-1
+        if kernel.endswith("-lts"):
+            return kernel[:-4]  # Remove "-lts"
+
+        # linux-zen: 7.2.9-zen1-1-zen -> 7.2.9.zen1-1
+        # The pattern is: <upstream>-zen<ver>-<pkgrel>-zen
+        # Split on "-zen" and rejoin with dots, but preserve the last "-<pkgrel>"
+        if "-zen" in kernel:
+            # Find the last "-zen" (the flavor suffix) and remove it
+            # Everything before that is: <upstream>-zen<ver>-<pkgrel>
+            last_zen_idx = kernel.rfind("-zen")
+            if last_zen_idx != -1:
+                without_suffix = kernel[:last_zen_idx]
+                # Convert hyphens to dots except the last one (pkgrel separator)
+                parts = without_suffix.split("-", maxsplit=1)
+                return ".".join(parts)
+
+        # linux: 7.2.8-arch1-2 -> 7.2.8.arch1-2
+        # The pattern is: <upstream>-arch<ver>-<pkgrel> (no trailing -arch)
+        if "-arch" in kernel:
+            parts = kernel.split("-", maxsplit=1)
+            return ".".join(parts)
+
+        # Fallback: just replace all hyphens with dots (shouldn't happen for Arch kernels)
+        return kernel.replace("-", ".")
 
     def should_run(self) -> tuple[bool, str, SkipReason | None]:
         """
