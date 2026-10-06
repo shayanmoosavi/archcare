@@ -209,16 +209,24 @@ class SystemUpdateTask(BaseTask):
                 "https://wiki.archlinux.org/title/Pacman#Manually_reinstalling_pacman",
             )
 
-        commands = (
-            ("paru", "paru"),
-            ("checkupdates", "pacman-contrib"),
-        )
-        for command, package in commands:
-            if not check_command_exists(command):
-                return (
-                    False,
-                    f"'{command}' command not found. Install with: sudo pacman -S {package}",
-                )
+        # `paru` lives in the AUR, not the official repositories, so the generic
+        # "install with pacman" hint would send the user into a dead end.
+        if not check_command_exists("paru"):
+            return (
+                False,
+                "'paru' not found. Build and install it from the AUR:\n"
+                "    sudo pacman -S --needed base-devel\n"
+                "    git clone https://aur.archlinux.org/paru.git\n"
+                "    cd paru && makepkg -si\n"
+                "(or use another AUR helper, e.g. `yay -S paru`). "
+                "See https://wiki.archlinux.org/title/Paru",
+            )
+
+        if not check_command_exists("checkupdates"):
+            return (
+                False,
+                "'checkupdates' command not found. Install with: sudo pacman -S pacman-contrib",
+            )
 
         if not has_interactive_terminal():
             return False, (

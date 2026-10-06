@@ -186,21 +186,13 @@ class TestPreCheckCommands:
         assert "Arch wiki" in reason
         assert "https://wiki.archlinux.org/" in reason
 
-    @pytest.mark.parametrize(
-        ("missing", "package"),
-        [("paru", "paru"), ("checkupdates", "pacman-contrib")],
-    )
-    def test_missing_command_blocks_with_install_hint(
-        self, task: SystemUpdateTask, mocker, missing, package
-    ):
-        """Each command's install hint must name the package that actually provides it.
-
-        `checkupdates` ships in `pacman-contrib`, not `paru` — a copy-paste slip in the
-        pairing would tell the user to install something they already have.
+    def test_missing_checkupdates_blocks_with_install_hint(self, task: SystemUpdateTask, mocker):
+        """
+        `checkupdates` ships in `pacman-contrib` — the hint must name that package, not the command.
         """
         mocker.patch(
             f"{_MODULE}.check_command_exists",
-            side_effect=lambda cmd: cmd != missing,
+            side_effect=lambda cmd: cmd != "checkupdates",
         )
         mocker.patch(f"{_MODULE}.has_interactive_terminal", return_value=True)
         mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
@@ -208,8 +200,29 @@ class TestPreCheckCommands:
         can_run, reason = task.pre_check()
 
         assert can_run is False
-        assert missing in reason
-        assert f"sudo pacman -S {package}" in reason
+        assert "checkupdates" in reason
+        assert "sudo pacman -S pacman-contrib" in reason
+
+    def test_missing_paru_blocks_with_aur_install_hint(self, task: SystemUpdateTask, mocker):
+        """`paru` is an AUR package — the hint must NOT suggest `sudo pacman -S paru`.
+
+        pacman cannot install AUR packages, so the hint points at building paru from
+        the AUR with `makepkg` (or installing it via another AUR helper) instead.
+        """
+        mocker.patch(
+            f"{_MODULE}.check_command_exists",
+            side_effect=lambda cmd: cmd != "paru",
+        )
+        mocker.patch(f"{_MODULE}.has_interactive_terminal", return_value=True)
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
+
+        can_run, reason = task.pre_check()
+
+        assert can_run is False
+        assert "paru" in reason
+        assert "sudo pacman -S paru" not in reason
+        assert "makepkg" in reason
+        assert "aur.archlinux.org/paru" in reason
 
 
 class TestPreCheckTerminal:
