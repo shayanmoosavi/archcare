@@ -71,7 +71,7 @@ def task(system_update_config: TaskConfig, system_update_settings: AppSettings) 
 
 
 def _block_all(mocker, *, terminal=True, unread_news=False) -> None:
-    """Neutralise the three pre_check() lookups so a test can isolate one of them."""
+    """Neutralise the three pre_check() utilities so a test can isolate one of them."""
     mocker.patch(f"{_MODULE}.check_command_exists", return_value=True)
     mocker.patch(f"{_MODULE}.has_interactive_terminal", return_value=terminal)
     mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=unread_news)
@@ -258,6 +258,334 @@ class TestPreCheckArchNews:
         _block_all(mocker, unread_news=False)
 
         assert task.pre_check() == (True, "")
+
+
+class TestPreCheckMirrorlist:
+    def test_stale_mirrorlist_blocks(self, task: SystemUpdateTask, tmp_path: Path, mocker):
+        # Create an old mirrorlist file (10 days ago) at the configured path
+        import os
+        import time
+
+        _block_all(mocker)
+
+        old_mirror = tmp_path / "mirrorlist"
+        old_mirror.write_text("Server = https://example.com\n")
+        past = time.time() - 10 * 86400
+        os.utime(str(old_mirror), (past, past))
+        task.settings.mirrorlist.path = old_mirror
+
+        can_run, reason = task.pre_check()
+        assert can_run is False
+        assert "Mirrorlist" in reason
+        assert "older than 7 days" in reason
+
+    def test_fresh_mirrorlist_passes(self, task: SystemUpdateTask, tmp_path: Path, mocker):
+        _block_all(mocker)
+
+        mirrorlist = tmp_path / "mirrorlist"
+        mirrorlist.write_text("Server = https://example.com\n")
+        task.settings.mirrorlist.path = mirrorlist
+
+        assert task.pre_check() == (True, "")
+
+
+class TestPreCheckRequiresReboot:
+    """Tests for the else-branch of pre_check() when _requires_reboot() is evaluated."""
+
+    def test_requires_reboot_blocks(self, task: SystemUpdateTask, mocker):
+        """When a kernel update is pending, pre_check blocks with reboot message."""
+        _block_all(mocker)
+
+        # Mock the _requires_reboot chain to return a reboot message
+        mocker.patch.object(
+            task,
+            "_requires_reboot",
+            return_value=(
+                "Pending reboot: loaded 6.9.1-arch1-1 but linux 6.9.2.arch1-1 is installed."
+            ),
+        )
+
+        can_run, reason = task.pre_check()
+
+        assert can_run is False
+        assert "Pending reboot" in reason
+        assert "loaded 6.9.1-arch1-1" in reason
+        assert "linux 6.9.2.arch1-1 is installed" in reason
+
+    def test_no_reboot_passes(self, task: SystemUpdateTask, mocker):
+        """When no reboot is needed, pre_check passes."""
+        _block_all(mocker)
+        mocker.patch.object(task, "_requires_reboot", return_value="")
+
+        assert task.pre_check() == (True, "")
+
+
+class TestRequiresReboot:
+    """Tests for _requires_reboot() and its helper methods."""
+
+    def test_requires_reboot_when_kernel_updated(self, task: SystemUpdateTask, mocker):
+        """Full chain: loaded kernel older than installed package version -> reboot required."""
+        mocker.patch.object(task, "_get_loaded_kernel", return_value="7.2.8-arch1-1")
+        mocker.patch.object(task, "_get_kernel_package_owner", return_value="linux")
+        mocker.patch.object(task, "_get_installed_package_version", return_value="7.2.9.arch1-1")
+
+        result = task._requires_reboot()
+
+        assert "Pending reboot" in result
+        assert "loaded 7.2.8-arch1-1" in result
+        assert "linux 7.2.9.arch1-1 is installed" in result
+
+    def test_no_reboot_when_same_version(self, task: SystemUpdateTask, mocker):
+        """Loaded kernel matches installed package version -> no reboot."""
+        mocker.patch.object(task, "_get_loaded_kernel", return_value="7.2.8-arch1-1")
+        mocker.patch.object(task, "_get_kernel_package_owner", return_value="linux")
+        mocker.patch.object(task, "_get_installed_package_version", return_value="7.2.8.arch1-1")
+
+        result = task._requires_reboot()
+
+        assert result == ""
+
+    def test_no_reboot_when_uname_fails(self, task: SystemUpdateTask, mocker):
+        """uname -r fails -> no reboot check (empty string)."""
+        mocker.patch.object(task, "_get_loaded_kernel", return_value="")
+
+        result = task._requires_reboot()
+
+        assert result == ""
+
+    def test_no_reboot_when_pacman_Qo_fails(self, task: SystemUpdateTask, mocker):
+        """pacman -Qo fails to find owner -> no reboot check."""
+        mocker.patch.object(task, "_get_loaded_kernel", return_value="7.2.8-arch1-1")
+        mocker.patch.object(task, "_get_kernel_package_owner", return_value=None)
+
+        result = task._requires_reboot()
+
+        assert result == ""
+
+    def test_no_reboot_when_pacman_Q_fails(self, task: SystemUpdateTask, mocker):
+        """pacman -Q fails to get version -> no reboot check."""
+        mocker.patch.object(task, "_get_loaded_kernel", return_value="7.2.8-arch1-1")
+        mocker.patch.object(task, "_get_kernel_package_owner", return_value="linux")
+        mocker.patch.object(task, "_get_installed_package_version", return_value=None)
+
+        result = task._requires_reboot()
+
+        assert result == ""
+
+
+class TestGetLoadedKernel:
+    def test_get_loaded_kernel_success(self, task: SystemUpdateTask, mocker):
+        mocker.patch(
+            f"{_MODULE}.run_command",
+            return_value=CommandResult(
+                command="uname -r", returncode=0, stdout="7.2.8-arch1-1\n", stderr="", success=True
+            ),
+        )
+
+        result = task._get_loaded_kernel()
+
+        assert result == "7.2.8-arch1-1"
+
+    def test_get_loaded_kernel_failure(self, task: SystemUpdateTask, mocker):
+        mocker.patch(
+            f"{_MODULE}.run_command",
+            return_value=CommandResult(
+                command="uname -r",
+                returncode=1,
+                stdout="",
+                stderr="Linux got `rm -rf`'d",
+                success=False,
+            ),
+        )
+
+        result = task._get_loaded_kernel()
+
+        assert result == ""
+
+
+class TestGetKernelPackageOwner:
+    def test_get_kernel_package_owner_success(self, task: SystemUpdateTask, mocker):
+        mocker.patch(
+            f"{_MODULE}.run_command",
+            return_value=CommandResult(
+                command="pacman -Qo /usr/lib/modules/7.2.8-arch1-1",
+                returncode=0,
+                stdout="/usr/lib/modules/7.2.8-arch1-1 is owned by linux 7.2.8.arch1-1",
+                stderr="",
+                success=True,
+            ),
+        )
+
+        result = task._get_kernel_package_owner("7.2.8-arch1-1")
+
+        assert result == "linux"
+
+    def test_get_kernel_package_owner_failure(self, task: SystemUpdateTask, mocker):
+        mocker.patch(
+            f"{_MODULE}.run_command",
+            return_value=CommandResult(
+                command="pacman -Qo /usr/lib/modules/7.2.8-arch1-1",
+                returncode=1,
+                stdout="",
+                stderr="error: no package owns /usr/lib/modules/7.2.8-arch1-1",
+                success=False,
+            ),
+        )
+
+        result = task._get_kernel_package_owner("7.2.8-arch1-1")
+
+        assert result is None
+
+    def test_get_kernel_package_owner_malformed_output(self, task: SystemUpdateTask, mocker):
+        """Malformed pacman output (too few parts) returns None."""
+        mocker.patch(
+            f"{_MODULE}.run_command",
+            return_value=CommandResult(
+                command="pacman -Qo /usr/lib/modules/7.2.8-arch1-1",
+                returncode=0,
+                stdout="unexpected output",
+                stderr="",
+                success=True,
+            ),
+        )
+
+        result = task._get_kernel_package_owner("7.2.8-arch1-1")
+
+        assert result is None
+
+
+class TestGetInstalledPackageVersion:
+    def test_get_installed_package_version_success(self, task: SystemUpdateTask, mocker):
+        mocker.patch(
+            f"{_MODULE}.run_command",
+            return_value=CommandResult(
+                command="pacman -Q linux",
+                returncode=0,
+                stdout="linux 7.2.8.arch1-1",
+                stderr="",
+                success=True,
+            ),
+        )
+
+        result = task._get_installed_package_version("linux")
+
+        assert result == "7.2.8.arch1-1"
+
+    def test_get_installed_package_version_failure(self, task: SystemUpdateTask, mocker):
+        mocker.patch(
+            f"{_MODULE}.run_command",
+            return_value=CommandResult(
+                command="pacman -Q linux",
+                returncode=1,
+                stdout="",
+                stderr="error: package 'linux' not found",
+                success=False,
+            ),
+        )
+
+        result = task._get_installed_package_version("linux")
+
+        assert result is None
+
+    def test_get_installed_package_version_malformed_output(self, task: SystemUpdateTask, mocker):
+        """Malformed pacman output (too few parts) returns None."""
+        mocker.patch(
+            f"{_MODULE}.run_command",
+            return_value=CommandResult(
+                command="pacman -Q linux",
+                returncode=0,
+                stdout="unexpected",
+                stderr="",
+                success=True,
+            ),
+        )
+
+        result = task._get_installed_package_version("linux")
+
+        assert result is None
+
+
+class TestKernelVersionParsing:
+    """Tests for _clean_kernel_version and _parse_kernel_version helpers."""
+
+    @pytest.mark.parametrize(
+        ("kernel_release", "expected_package_ver"),
+        [
+            ("7.2.8-arch1-2", "7.2.8.arch1-2"),
+            ("7.2.9-zen1-1-zen", "7.2.9.zen1-1"),
+            ("6.18.55-1-lts", "6.18.55-1"),
+            ("6.1.29-1-lts", "6.1.29-1"),
+            ("5.15.100-1-lts", "5.15.100-1"),
+            ("6.3.0-arch1-1", "6.3.0.arch1-1"),
+            ("6.3.0-zen1-1-zen", "6.3.0.zen1-1"),
+        ],
+    )
+    def test_clean_kernel_version(
+        self, task: SystemUpdateTask, kernel_release: str, expected_package_ver: str
+    ):
+        """Kernel release (uname -r) normalizes to pacman package version format."""
+        assert task._clean_kernel_version(kernel_release) == expected_package_ver
+
+    @pytest.mark.parametrize(
+        ("package_version", "expected_tuple"),
+        [
+            ("7.2.8.arch1-2", (7, 2, 8, 1, 2)),
+            ("7.2.9.zen1-1", (7, 2, 9, 1, 1)),
+            ("6.18.55-1", (6, 18, 55, 0, 1)),
+            ("6.1.29-1", (6, 1, 29, 0, 1)),
+            ("5.15.100-1", (5, 15, 100, 0, 1)),
+            ("6.3.0.arch1-1", (6, 3, 0, 1, 1)),
+            ("6.3.0.zen1-1", (6, 3, 0, 1, 1)),
+        ],
+    )
+    def test_parse_kernel_version(
+        self, task: SystemUpdateTask, package_version: str, expected_tuple: tuple[int, ...]
+    ):
+        """Arch kernel package version parses to comparable tuple."""
+        assert task._parse_kernel_version(package_version) == expected_tuple
+
+
+class TestPendingRebootDetection:
+    """Tests for the pending reboot detection logic in _pending_reboot_reason."""
+
+    @pytest.mark.parametrize(
+        ("installed_ver", "loaded_kernel", "should_reboot"),
+        [
+            # linux: same version -> no reboot
+            ("7.2.8.arch1-2", "7.2.8-arch1-2", False),
+            # linux: higher pkgrel -> reboot
+            ("7.2.8.arch1-3", "7.2.8-arch1-2", True),
+            # linux: higher upstream -> reboot
+            ("7.2.9.arch1-1", "7.2.8-arch1-2", True),
+            # linux: higher flavor ver -> reboot
+            ("7.2.8.arch2-1", "7.2.8-arch1-5", True),
+            # linux-zen: same version -> no reboot
+            ("7.2.9.zen1-1", "7.2.9-zen1-1-zen", False),
+            # linux-zen: higher pkgrel -> reboot
+            ("7.2.9.zen1-2", "7.2.9-zen1-1-zen", True),
+            # linux-zen: higher upstream -> reboot
+            ("7.2.10.zen1-1", "7.2.9-zen1-1-zen", True),
+            # linux-zen: higher flavor ver -> reboot
+            ("7.2.9.zen2-1", "7.2.9-zen1-5-zen", True),
+            # linux-lts: same version -> no reboot
+            ("6.18.55-1", "6.18.55-1-lts", False),
+            # linux-lts: higher pkgrel -> reboot
+            ("6.18.55-2", "6.18.55-1-lts", True),
+            # linux-lts: higher upstream -> reboot
+            ("6.18.56-1", "6.18.55-1-lts", True),
+        ],
+    )
+    def test_reboot_required_comparison(
+        self,
+        task: SystemUpdateTask,
+        installed_ver: str,
+        loaded_kernel: str,
+        should_reboot: bool,
+    ):
+        """_is_reboot_required correctly compares installed vs loaded kernel versions."""
+
+        result = task._is_reboot_required(loaded_kernel, installed_ver)
+        assert result == should_reboot
 
 
 class TestRecoveryFilePath:
