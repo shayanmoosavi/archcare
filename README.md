@@ -24,8 +24,8 @@ well-defined footprint:
 - **Files it writes** — its own configuration under `~/.config/archcare/` and run state under
   `~/.local/state/archcare/`. Nothing else on disk is modified outside the explicit task actions
   below.
-- **Where it needs sudo** — installing systemd timers (`archcare setup timers`) and replacing
-  `/etc/pacman.d/mirrorlist` during a mirrorlist update.
+- **Where it needs sudo** — installing systemd timers (`archcare setup timers`), replacing
+  `/etc/pacman.d/mirrorlist` during a mirrorlist update, and running `system-update`.
 - **Safety rails** — `archcare setup config` never overwrites existing configuration files, and
   mirrorlist updates create a backup first, rolling back automatically if `reflector` fails.
 
@@ -36,6 +36,9 @@ well-defined footprint:
 - **`health-check`** — disk, memory, CPU, filesystem, and pacman-database health in one pass
 - **`mirrorlist-update`** — refreshes `/etc/pacman.d/mirrorlist` via `reflector`, with automatic
   backup and rollback on failure
+- **`system-update`** — full system upgrade via `pacman -Syu` and `paru -Sua`, with pre-flight
+  checks (fresh mirrorlist, no unread Arch news, no pending reboot), interactive confirmation,
+  and a manual recovery path
 - **`maintenance-check`** — the scheduler-aware "what's due" task; reports overdue/at-risk
   maintenance across all other tasks by severity
 - Per-task scheduling with configurable frequency, tracked run history, and a `task status` view
@@ -49,8 +52,11 @@ Per-command options and example output for every task are in the
 
 ## Requirements
 
-- systemd (already installed in most Arch installs)
+- systemd (already installed in most Arch installs) — needed for setting up timers
 - reflector — needed by the `mirrorlist-update` task
+- paru — an AUR helper, needed by the `system-update` task
+- pacman-contrib — provides `checkupdates`, needed by the `system-update` task
+- informant (_recommended_) — sets up a pacman hook to check for unread news on every update
 
 Optional dependencies, needed only for specific features:
 
@@ -59,10 +65,19 @@ Optional dependencies, needed only for specific features:
 
 ## Installation
 
-### 1. Install reflector
+### 1. Install dependencies
 
 ```bash
-sudo pacman -S reflector
+sudo pacman -S --needed systemd reflector pacman-contrib
+```
+
+To install paru, run (in home directory, default when a terminal is opened):
+
+```bash
+sudo pacman -S --needed base-devel
+git clone https://aur.archlinux.org/paru.git
+cd paru
+makepkg -si
 ```
 
 ### 2. Download the latest release
@@ -173,6 +188,10 @@ archcare setup config
 # 3. Run a task manually — no timers needed to try it out
 archcare task run failed-services --verbose
 
+# 3b. (Optional) Run the full system upgrade: needs sudo, and pre-checks
+#     mirrorlist freshness, Arch news, and pending reboots first
+archcare task run system-update --verbose
+
 # 4. See what's registered, what's due, and what's overdue
 archcare task list
 archcare task status --due
@@ -245,6 +264,9 @@ Three things commonly trip first-time users. Check them in order:
   `export PATH="$PATH:$HOME/.local/bin"` to your shell rc file, then re-open the terminal.
 - **`reflector: command not found`** — the mirrorlist task needs it. Install it:
   `sudo pacman -S reflector`.
+- **`system-update` won't start** — pre-flight checks block the upgrade if the mirrorlist is
+  stale (older than a week), Arch news is unread, or a kernel update is pending a reboot.
+  Run `archcare task run mirrorlist-update`, read Arch news, reboot if asked, then try again.
 - **Timers aren't running** — verify with `systemctl --user list-timers --all` (user sessions)
   or `systemctl list-timers --all` (root/systemd). If you installed via `archcare setup timers`,
   check the target user is correct — timers run as the user set up, not whoever runs archcare.
@@ -393,7 +415,7 @@ section of the Contributing guide explains the reasoning behind the split.
     - [x] maintenance-check
     - [x] health-check
     - [x] mirrorlist-update
-    - [ ] system-update
+    - [x] system-update
     - [ ] journal-cleanup
     - [ ] orphan-removal
     - [ ] btrfs-scrub
