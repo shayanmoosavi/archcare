@@ -2,8 +2,9 @@
 
 **Archcare** is a system maintenance CLI for Arch Linux — it checks for failed
 systemd services, runs disk/memory/CPU/filesystem health checks, keeps your
-pacman mirrorlist fresh with automatic backup and rollback, and tracks which
-maintenance tasks are due, on demand or fully unattended via systemd timers.
+pacman mirrorlist fresh with automatic backup and rollback, tracks which
+maintenance tasks are due, and performs full system upgrades via `pacman -Syu`
+and `paru -Sua`.
 
 !!! tip "Looking to install or use Archcare?"
 
