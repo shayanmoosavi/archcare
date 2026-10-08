@@ -68,15 +68,29 @@ you invoke `archcare task run <name>` explicitly. To add your own task, see
 
 Settings for the `mirrorlist-update` task (consumed by `reflector`).
 
-| Key                      | Default                      | Description                                 |
-| ------------------------ | ---------------------------- | ------------------------------------------- |
-| `path`                   | `"/etc/pacman.d/mirrorlist"` | Mirrorlist file to rewrite                  |
-| `country`                | `"Germany"`                  | Country filter for mirror selection         |
-| `protocol`               | `"https"`                    | Mirror protocol                             |
-| `sort`                   | `"rate"`                     | Mirror sort strategy                        |
-| `latest`                 | `20`                         | Consider the N most recently synced mirrors |
-| `number_of_mirrors`      | `5`                          | Number of mirrors to write                  |
-| `backup_retention_count` | `5`                          | Number of backups to keep                   |
+| Key                      | Default                      | Description                                            |
+| ------------------------ | ---------------------------- | ------------------------------------------------------ |
+| `path`                   | `"/etc/pacman.d/mirrorlist"` | Mirrorlist file to rewrite                             |
+| `country`                | `"Germany"`                  | Country filter (name or ISO code) for mirror selection |
+| `protocol`               | `"https"`                    | Mirror protocol                                        |
+| `sort`                   | `"rate"`                     | Mirror sort strategy                                   |
+| `latest`                 | `20`                         | Number of most recently synced mirrors to consider     |
+| `number_of_mirrors`      | `5`                          | Number of mirrors to write                             |
+| `backup_retention_count` | `5`                          | Number of mirrorlist backup files to keep              |
+
+!!! tip
+
+    You can also specify a list of countries to the filter.
+
+    Example:
+    ```toml title="settings.toml"
+    [mirrorlist]
+    country = ["Germany", "Netherlands"] # List of countries
+
+    # or
+    [mirrorlist]
+    country = ["DE", "NL"] # List of country codes
+    ```
 
 ### `[maintenance_check]`
 
