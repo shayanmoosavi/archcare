@@ -17,6 +17,7 @@ See Also:
         that carries this module's results
 """
 
+import re
 import shlex
 from pathlib import Path
 
@@ -41,44 +42,144 @@ _PACKAGE_CACHE_DIR = Path("/var/cache/pacman/pkg")
 SNAPSHOT_PACKAGES = ("snap-pac", "grub-btrfs")
 
 
+def _get_news_output() -> str | None:
+    """
+    Query unread Arch news via the available tool and return its stdout, or `None`.
+
+    Checks `informant list --unread` first (recommended), then falls back to
+    `paru -Pw` (`-w/--news`: items newer than the build date of all native packages, an
+    option of the `-P` show operation). Both commands are read-only and run without `sudo`.
+    Returns the stdout of the successful command when news is unread; otherwise logs at
+    `WARNING` (no tool available or tool error) or `DEBUG` (no news) and returns `None`.
+    """
+    if check_command_exists("informant"):
+        result = run_command(["informant", "list", "--unread"])
+        if result.success and result.stdout.strip():
+            logger.debug("Unread Arch news detected via informant")
+            return result.stdout
+        if not result.success:
+            logger.warning(
+                f"informant failed, assuming no unread news: {result.stderr or result.stdout}"
+            )
+    elif check_command_exists("paru"):
+        result = run_command(["paru", "-Pw"])
+        # paru -Pw returns exit code 0 with stdout when news exists,
+        # exit code 1 with "no new news" in stderr when no news.
+        # Other exit codes / error messages in stderr are real errors.
+        if result.success:
+            if result.returncode == 0 and result.stdout.strip():
+                logger.debug("Unread Arch news detected via paru -Pw")
+                return result.stdout
+            # Exit code 1 with "no new news" in stderr is the normal "no news" case
+            if result.returncode == 1 and "no new news" in result.stderr.lower():
+                logger.debug("No unread Arch news (paru -Pw reported no new items)")
+            else:
+                # Exit code 1 but stderr doesn't say "no new news" -> real error
+                logger.warning(
+                    f"paru -Pw failed, assuming no unread news: {result.stderr or result.stdout}"
+                )
+        else:
+            logger.warning(
+                f"paru -Pw failed, assuming no unread news: {result.stderr or result.stdout}"
+            )
+    else:
+        logger.warning(
+            "No unread-Arch-news check available: neither 'informant' nor 'paru' is installed. "
+            "Install 'informant' from the AUR (recommended), or read Arch news manually at "
+            "https://archlinux.org/news/ before updating."
+        )
+    return None
+
+
 def has_unread_arch_news() -> bool:
     """
     Report whether the user has unread Arch Linux news.
 
-    Running `pacman -Syu` without reading the news is one of the most common ways to break an
-    Arch install, so the `system-update` task gates on this before touching anything.
+    Checks `informant` first, then falls back to `paru -Pw` (`-w/--news`: items newer than
+    the build date of all native packages, an option of the `-P` show operation). Both commands
+    are read-only and run without `sudo`.
 
-    The check is deliberately **read-only**, which rules out `informant check` — that command
-    exits with the unread count but, when exactly one item is unread, also prints and *marks it
-    as read*. Using it here would silently consume the user's news notification. Informant's own
-    pacman hook has the same interrupt-and-mark behaviour, and since the `informant` package
-    ships both the hook and this CLI, detecting one is equivalent to detecting the other; the
-    task therefore gates on the CLI and leaves reading the news to the user.
-
-    Fails *open*: when `informant` is absent or errors, this returns `False` rather than
-    blocking an upgrade on an undeterminable state.
+    Fails open: when a command is missing or errors this returns `False` and logs, rather than
+    blocking the update on an undeterminable state.
 
     Returns:
-        bool: `True` only when `informant` positively reports unread items.
+        bool: Whether there are unread Arch Linux news.
 
-    See Also:
-        [`archcare.utils.pacman.run_system_upgrade`][]: The step this gate protects
+    Note:
+        `paru -Pw` exits with code 1 and writes "no new news" to stderr when there's
+        no unread news. This is treated as a successful "no news" result.
     """
-    if not check_command_exists("informant"):
-        logger.info("informant is not installed; cannot determine unread Arch news")
-        return False
+    return bool(_get_news_output())
 
-    result = run_command(["informant", "list", "--unread"])
 
-    if not result.success:
-        logger.warning(
-            f"informant failed, assuming no unread news: {result.stderr or result.stdout}"
-        )
-        return False
+def fetch_arch_news_headlines() -> list[str]:
+    """Return up to three headline previews of unread Arch news.
 
-    unread = bool(result.stdout.strip())
-    logger.debug(f"Unread Arch news detected: {unread}")
-    return unread
+    Reuses the same tool detection as `has_unread_arch_news` (`informant list --unread`,
+    falling back to `paru -Pw`). Returns an empty list when neither tool is available,
+    news is clean, or the commands fail — the caller always checks the list itself.
+
+    Returns:
+        list[str]: At most three headline lines.
+    """
+    if check_command_exists("informant"):
+        result = run_command(["informant", "list", "--unread"])
+    elif check_command_exists("paru"):
+        result = run_command(["paru", "-Pw"])
+    else:
+        return []
+
+    # paru -Pw returns exit code 1 with "no new news" in stderr when no news
+    is_no_news = result.returncode == 1 and "no new news" in result.stderr.lower()
+    is_paru_error = result.returncode == 1 and "no new news" not in result.stderr.lower()
+    if not result.success or is_no_news or is_paru_error:
+        return []
+
+    return _parse_news_headlines(result.stdout)
+
+
+def _parse_news_headlines(output: str) -> list[str]:
+    """Extract headline lines from `informant list --unread` or `paru -Pw` output.
+
+    `informant list --unread` format (one line per item):
+        0: Mkinitcpio >=42 requires manual intervention... Tue, 22 Sep 2026 09:09:27 +0000
+
+    `paru -Pw` format (multi-line per item, headline starts with date):
+        2026-07-21 virtualbox-ext-vnc >= 7.2.12-2 requires manual intervention
+            Previously, we installed its contents...
+
+    Returns up to 3 headline strings.
+    """
+    headlines: list[str] = []
+    lines = output.splitlines()
+
+    # Try informant format first: lines like "0: Headline ... Date"
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        # informant: starts with number + colon
+        if re.match(r"^\d+:\s", stripped):
+            # Remove the "0: " prefix, keep the headline
+            headline = stripped.split(":", 1)[1].strip()
+            # Remove trailing date if present (format: " Tue, 22 Sep 2026 ...")
+            headline = re.sub(r"\s+[A-Z][a-z]{2}, \d{1,2} [A-Z][a-z]{2} \d{4}.*$", "", headline)
+            headlines.append(headline)
+
+    if headlines:
+        return headlines[:3]
+
+    # Try paru format: headline lines start with date (YYYY-MM-DD)
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        # paru: starts with YYYY-MM-DD
+        if re.match(r"^\d{4}-\d{2}-\d{2}\s", stripped):
+            # The whole line is the headline (date + headline text)
+            headlines.append(stripped)
+
+    return headlines[:3]
 
 
 def get_pending_aur_updates() -> list[PackageUpdateInfo]:
