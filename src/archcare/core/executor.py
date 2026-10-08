@@ -180,6 +180,8 @@ class TaskExecutor:
             settings=self.settings,
             notification_manager=self.notification_manager,
             progress=self._progress,
+            interaction=self._interaction,
+            state=self.state,
         )
 
     def execute_task(self, task_name: str, force: bool = False) -> TaskResult:
