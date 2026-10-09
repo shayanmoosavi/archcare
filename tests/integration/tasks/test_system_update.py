@@ -12,7 +12,7 @@ import pytest
 from typer.testing import CliRunner
 
 from archcare.cli.app import app
-from archcare.utils.info_models import PackageUpdateInfo
+from archcare.utils.info_models import MirrorlistInfo, PackageUpdateInfo
 from archcare.utils.system import CommandResult
 
 runner = CliRunner()
@@ -55,6 +55,8 @@ def mock_subprocess_checks(mocker):
     mocker.patch(f"{_PACMAN_MODULE}.run_command", return_value=_cmd_result(""))
     mocker.patch(f"{_PACMAN_MODULE}.run_command_with_sudo", return_value=_cmd_result(""))
     mocker.patch(f"{_MODULE}.check_command_exists", return_value=True)
+    mocker.patch(f"{_MODULE}.run_command", return_value=_cmd_result(""))
+    mocker.patch(f"{_MODULE}.get_mirrorlist_info", return_value=MirrorlistInfo(5, {"https"}))
     mocker.patch(f"{_MODULE}.has_interactive_terminal", return_value=True)
     mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
     mocker.patch(

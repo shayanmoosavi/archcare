@@ -76,12 +76,13 @@ utils/      → subprocess wrappers, system/hardware queries, notifications
 
 ### Tasks Layer (`src/archcare/tasks/`)
 
-| File                   | Purpose                                                          |
-| ---------------------- | ---------------------------------------------------------------- |
-| `failed_services.py`   | `FailedServicesTask` - checks systemd failed units               |
-| `health_check.py`      | `HealthCheckTask` - disk, memory, CPU, filesystem, pacman checks |
-| `mirrorlist_update.py` | `MirrorlistUpdateTask` - runs reflector with backup/rollback     |
-| `maintenance_check.py` | `MaintenanceCheckTask` - scheduler-aware "what's due" report     |
+| File                   | Purpose                                                                                |
+| ---------------------- | -------------------------------------------------------------------------------------- |
+| `failed_services.py`   | `FailedServicesTask` - checks systemd failed units                                     |
+| `health_check.py`      | `HealthCheckTask` - disk, memory, CPU, filesystem, pacman checks                       |
+| `mirrorlist_update.py` | `MirrorlistUpdateTask` - runs reflector with backup/rollback                           |
+| `maintenance_check.py` | `MaintenanceCheckTask` - scheduler-aware "what's due" report                           |
+| `system_update.py`     | `SystemUpdateTask` - full pacman + AUR upgrade with pre-checks, rollback, and recovery |
 
 ### Services Layer (`src/archcare/services/`)
 
@@ -109,7 +110,6 @@ utils/      → subprocess wrappers, system/hardware queries, notifications
 
 | File             | Purpose                                                                                                                                                          |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `system.py`      | `run_command`, `run_command_with_sudo` - subprocess wrappers (the ONLY OS boundary)                                                                              |
 | `hardware.py`    | Disk, memory, CPU queries via psutil                                                                                                                             |
 | `pacman.py`      | Pacman database/package health checks                                                                                                                            |
 | `mirrorlist.py`  | Mirrorlist parsing, reflector invocation                                                                                                                         |
@@ -202,7 +202,7 @@ TaskPresenter.render_run() → terminal output
 
 ### State Management
 
-- `AppState` holds `TaskState` per task: `last_run`, `next_due`, `status`, `error`, `skip_reason`
+- `AppState` holds `TaskState` per task: `last_run`, `last_status`, `next_due`, `run_count`, `last_error`, `skip_reason`
 - `TaskExecutor._update_state()` called after every execution (success, failure, skip)
 - Next due calculated: `datetime.now() + timedelta(days=frequency)` on success; preserved on skip/failure
 
@@ -389,9 +389,9 @@ archcare debug test-notification --severity warning
 ## Design Notes (`system-update` feature)
 
 - **Executable-command contract**: `RecoveryService.get_recovery_info()` returns executable commands (`snapper rollback <id>`, `bash downgrade.sh`, `pacman -S -`) — not comments or stubs. The CLI presenter (`TaskPresenter.render_recovery()`) renders them with `rich.markup.escape()` to prevent `MarkupError` from package names with brackets (`[linux]-...`).
-- **Full-state restore mechanism**: Before any upgrade, the `system-update` task saves `snapper` snapshot info (if available) and the sync DB. The restore script (`downgrade.sh`) reads `-Qe` (explicitly installed packages, 330) and `-Qmq` (AUR packages, 25) and feeds them to `pacman -S -`. This matches the ArchWiki `pacman -S` dependency-resolution method (`pacman/Installation` page).
+- **Full-state restore mechanism**: Before any upgrade, the `system-update` task saves `snapper` snapshot info (if available) and the sync DB. The restore script (`downgrade.sh`) pipes `pacman -Qe` (explicitly installed packages) to `pacman -S -`; `pacman -Qmq` lists foreign/AUR packages for manual reinstalation. This matches the ArchWiki `pacman -S` dependency-resolution method (`pacman/Installation` page).
 - **Durable recovery artifacts**: The `downgrade.sh` script is written once (guarded by `exists()`) and never regenerated. `cache_keep_uninstalled_versions = 1` (default raised from 0) preserves uninstalled package artifacts for recovery.
-- **Task result typed**: `SystemUpdateDetails` (frozen dataclass) carries `pre_update_snapshot_id`, `packages_upgraded`, `packages_removed`, `aur_packages_failed`, `manifest_before`, `manifest_after`. Registered in `cli/context.py` `DEFAULT_TASK_REGISTRY`.
+- **Task result typed**: `SystemUpdateDetails` (frozen dataclass) carries `repo_updates_count`, `aur_updates_count`, `packages_upgraded`, `aur_packages_upgraded`, `aur_packages_failed`, `packages_removed`, `pacnew_files`, `pre_update_snapshot_id`, and `cache_freed_bytes`. Registered in `cli/context.py` `DEFAULT_TASK_REGISTRY`.
 
 ---
 

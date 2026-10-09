@@ -17,6 +17,9 @@ _PATCH_RUN_COMMAND = f"{_MODULE}.run_command"
 _PATCH_CHECK_COMMAND_EXISTS = f"{_MODULE}.check_command_exists"
 _PATCH_IS_PACKAGE_INSTALLED = f"{_MODULE}.is_package_installed"
 
+# Expected required packages
+EXPECTED_REQUIRED_COUNT = 3
+
 # ---------------------------------------------------------------------------
 # Helpers and fixtures
 # ---------------------------------------------------------------------------
@@ -126,12 +129,11 @@ class TestConfigService:
         mocker.patch(_PATCH_CHECK_COMMAND_EXISTS, return_value=True)
         mocker.patch(_PATCH_IS_PACKAGE_INSTALLED, return_value=True)
 
-        EXPECTED_REQUIRED_COUNT = 2
         result = ConfigService.check_dependencies()
 
         assert all(pkg.installed for pkg in result.required)
         assert len(result.required) == EXPECTED_REQUIRED_COUNT
-        assert [p.name for p in result.required] == ["paru", "pacman-contrib"]
+        assert [p.name for p in result.required] == ["paru", "pacman-contrib", "reflector"]
 
     def test_check_dependencies_conditional_are_present(self, mocker) -> None:
         mocker.patch(_PATCH_CHECK_COMMAND_EXISTS, return_value=True)
@@ -152,6 +154,15 @@ class TestConfigService:
 
         assert not any(pkg.installed for pkg in result.required)
         assert not any(pkg.installed for pkg in result.conditional)
+
+    def test_check_dependencies_requires_reflector(self, mocker) -> None:
+        mocker.patch(_PATCH_CHECK_COMMAND_EXISTS, return_value=True)
+        mocker.patch(_PATCH_IS_PACKAGE_INSTALLED, return_value=True)
+
+        result = ConfigService.check_dependencies()
+        required = [p.name for p in result.required]
+        assert len(result.required) == EXPECTED_REQUIRED_COUNT
+        assert "reflector" in required
 
 
 # ---------------------------------------------------------------------------

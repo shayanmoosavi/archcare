@@ -257,6 +257,10 @@ class MaintenanceCheckTask(BaseTask):
         issues: list[MaintenanceIssue] = []
 
         # Get task state and schedule info
+        if self.state is None:
+            # Defensive check. Shouldn't happen for maintenance-check task when
+            # state is explicitly set in constructor.
+            raise RuntimeError("State is not initialized")
         task_state = self.state.get_task_state(task_name)
         schedule_info = self.scheduler.get_schedule_info(task_name)
         days_overdue = schedule_info.days_overdue

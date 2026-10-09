@@ -67,7 +67,9 @@ Public API:
     - [`clean_cache`][]: Prune the package cache with paccache.
     - [`is_package_installed`][]: Check if a package is installed.
     - [`list_pacnew_files`][]: List `.pacnew` files awaiting review.
-    - [`has_unread_arch_news`][]: Read-only unread Arch news check via informant.
+    - [`has_unread_arch_news`][]: Read-only unread Arch news check,
+        via `informant list --unread` or a `paru -Pw` fallback.
+    - [`fetch_arch_news_headlines`][]: Up to three headline previews of the news above.
     - [`get_pending_aur_updates`][]: List pending AUR updates via `paru -Qua`.
     - [`run_aur_upgrade`][]: Run `paru -Sua` with stdio inherited.
     - [`detect_btrfs_snapshot_tooling`][]: Whether `snap-pac` and `grub-btrfs` are installed.
@@ -140,6 +142,7 @@ from .system import (
 )
 from .system_update import (
     detect_btrfs_snapshot_tooling,
+    fetch_arch_news_headlines,
     get_latest_snapshot_id,
     get_pending_aur_updates,
     has_unread_arch_news,
@@ -160,6 +163,7 @@ __all__ = [
     "console",
     "detect_btrfs_snapshot_tooling",
     "diff_manifests",
+    "fetch_arch_news_headlines",
     "format_bytes",
     "get_cpu_info",
     "get_disk_usage",
