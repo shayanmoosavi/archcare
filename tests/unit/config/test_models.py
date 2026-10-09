@@ -27,6 +27,7 @@ from archcare.config.models import (
     MaintenanceCheckSettings,
     MirrorlistSettings,
     SystemUpdateSettings,
+    TaskState,
 )
 
 # Test-specific constants for HealthCheckSettings validation tests (below/above thresholds)
@@ -661,3 +662,37 @@ def _update(
         error=error,
         skip_reason=skip_reason,
     )
+
+
+class TestTaskStateExtraFields:
+    """Extra fields on TaskState that carry task-internal metadata."""
+
+    def test_last_news_prompt_field_exists(self):
+        ts = TaskState(last_news_prompt=datetime(2026, 1, 1))
+        assert ts.last_news_prompt == datetime(2026, 1, 1)
+
+    def test_set_task_news_prompt_defaults_to_now(self):
+        s = AppState()
+        before = datetime.now()
+        s.set_task_news_prompt("system-update")
+        after = datetime.now()
+        ts = s.tasks["system-update"].last_news_prompt
+
+        assert ts is not None
+        assert before <= ts <= after
+
+    def test_set_task_news_prompt_records_given_timestamp(self):
+        s = AppState()
+        s.set_task_news_prompt("system-update", datetime(2026, 1, 1))
+        assert s.tasks["system-update"].last_news_prompt == datetime(2026, 1, 1)
+
+    def test_state_roundtrips_through_json(self):
+        """Pydantic's default extra='ignore' would drop unknown fields — assert ours survives."""
+        s = AppState()
+        s.tasks["system-update"] = TaskState(last_news_prompt=datetime(2026, 1, 1))
+
+        dumped = s.model_dump_json()
+        assert "2026-01-01T00:00:00" in dumped
+        restored = AppState.model_validate_json(dumped)
+
+        assert restored.tasks["system-update"].last_news_prompt == datetime(2026, 1, 1)

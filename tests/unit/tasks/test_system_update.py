@@ -20,6 +20,7 @@ from _pytest.monkeypatch import MonkeyPatch
 
 from archcare.config import AppSettings, SkipReason, TaskConfig
 from archcare.core import SystemUpdateDetails
+from archcare.core.interaction import TaskInteraction
 from archcare.core.models import failed, partial, success
 from archcare.core.progress import TaskProgress
 from archcare.tasks.system_update import SystemUpdateTask
@@ -195,7 +196,6 @@ class TestPreCheckCommands:
             side_effect=lambda cmd: cmd != "checkupdates",
         )
         mocker.patch(f"{_MODULE}.has_interactive_terminal", return_value=True)
-        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
 
         can_run, reason = task.pre_check()
 
@@ -214,7 +214,6 @@ class TestPreCheckCommands:
             side_effect=lambda cmd: cmd != "paru",
         )
         mocker.patch(f"{_MODULE}.has_interactive_terminal", return_value=True)
-        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
 
         can_run, reason = task.pre_check()
 
@@ -243,21 +242,6 @@ class TestPreCheckTerminal:
         assert can_run is False
         assert "interactive terminal" in reason
         assert "news" not in reason
-
-
-class TestPreCheckArchNews:
-    def test_unread_news_blocks(self, task: SystemUpdateTask, mocker):
-        _block_all(mocker, unread_news=True)
-
-        can_run, reason = task.pre_check()
-
-        assert can_run is False
-        assert "Unread Arch Linux news" in reason
-
-    def test_read_news_passes(self, task: SystemUpdateTask, mocker):
-        _block_all(mocker, unread_news=False)
-
-        assert task.pre_check() == (True, "")
 
 
 class TestPreCheckMirrorlist:
@@ -546,7 +530,7 @@ class TestKernelVersionParsing:
 
 
 class TestPendingRebootDetection:
-    """Tests for the pending reboot detection logic in _pending_reboot_reason."""
+    """Tests for the pending reboot detection logic in _requires_reboot."""
 
     @pytest.mark.parametrize(
         ("installed_ver", "loaded_kernel", "should_reboot"),
@@ -664,6 +648,7 @@ class TestPendingRepoUpdateCache:
 class TestShouldRun:
     def test_skips_below_threshold(self, task: SystemUpdateTask, mocker):
         mocker.patch(f"{_MODULE}.get_pending_repo_updates", return_value=_updates(4))
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
 
         should_run, reason, skip_reason = task.should_run()
 
@@ -674,6 +659,7 @@ class TestShouldRun:
 
     def test_skips_when_one_below_threshold(self, task: SystemUpdateTask, mocker):
         mocker.patch(f"{_MODULE}.get_pending_repo_updates", return_value=_updates(29))
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
 
         should_run, _, _ = task.should_run()
 
@@ -682,17 +668,20 @@ class TestShouldRun:
     def test_runs_at_exactly_the_threshold(self, task: SystemUpdateTask, mocker):
         """30 pending updates meets the default threshold of 30: the boundary is inclusive."""
         mocker.patch(f"{_MODULE}.get_pending_repo_updates", return_value=_updates(30))
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
 
         assert task.should_run() == (True, "", None)
 
     def test_runs_above_threshold(self, task: SystemUpdateTask, mocker):
         mocker.patch(f"{_MODULE}.get_pending_repo_updates", return_value=_updates(45))
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
 
         assert task.should_run() == (True, "", None)
 
     def test_runs_with_zero_pending_when_threshold_is_zero(self, task: SystemUpdateTask, mocker):
         """A user who sets the threshold to 0 opts into updating on every run."""
         mocker.patch(f"{_MODULE}.get_pending_repo_updates", return_value=[])
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
         task.settings.system_update.min_repo_updates_threshold = 0
 
         assert task.should_run() == (True, "", None)
@@ -702,6 +691,7 @@ class TestShouldRun:
         settings.system_update.min_repo_updates_threshold = 1
         task = SystemUpdateTask(config=system_update_config, settings=settings)
         mocker.patch(f"{_MODULE}.get_pending_repo_updates", return_value=_updates(1))
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
 
         assert task.should_run() == (True, "", None)
 
@@ -711,6 +701,7 @@ class TestShouldRun:
         settings.system_update.min_repo_updates_threshold = 200
         task = SystemUpdateTask(config=system_update_config, settings=settings)
         mocker.patch(f"{_MODULE}.get_pending_repo_updates", return_value=_updates(45))
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
 
         should_run, reason, skip_reason = task.should_run()
 
@@ -724,9 +715,142 @@ class TestShouldRun:
             f"{_MODULE}.get_pending_repo_updates",
             side_effect=OSError("checkupdates failed (exit 2)"),
         )
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
 
         with pytest.raises(OSError, match="checkupdates failed"):
             task.should_run()
+
+    def test_skips_when_user_declines_unread_news(self, task: SystemUpdateTask, mocker):
+        """User declining to read news must skip the update."""
+        mocker.patch.object(
+            task,
+            "_pending_repo_updates",
+            return_value=[PackageUpdateInfo(f"pkg{i}", f"{i}", f"{i}") for i in range(30)],
+        )
+        mocker.patch.object(
+            task,
+            "_handle_unread_news_prompt",
+            return_value=(False, "skipped", SkipReason.USER_CANCELLED),
+        )
+
+        should_run, skip_reason, reason = task.should_run()
+
+        assert should_run is False
+        assert skip_reason == "skipped"
+        assert reason == SkipReason.USER_CANCELLED
+
+    def test_runs_when_user_acknowledges_news(self, task: SystemUpdateTask, mocker):
+        """User acknowledges news -> run."""
+        mocker.patch.object(
+            task,
+            "_pending_repo_updates",
+            return_value=[PackageUpdateInfo(f"pkg{i}", f"{i}", f"{i}") for i in range(30)],
+        )
+        mocker.patch.object(
+            task,
+            "_handle_unread_news_prompt",
+            return_value=(True, "", None),
+        )
+
+        should_run, skip_reason, reason = task.should_run()
+
+        assert should_run is True
+        assert skip_reason == ""
+        assert reason is None
+
+
+class TestNewsAcknowledgement:
+    def test_noop_when_no_news_tool_installed(self, task: SystemUpdateTask, mocker):
+        """Missing news tools must not block a non-interactive-style run."""
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
+        mocker.patch(f"{_MODULE}.has_interactive_terminal", return_value=True)
+
+        assert task._handle_unread_news_prompt() == (True, "", None)
+
+    def test_prompts_when_unread_news_is_detected(self, task: SystemUpdateTask, mocker):
+        """Unread news -> interact via the injected interaction port."""
+        mocker.patch(f"{_MODULE}.check_command_exists", return_value=True)
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=True)
+        mocker.patch(f"{_MODULE}.fetch_arch_news_headlines", return_value=[])
+        interaction = MagicMock(spec=TaskInteraction)
+        interaction.confirm.return_value = False
+        task.interaction = interaction
+
+        should_run, reason, skip_reason = task._handle_unread_news_prompt()
+
+        interaction.confirm.assert_called_once()
+        assert should_run is False
+        assert skip_reason is SkipReason.USER_CANCELLED
+        assert "declined" in reason.lower()
+
+    def test_proceeds_on_acknowledge(self, task: SystemUpdateTask, mocker):
+        """Unread news plus an accepted acknowledgement -> proceed and record the prompt."""
+        mocker.patch(f"{_MODULE}.check_command_exists", return_value=True)
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=True)
+        mocker.patch(f"{_MODULE}.fetch_arch_news_headlines", return_value=[])
+        interaction = MagicMock(spec=TaskInteraction)
+        interaction.confirm.return_value = True
+        task.interaction = interaction
+
+        assert task._handle_unread_news_prompt() == (True, "", None)
+
+        interaction.confirm.assert_called_once()
+
+    def test_skips_prompt_within_cooldown(self, task: SystemUpdateTask, mocker):
+        """No prompt is shown while the last acknowledgement is still in its cooldown window."""
+        from datetime import datetime
+
+        mocker.patch(f"{_MODULE}.check_command_exists", return_value=True)
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=True)
+        interaction = MagicMock(spec=TaskInteraction)
+        task.state = MagicMock()
+        task.state.tasks = {
+            "system-update": MagicMock(last_news_prompt=datetime.now(), last_status=None)
+        }
+
+        assert task._handle_unread_news_prompt() == (True, "", None)
+
+        interaction.confirm.assert_not_called()
+
+    def test_reprompts_after_cooldown_expired(self, task: SystemUpdateTask, mocker):
+        from datetime import datetime, timedelta
+
+        mocker.patch(f"{_MODULE}.check_command_exists", return_value=True)
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=True)
+        mocker.patch(f"{_MODULE}.fetch_arch_news_headlines", return_value=[])
+        interaction = MagicMock(spec=TaskInteraction)
+        interaction.confirm.return_value = True
+        task.interaction = interaction
+        task.state = MagicMock()
+        task.state.tasks = {
+            "system-update": MagicMock(
+                last_news_prompt=datetime.now() - timedelta(minutes=31), last_status=None
+            )
+        }
+
+        assert task._handle_unread_news_prompt() == (True, "", None)
+
+        interaction.confirm.assert_called_once()
+
+    def test_records_prompt_timestamp_on_any_answer(self, task: SystemUpdateTask, mocker):
+        """Prompt timestamp is recorded whether the user accepts or declines."""
+        from datetime import datetime, timedelta
+
+        mocker.patch(f"{_MODULE}.check_command_exists", return_value=True)
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=True)
+        mocker.patch(f"{_MODULE}.fetch_arch_news_headlines", return_value=[])
+        interaction = MagicMock(spec=TaskInteraction)
+        interaction.confirm.return_value = False
+        task.interaction = interaction
+        task.state = MagicMock()
+        task.state.tasks = {
+            "system-update": MagicMock(last_news_prompt=datetime.now() - timedelta(minutes=31))
+        }
+        task.state.set_task_news_prompt = MagicMock()
+
+        task._handle_unread_news_prompt()
+
+        task.state.set_task_news_prompt.assert_called_once_with("system-update")
 
 
 class TestExecuteHappyPath:

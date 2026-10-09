@@ -11,6 +11,7 @@ from archcare.utils.system import CommandResult
 from archcare.utils.system_update import (
     build_restore_script,
     detect_btrfs_snapshot_tooling,
+    fetch_arch_news_headlines,
     get_latest_snapshot_id,
     get_pending_aur_updates,
     has_unread_arch_news,
@@ -68,6 +69,7 @@ class TestHasUnreadArchNews:
     def test_returns_false_when_informant_missing(
         self, mock_check_command: MagicMock, mock_run_command: MagicMock
     ):
+        """informant missing -> no tool at all -> fails open, no news command is run."""
         mock_check_command.return_value = False
 
         assert has_unread_arch_news() is False
@@ -94,7 +96,12 @@ class TestHasUnreadArchNews:
     def test_uses_read_only_list_command(
         self, mock_check_command: MagicMock, mock_run_command: MagicMock
     ):
-        """`informant check` marks a lone unread item as read — it must never be used here."""
+        """
+        `informant check` marks a lone unread item as read — it must never be used here.
+
+        The fallback `paru -Pw` is also read-only:
+        the `-Pw`/`-Pww` show options never mutate state.
+        """
         mock_check_command.return_value = True
         mock_run_command.return_value = _result()
 
@@ -105,11 +112,151 @@ class TestHasUnreadArchNews:
     def test_fails_open_when_informant_errors(
         self, mock_check_command: MagicMock, mock_run_command: MagicMock
     ):
-        """An undeterminable news state must not block an otherwise safe update."""
+        """
+        An undeterminable news state must not block an otherwise safe update.
+
+        When the preferred tool (`informant`) is present but errors, the fallback (`paru -Pw`) is
+        not tried: a preferred tool failure is logged rather than silently degraded.
+        """
         mock_check_command.return_value = True
         mock_run_command.return_value = _result(stderr="network unreachable", returncode=1)
 
         assert has_unread_arch_news() is False
+
+    def test_returns_true_via_paru_fallback_when_informant_missing(
+        self, mock_check_command: MagicMock, mock_run_command: MagicMock
+    ):
+        """informant missing -> fall back to `paru -Pw`."""
+        mock_check_command.side_effect = lambda c: c == "paru"
+        mock_run_command.return_value = _result(stdout="news headline\n")
+        assert has_unread_arch_news() is True
+        assert mock_run_command.call_args.args[0] == ["paru", "-Pw"]
+
+    def test_returns_false_when_both_tools_missing(
+        self, mock_check_command: MagicMock, mock_run_command: MagicMock
+    ):
+        mock_check_command.return_value = False
+
+        assert has_unread_arch_news() is False
+        mock_run_command.assert_not_called()
+
+    def test_returns_false_when_informant_reports_nothing(
+        self, mock_check_command: MagicMock, mock_run_command: MagicMock
+    ):
+        """Empty informant output -> False; no `paru -Pw` fallback is needed."""
+        mock_check_command.side_effect = lambda c: c == "informant"
+        mock_run_command.return_value = _result(stdout="")
+        assert has_unread_arch_news() is False
+
+    def test_returns_true_when_informant_reports_unread_news(
+        self, mock_check_command: MagicMock, mock_run_command: MagicMock
+    ):
+        """Existing behaviour preserved: informant present + unread -> True."""
+        mock_check_command.side_effect = lambda c: c == "informant"
+        mock_run_command.return_value = _result(stdout="kernel needs reboot\n")
+        assert has_unread_arch_news() is True
+
+    def test_returns_false_when_paru_reports_no_new_news(
+        self, mock_check_command: MagicMock, mock_run_command: MagicMock
+    ):
+        """paru -Pw exits with code 1 and 'no new news' in stderr -> no unread news."""
+        mock_check_command.side_effect = lambda c: c == "paru"
+        mock_run_command.return_value = CommandResult(
+            command="paru -Pw",
+            returncode=1,
+            stdout="",
+            stderr="no new news",
+            success=True,  # exit code 1 is success for paru -Pw
+        )
+        assert has_unread_arch_news() is False
+
+    def test_returns_true_via_paru_when_unread_news_exists(
+        self, mock_check_command: MagicMock, mock_run_command: MagicMock
+    ):
+        """paru -Pw exits with code 0 and stdout -> unread news."""
+        mock_check_command.side_effect = lambda c: c == "paru"
+        mock_run_command.return_value = _result(stdout="news headline\n")
+        assert has_unread_arch_news() is True
+
+
+# ---------------------------------------------------------------------------
+# fetch_arch_news_headlines
+# ---------------------------------------------------------------------------
+
+
+class TestFetchArchNewsHeadlines:
+    def test_returns_empty_when_paru_reports_no_new_news(
+        self, mock_check_command: MagicMock, mock_run_command: MagicMock
+    ):
+        """paru -Pw exit code 1 with 'no new news' -> empty list."""
+        mock_check_command.side_effect = lambda c: c == "paru"
+        mock_run_command.return_value = CommandResult(
+            command="paru -Pw",
+            returncode=1,
+            stdout="",
+            stderr="no new news",
+            success=True,
+        )
+        assert fetch_arch_news_headlines() == []
+
+    def test_returns_headlines_when_unread_news_exists(
+        self, mock_check_command: MagicMock, mock_run_command: MagicMock
+    ):
+        """paru -Pw exit code 0 with stdout -> up to 3 headlines."""
+        mock_check_command.side_effect = lambda c: c == "paru"
+        # paru -Pw format: date-prefixed headline lines with multi-line bodies
+        mock_run_command.return_value = CommandResult(
+            command="paru -Pw",
+            returncode=0,
+            stdout=(
+                "2026-07-21 virtualbox-ext-vnc >= 7.2.12-2 requires manual intervention\n"
+                "    Previously, we installed its contents in a way that made pacman not\n"
+                "    aware of the files.\n\n"
+                "2026-09-22 Mkinitcpio >=42 requires manual intervention for TPM2-based unlocking\n"
+                "    Starting with package version 42-1, the mkinitcpio systemd hook now includes\n"
+                "    systemd-pcrosseparator.service.\n\n"
+                "2026-08-15 Some other package update\n"
+                "    Details about this update.\n\n"
+                "2026-06-01 Fourth headline should be ignored\n"
+                "    More details.\n"
+            ),
+            stderr="",
+            success=True,
+        )
+        assert fetch_arch_news_headlines() == [
+            "2026-07-21 virtualbox-ext-vnc >= 7.2.12-2 requires manual intervention",
+            "2026-09-22 Mkinitcpio >=42 requires manual intervention for TPM2-based unlocking",
+            "2026-08-15 Some other package update",
+        ]
+
+    def test_returns_empty_when_no_tool_installed(self, mock_check_command: MagicMock):
+        """Neither informant nor paru installed -> empty list."""
+        mock_check_command.return_value = False
+        assert fetch_arch_news_headlines() == []
+
+    def test_returns_headlines_from_informant_format(
+        self, mock_check_command: MagicMock, mock_run_command: MagicMock
+    ):
+        """informant list --unread format: numbered lines with dates."""
+        mock_check_command.side_effect = lambda c: c == "informant"
+        mock_run_command.return_value = CommandResult(
+            command="informant list --unread",
+            returncode=0,
+            stdout=(
+                "0: Mkinitcpio >=42 requires manual intervention "
+                "for TPM2-based unlocking of LUKS devices "
+                "Tue, 22 Sep 2026 09:09:27 +0000\n"
+                "1: virtualbox-ext-vnc >= 7.2.12-2 requires "
+                "manual intervention "
+                "Tue, 21 Jul 2026 13:01:46 +0000\n"
+            ),
+            stderr="",
+            success=True,
+        )
+        assert fetch_arch_news_headlines() == [
+            "Mkinitcpio >=42 requires manual intervention for TPM2-based unlocking of LUKS devices",
+            "virtualbox-ext-vnc >= 7.2.12-2 requires manual intervention",
+        ]
 
 
 # ---------------------------------------------------------------------------
