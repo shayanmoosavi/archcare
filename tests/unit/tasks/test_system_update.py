@@ -165,6 +165,7 @@ def transaction(task: SystemUpdateTask, mocker, mock_progress: MagicMock) -> _Wi
         "backup_sync_db": {"return_value": backup},
         "restore_sync_db": {"return_value": None},
         "clean_cache": {"return_value": 0},
+        "run_command": {"return_value": _ok()},
         "run_system_upgrade": {"return_value": _ok()},
         "run_aur_upgrade": {"return_value": _ok()},
         "detect_btrfs_snapshot_tooling": {"return_value": False},
@@ -265,6 +266,7 @@ class TestPreCheckMirrorlist:
 
     def test_fresh_mirrorlist_passes(self, task: SystemUpdateTask, tmp_path: Path, mocker):
         _block_all(mocker)
+        mocker.patch.object(task, "_requires_reboot", return_value="")
 
         mirrorlist = tmp_path / "mirrorlist"
         mirrorlist.write_text("Server = https://example.com\n")
@@ -722,11 +724,7 @@ class TestShouldRun:
 
     def test_skips_when_user_declines_unread_news(self, task: SystemUpdateTask, mocker):
         """User declining to read news must skip the update."""
-        mocker.patch.object(
-            task,
-            "_pending_repo_updates",
-            return_value=[PackageUpdateInfo(f"pkg{i}", f"{i}", f"{i}") for i in range(30)],
-        )
+        mocker.patch.object(task, "_pending_repo_updates", return_value=_updates(30))
         mocker.patch.object(
             task,
             "_handle_unread_news_prompt",
@@ -741,16 +739,8 @@ class TestShouldRun:
 
     def test_runs_when_user_acknowledges_news(self, task: SystemUpdateTask, mocker):
         """User acknowledges news -> run."""
-        mocker.patch.object(
-            task,
-            "_pending_repo_updates",
-            return_value=[PackageUpdateInfo(f"pkg{i}", f"{i}", f"{i}") for i in range(30)],
-        )
-        mocker.patch.object(
-            task,
-            "_handle_unread_news_prompt",
-            return_value=(True, "", None),
-        )
+        mocker.patch.object(task, "_pending_repo_updates", return_value=_updates(30))
+        mocker.patch.object(task, "_handle_unread_news_prompt", return_value=(True, "", None))
 
         should_run, skip_reason, reason = task.should_run()
 
