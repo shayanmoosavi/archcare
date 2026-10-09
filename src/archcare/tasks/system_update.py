@@ -72,6 +72,7 @@ from archcare.utils import (
     clean_cache,
     detect_btrfs_snapshot_tooling,
     diff_manifests,
+    fetch_arch_news_headlines,
     format_bytes,
     get_latest_snapshot_id,
     get_pending_aur_updates,
@@ -177,19 +178,85 @@ class SystemUpdateTask(BaseTask):
                 self._pending_repo = get_pending_repo_updates()
         return self._pending_repo
 
+    def _should_skip_prompt(self) -> bool:
+        """Return True if we already prompted for news acknowledgement recently."""
+        if self.state is None:
+            return False
+        state = self.state.tasks.get(self.name)
+        if state is None or state.last_news_prompt is None:
+            return False
+        window_seconds = self.settings.system_update.news_acknowledge_cooldown_minutes * 60
+        return (datetime.now() - state.last_news_prompt).total_seconds() < window_seconds
+
+    def _present_news_prompt(self) -> bool:
+        """Show the news acknowledgement prompt and return the user's answer."""
+        headlines = fetch_arch_news_headlines()
+        if headlines:
+            preview = "\n    - ".join(headlines)
+            prompt = (
+                f"There are unread Arch Linux news item(s), including:\n\n"
+                f"    - {preview}\n\n"
+                f"Read them before updating (`sudo informant read`, or `paru -Pw` if informant "
+                f"can't be found), or visit https://archlinux.org/news/. Some updates require "
+                f"manual intervention.\n\n"
+                f"Proceed with the system update anyway?"
+            )
+        else:
+            prompt = (
+                "There are unread Arch Linux news items. Read them before updating "
+                "(`sudo informant read`, or `paru -Pw` if informant can't be found), or visit "
+                "https://archlinux.org/news/. Some updates require manual intervention.\n\n"
+                "Proceed with the system update anyway?"
+            )
+        return self.interaction.confirm(prompt)
+
+    def _record_news_prompt(self) -> None:
+        """Persist the timestamp of the prompt that was just shown."""
+        if self.state is not None:
+            self.state.set_task_news_prompt(self.name)
+
+    def _handle_unread_news_prompt(self) -> tuple[bool, str, SkipReason | None]:
+        """
+        Check for unread Arch news and, if the acknowledgement prompt is due, ask the user.
+
+        Returns:
+            (proceed, reason, skip_reason):
+              - (True, "", None)    -> proceed: no news,
+                                     acknowledged, no tool, or in cooldown
+              - (False, reason, USER_CANCELLED) -> user declined
+        """
+        if not has_unread_arch_news():
+            return True, "", None
+        if self._should_skip_prompt():
+            # Still within the acknowledgement window: don't nag again, let the user proceed.
+            return True, "", None
+        if self._present_news_prompt():
+            self._record_news_prompt()
+            return True, "", None
+        # Timestamp recorded as soon as the prompt is shown — whether the user accepts or declines,
+        # so the cooldown prevents nagging again within the acknowledgement window either way.
+        self._record_news_prompt()
+        return (
+            False,
+            (
+                "Unread Arch Linux news — you declined to proceed. Read the news with "
+                "`sudo informant read` (or `paru -Pw`) or at https://archlinux.org/news/ "
+                "and re-run when ready."
+            ),
+            SkipReason.USER_CANCELLED,
+        )
+
     def pre_check(self) -> tuple[bool, str]:
         """
         Verify prerequisites for the system update.
 
-        Five classes of precondition, each with an actionable message:
+        Four classes of precondition, each with an actionable message:
 
         1. Required commands — `pacman`, `paru`, and `checkupdates` (from `pacman-contrib`).
         2. An attached interactive terminal — both transaction halves inherit stdio, so
            without a TTY pacman's confirmation and paru's diff review have nowhere to render.
-        3. No unread Arch news — upgrading past a news item that demands manual intervention
-           is the single most common way to break an Arch install.
-        4. A fresh mirrorlist — stale mirrors cause download and upgrade failures.
-        5. No pending kernel update — upgrading the running kernel in place can corrupt
+        3. A fresh mirrorlist — stale mirrors cause download and upgrade failures.
+        4. No pending kernel update — upgrading the running kernel in place can corrupt
            modules and leave the system unbootable; a reboot is required first.
 
         Returns:
@@ -199,15 +266,13 @@ class SystemUpdateTask(BaseTask):
                 - `reason` (`str`): The blocking explanation, or an empty string on success.
 
         Note:
-            `BaseTask.run()` classifies any `pre_check()` failure as `SkipReason.DEPENDENCY_FAILED`.
-            The skip reason is therefore generic for the terminal and news cases; the message text
-            is what actually tells the user what to do.
+            `BaseTask.run()` classifies any `pre_check()` failure as `SkipReason.DEPENDENCY_FAILED`;
+            the skip reason is therefore generic for the terminal case and the message text is
+            what actually tells the user what to do.
 
         See also:
             [`SkipReason`][archcare.config.enums.SkipReason]: The skip reason enum.
         """
-
-        reason = ""
 
         # A missing `pacman` is an extremely serious issue; hard fail.
         if not check_command_exists("pacman"):
@@ -241,14 +306,6 @@ class SystemUpdateTask(BaseTask):
                 "a pipe, a script, or a systemd timer."
             )
 
-        # It's usually a good idea to check the news first, as there might be breaking changes
-        # that require manual intervention.
-        elif has_unread_arch_news():
-            reason = (
-                "Unread Arch Linux news. Read it before updating (run `sudo informant read`, "
-                "or visit https://archlinux.org/news/) and then re-run — some updates require "
-                "manual intervention."
-            )
         else:
             reason = self._has_stale_mirrorlist() or self._requires_reboot()
 
@@ -446,13 +503,20 @@ class SystemUpdateTask(BaseTask):
         behind the system is, and most "AUR" packages are in practice covered by the official
         repos or the semi-official [Chaotic AUR](https://chaotic.aur.cx/) repository.
 
+        A news acknowledgement gate then runs: if there are unread Arch news items and the user
+        has not been prompted recently, the user is asked whether to proceed (declining is the
+        normal path — `system-update` is a `MANUAL` task never wired to a systemd timer). The
+        user is not asked again for ``news_acknowledge_cooldown_minutes`` (default 30) after the
+        last prompt.
+
         Returns:
             (tuple[bool, str, SkipReason | None]): A tuple of:
 
-                - `should_run` (`bool`): `True` when the threshold is met.
+                - `should_run` (`bool`): `True` when the threshold is met and (if applicable)
+                    the user declined to proceed.
                 - `reason` (`str`): Explanation when skipping; empty when running.
-                - `skip_reason` (`SkipReason | None`): `NO_WORK_NEEDED` when skipping;
-                    `None` otherwise.
+                - `skip_reason` (`SkipReason | None`): `NO_WORK_NEEDED` when skipping below
+                    threshold; `USER_CANCELLED` when declining the news prompt; `None` otherwise.
 
         Raises:
             OSError: If the `checkupdates` query fails. Propagating is deliberate: without a
@@ -471,6 +535,10 @@ class SystemUpdateTask(BaseTask):
                 SkipReason.NO_WORK_NEEDED,
             )
 
+        # News acknowledgement gate
+        proceed, reason, skip_reason = self._handle_unread_news_prompt()
+        if not proceed:
+            return False, reason, skip_reason
         return True, "", None
 
     def execute(self) -> TaskResult[SystemUpdateDetails]:
