@@ -205,6 +205,8 @@ class SkipReason(Enum):
         DEPENDENCY_FAILED (str): Task requires a missing system command or program.
         USER_CANCELLED (str): User explicitly declined to run the task when prompted.
         NOT_DUE (str): Task is not due for execution according to its frequency schedule.
+        MIRRORLIST_STALE (str): Mirrorlist is older than the freshness threshold.
+        REBOOT_REQUIRED (str): A pending kernel update requires a reboot first.
         OTHER (str): Miscellaneous or custom skip reason specified by the task implementation.
 
     Examples:
@@ -224,6 +226,8 @@ class SkipReason(Enum):
     DEPENDENCY_FAILED = "dependency_failed"
     USER_CANCELLED = "user_cancelled"
     NOT_DUE = "not_due"
+    MIRRORLIST_STALE = "mirrorlist_stale"
+    REBOOT_REQUIRED = "reboot_required"
     OTHER = "other"
 
     def __str__(self) -> str:

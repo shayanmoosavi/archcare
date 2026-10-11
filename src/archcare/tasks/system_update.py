@@ -7,11 +7,10 @@ recovery story. It is intended to be registered in the static task registry and 
 users as the `system-update` command; that registration lands with the CLI wiring.
 
 Workflow:
-    1. `pre_check()` verifies that `pacman`, `paru`, and `checkupdates` are installed, that
-        this process owns an interactive terminal, and that the user has no unread Arch news,
-        a stale mirrorlist, or a pending kernel update requiring reboot.
-    2. `should_run()` applies the `min_repo_updates_threshold` gate, so the system is only
-        upgraded once enough packages are actually pending.
+    1. `pre_check()` verifies that `pacman`, `paru`, and `checkupdates` are installed, and that
+        this process owns an interactive terminal.
+    2. `should_run()` checks mirrorlist freshness, applies the `min_repo_updates_threshold` gate,
+        checks for a pending reboot from a kernel upgrade, and runs the news acknowledgement prompt.
     3. `execute()` captures a pre-upgrade package manifest, backs up the pacman sync
         database, hands the terminal to `pacman -Syu` and then `paru -Sua`, captures a
         post-upgrade manifest, and diffs the two to report what was removed.
@@ -75,19 +74,18 @@ from archcare.utils import (
     fetch_arch_news_headlines,
     format_bytes,
     get_latest_snapshot_id,
+    get_mirrorlist_info,
     get_pending_aur_updates,
+    get_pending_kernel_reboot,
     get_pending_repo_updates,
     has_interactive_terminal,
     has_unread_arch_news,
     list_pacnew_files,
     restore_sync_db,
     run_aur_upgrade,
-    run_command,
     run_system_upgrade,
     snapshot_package_manifest,
 )
-from archcare.utils.mirrorlist import get_mirrorlist_info
-from archcare.utils.system import CommandOptions
 
 
 class SystemUpdateTask(BaseTask):
@@ -100,9 +98,8 @@ class SystemUpdateTask(BaseTask):
 
     This task follows the [`BaseTask`][] Template Method contract:
 
-    - `pre_check()`: requires `pacman`, `paru`, and `checkupdates`, an attached terminal,
-        no unread Arch news, a fresh mirrorlist, and no pending kernel update (reboot)
-    - `should_run()`: requires at least `min_repo_updates_threshold` pending repo updates
+    - `pre_check()`: requires `pacman`, `paru`, and `checkupdates`, plus an attached terminal
+    - `should_run()`: applies the mirrorlist gate, then repo-threshold gate, then reboot/news gates
     - `execute()`: manifest -> sync-db backup -> pacman -> snapshot id -> AUR -> manifest ->
         diff -> pacnew -> recovery record
     - `post_execute()`: `paccache` cleanup on a fully successful outcome, plus a desktop
@@ -250,14 +247,11 @@ class SystemUpdateTask(BaseTask):
         """
         Verify prerequisites for the system update.
 
-        Four classes of precondition, each with an actionable message:
+        Two classes of precondition, each with an actionable message:
 
         1. Required commands — `pacman`, `paru`, and `checkupdates` (from `pacman-contrib`).
         2. An attached interactive terminal — both transaction halves inherit stdio, so
            without a TTY pacman's confirmation and paru's diff review have nowhere to render.
-        3. A fresh mirrorlist — stale mirrors cause download and upgrade failures.
-        4. No pending kernel update — upgrading the running kernel in place can corrupt
-           modules and leave the system unbootable; a reboot is required first.
 
         Returns:
             (tuple[bool, str]): A tuple of:
@@ -307,7 +301,7 @@ class SystemUpdateTask(BaseTask):
             )
 
         else:
-            reason = self._has_stale_mirrorlist() or self._requires_reboot()
+            reason = ""
 
         if reason:
             return False, reason
@@ -338,204 +332,78 @@ class SystemUpdateTask(BaseTask):
         """
         Check if a reboot is pending due to a kernel update.
 
-        Compares the currently loaded kernel version (from `uname -r`)
-        against the installed kernel package version. If the installed
-        version is newer, a reboot is required.
+        Uses pkgbase-based detection via `get_pending_kernel_reboot`. Hard stop
+        because kernel modules are removed and DKMS is per-kernel, so the running
+        system can't load modules until reboot.
 
         Returns:
             str: A message indicating if a reboot is pending, or an empty
                 string if no reboot is required.
         """
-        loaded_kernel = self._get_loaded_kernel()
-        if not loaded_kernel:
+        pending = get_pending_kernel_reboot()
+        if pending is None:
             return ""
-
-        pkg_name = self._get_kernel_package_owner(loaded_kernel)
-        if not pkg_name:
-            return ""
-
-        installed_ver = self._get_installed_package_version(pkg_name)
-        if not installed_ver:
-            return ""
-
-        if self._is_reboot_required(loaded_kernel, installed_ver):
-            return (
-                f"Pending reboot: loaded {loaded_kernel} but "
-                f"{pkg_name} {installed_ver} is installed."
-            )
-
-        return ""
-
-    def _get_loaded_kernel(self) -> str:
-        """Get the currently loaded kernel version from `uname -r`."""
-        loaded_res = run_command(["uname", "-r"], options=CommandOptions(check=False))
-        return loaded_res.stdout.strip() if loaded_res.success else ""
-
-    def _get_kernel_package_owner(self, loaded_kernel: str) -> str | None:
-        """Find the package that owns the loaded kernel's modules directory."""
-        owner_res = run_command(
-            ["pacman", "-Qo", f"/usr/lib/modules/{loaded_kernel}"],
-            options=CommandOptions(check=False),
+        running, installed = pending
+        return (
+            f"Pending reboot: the running kernel ({running}) was replaced by an upgrade "
+            f"(installed: {', '.join(installed)}). Reboot, then re-run."
         )
-        if not owner_res.success:
-            return None
-        # Example output format: "/usr/lib/modules/6.9.1-arch1-1 is owned by linux 6.9.1.arch1-1"
-        # We need the package name (5th token after splitting: file, is, owned, by, pkg, ver)
-        parts = owner_res.stdout.strip().split()
-        PKG_NAME_INDEX = 4
-        MIN_PARTS = 5
-        return parts[PKG_NAME_INDEX] if len(parts) >= MIN_PARTS else None
-
-    def _get_installed_package_version(self, pkg_name: str) -> str | None:
-        """Get the installed version of a package."""
-        pkg_res = run_command(["pacman", "-Q", pkg_name], options=CommandOptions(check=False))
-        if not pkg_res.success:
-            return None
-        parts = pkg_res.stdout.strip().split()
-        VERSION_INDEX = 1
-        MIN_PARTS = 2
-        return parts[VERSION_INDEX] if len(parts) >= MIN_PARTS else None
-
-    def _is_reboot_required(self, loaded_kernel: str, installed_ver: str) -> bool:
-        """Check if installed kernel version is newer than loaded kernel."""
-        load_clean = self._clean_kernel_version(loaded_kernel)
-        try:
-            # Parse both versions into comparable tuples
-            installed_tuple = self._parse_kernel_version(installed_ver)
-            load_tuple = self._parse_kernel_version(load_clean)
-            return installed_tuple > load_tuple
-        except Exception:
-            return False
-
-    def _parse_kernel_version(self, version: str) -> tuple[int, ...]:
-        """
-        Parse Arch kernel version into a comparable tuple.
-
-        Arch kernel versions have two formats:
-        - linux/linux-zen: X.Y.Z.flavorN-P  (e.g., 7.2.8.arch1-2, 7.2.9.zen1-1)
-        - linux-lts: X.Y.Z-P                (e.g., 6.18.55-1)
-
-        Returns tuple: (major, minor, patch, flavor_ver, pkgrel)
-        where flavor_ver=0 for linux-lts (no flavor version)
-        """
-        KERNEL_VERSION_TUPLE_SIZE = 5
-        DOT_COUNT_LTS = 2
-        DASH_COUNT_LTS = 1
-
-        # linux-lts: 6.18.55-1 -> (6, 18, 55, 0, 1)
-        if version.count(".") == DOT_COUNT_LTS and version.count("-") == DASH_COUNT_LTS:
-            base, pkgrel = version.rsplit("-", 1)
-            major, minor, patch = map(int, base.split("."))
-            return (major, minor, patch, 0, int(pkgrel))
-
-        # linux: 7.2.8.arch1-2 -> (7, 2, 8, 1, 2)
-        # linux-zen: 7.2.9.zen1-1 -> (7, 2, 9, 1, 1)
-        if ".arch" in version or ".zen" in version:
-            # Split on last "-" to get pkgrel
-            base, pkgrel = version.rsplit("-", 1)
-            # base is like "7.2.8.arch1" or "7.2.9.zen1"
-            # Split on ".arch" or ".zen"
-            if ".arch" in base:
-                upstream, flavor_ver = base.split(".arch")
-            else:
-                upstream, flavor_ver = base.split(".zen")
-            major, minor, patch = map(int, upstream.split("."))
-            return (major, minor, patch, int(flavor_ver), int(pkgrel))
-
-        # Fallback: simple X.Y.Z
-        parts = list(map(int, version.split(".")))
-        while len(parts) < KERNEL_VERSION_TUPLE_SIZE:
-            parts.append(0)
-        return tuple(parts[:KERNEL_VERSION_TUPLE_SIZE])
-
-    def _clean_kernel_version(self, kernel: str) -> str:
-        """
-        Normalize kernel release string (from `uname -r`) to match pacman package version format.
-
-        Kernel release format (uname -r)          -> Package version format (pacman -Q)
-        --------------------------------------------------------------------------------
-        linux:       7.2.8-arch1-2                -> 7.2.8.arch1-2
-        linux-zen:   7.2.9-zen1-1-zen             -> 7.2.9.zen1-1
-        linux-lts:   6.18.55-1-lts                -> 6.18.55-1
-
-        The transformation:
-        1. Replace hyphens with dots (except the last component which is pkgrel)
-        2. Remove the trailing flavor suffix (-arch, -zen, -lts) that appears in
-           kernel release but not in package version
-        """
-        # linux-lts: 6.18.55-1-lts -> 6.18.55-1
-        if kernel.endswith("-lts"):
-            return kernel[:-4]  # Remove "-lts"
-
-        # linux-zen: 7.2.9-zen1-1-zen -> 7.2.9.zen1-1
-        # The pattern is: <upstream>-zen<ver>-<pkgrel>-zen
-        # Split on "-zen" and rejoin with dots, but preserve the last "-<pkgrel>"
-        if "-zen" in kernel:
-            # Find the last "-zen" (the flavor suffix) and remove it
-            # Everything before that is: <upstream>-zen<ver>-<pkgrel>
-            last_zen_idx = kernel.rfind("-zen")
-            if last_zen_idx != -1:
-                without_suffix = kernel[:last_zen_idx]
-                # Convert hyphens to dots except the last one (pkgrel separator)
-                parts = without_suffix.split("-", maxsplit=1)
-                return ".".join(parts)
-
-        # linux: 7.2.8-arch1-2 -> 7.2.8.arch1-2
-        # The pattern is: <upstream>-arch<ver>-<pkgrel> (no trailing -arch)
-        if "-arch" in kernel:
-            parts = kernel.split("-", maxsplit=1)
-            return ".".join(parts)
-
-        # Fallback: just replace all hyphens with dots (shouldn't happen for Arch kernels)
-        return kernel.replace("-", ".")
 
     def should_run(self) -> tuple[bool, str, SkipReason | None]:
         """
-        Decide whether enough packages are pending to justify an upgrade.
+        Decide whether the task should run.
 
-        Applies the whole-task gate described in
-        [`SystemUpdateSettings.min_repo_updates_threshold`][archcare.config.models.SystemUpdateSettings]:
-        the system is only upgraded once at least that many *official repository* updates are
-        pending.
+        Runs the following gates in order:
 
-        The gate covers the whole task, not just the repository half — a repo count below the
-        threshold skips the AUR upgrade too. Repository updates are a good proxy for how far
-        behind the system is, and most "AUR" packages are in practice covered by the official
-        repos or the semi-official [Chaotic AUR](https://chaotic.aur.cx/) repository.
-
-        A news acknowledgement gate then runs: if there are unread Arch news items and the user
-        has not been prompted recently, the user is asked whether to proceed (declining is the
-        normal path — `system-update` is a `MANUAL` task never wired to a systemd timer). The
-        user is not asked again for ``news_acknowledge_cooldown_minutes`` (default 30) after the
-        last prompt.
+        1. **Mirrorlist staleness** — blocks if mirrorlist is older than 7 days.
+        2. **Threshold gate** — blocks if pending repository updates are below
+           `min_repo_updates_threshold`.
+        3. **Pending reboot** — blocks if the running kernel was replaced by an upgrade.
+        4. **Unread news** — prompts for acknowledgement if unread news exists and
+           cooldown has expired.
 
         Returns:
             (tuple[bool, str, SkipReason | None]): A tuple of:
 
-                - `should_run` (`bool`): `True` when the threshold is met and (if applicable)
-                    the user declined to proceed.
+                - `should_run` (`bool`): `True` when all gates pass.
                 - `reason` (`str`): Explanation when skipping; empty when running.
-                - `skip_reason` (`SkipReason | None`): `NO_WORK_NEEDED` when skipping below
-                    threshold; `USER_CANCELLED` when declining the news prompt; `None` otherwise.
+                - `skip_reason` (`SkipReason | None`): `MIRRORLIST_STALE`, `NO_WORK_NEEDED`,
+                  `REBOOT_REQUIRED`, or `USER_CANCELLED` depending on which gate blocked;
+                  `None` when running.
 
         Raises:
             OSError: If the `checkupdates` query fails. Propagating is deliberate: without a
                 working update query the task cannot know whether there is work, and a
                 silent skip would hide a broken package manager behind a clean exit code.
                 `BaseTask.run()` converts it into a task failure.
-        """
-        threshold = self.settings.system_update.min_repo_updates_threshold
-        pending = self._pending_repo_updates()
 
-        if len(pending) < threshold:
+        Note:
+            The threshold gate covers the whole task — a repo count below the threshold
+            skips the AUR upgrade too. Repository updates are a good proxy for how far
+            behind the system is, and most "AUR" packages are in practice covered by the
+            official repos or the semi-official [Chaotic AUR](https://chaotic.aur.cx/)
+            repository.
+        """
+
+        # Gate 1: Mirrorlist staleness
+        if stale := self._has_stale_mirrorlist():
+            return False, stale, SkipReason.MIRRORLIST_STALE
+
+        # Gate 2: Pending repo updates below threshold
+        threshold = self.settings.system_update.min_repo_updates_threshold
+        if len(repo := self._pending_repo_updates()) < threshold:
             return (
                 False,
-                f"Only {len(pending)} repository update(s) pending, below the configured "
+                f"Only {len(repo)} repository update(s) pending, below the configured "
                 f"threshold of {threshold}.",
                 SkipReason.NO_WORK_NEEDED,
             )
 
-        # News acknowledgement gate
+        # Gate 3: Pending reboot
+        if reboot := self._requires_reboot():
+            return False, reboot, SkipReason.REBOOT_REQUIRED
+
+        # Gate 4: Unread news acknowledgement
         proceed, reason, skip_reason = self._handle_unread_news_prompt()
         if not proceed:
             return False, reason, skip_reason
