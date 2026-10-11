@@ -19,6 +19,7 @@ See Also:
 
 import re
 import shlex
+from os import uname
 from pathlib import Path
 
 from loguru import logger
@@ -40,6 +41,36 @@ _PACKAGE_CACHE_DIR = Path("/var/cache/pacman/pkg")
 # Packages that together provide automatic snapshots around a pacman transaction and
 # boot-menu access to them. `snap-pac` pulls in `snapper` and `btrfs-progs` itself.
 SNAPSHOT_PACKAGES = ("snap-pac", "grub-btrfs")
+
+# Path to installed linux kernel
+KERNEL_MODULES_DIR = Path("/usr/lib/modules")
+
+
+def get_pending_kernel_reboot(
+    modules_dir: Path = KERNEL_MODULES_DIR,
+    running_release: str | None = None,
+) -> tuple[str, list[str]] | None:
+    """
+    Get the running kernel and installed kernels, if the running kernel was replaced.
+
+    Args:
+        modules_dir (Path): Path to the kernel modules directory.
+        running_release (str | None): Name of the running kernel. If `None`, use the running
+            kernel.
+
+    Returns:
+        (tuple[str, list[str]] | None): A tuple of `(running, installed)` if the running kernel
+            was replaced, else `None`.
+    """
+    running = running_release or uname().release
+    try:
+        installed = sorted(d.name for d in modules_dir.iterdir() if (d / "pkgbase").is_file())
+    except OSError as e:
+        logger.warning(f"Cannot inspect {modules_dir}: {e}")
+        return None  # can't tell: don't block
+    if not installed or running in installed:
+        return None  # no packaged kernel found, or the running one is current
+    return running, installed
 
 
 def _get_news_output() -> str | None:
