@@ -9,7 +9,7 @@ import json
 from collections.abc import Callable
 from contextlib import nullcontext
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from os.path import expanduser
 from pathlib import Path
 from typing import Any
@@ -19,12 +19,12 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
 from archcare.config import AppSettings, SkipReason, TaskConfig
-from archcare.core import SystemUpdateDetails
+from archcare.core import SystemUpdateDetails, failed, partial, success
 from archcare.core.interaction import TaskInteraction
-from archcare.core.models import failed, partial, success
 from archcare.core.progress import TaskProgress
 from archcare.tasks.system_update import SystemUpdateTask
 from archcare.utils import PackageUpdateInfo
+from archcare.utils.info_models import MirrorlistInfo
 from archcare.utils.system import CommandResult
 
 _MODULE = "archcare.tasks.system_update"
@@ -71,11 +71,21 @@ def task(system_update_config: TaskConfig, system_update_settings: AppSettings) 
     return SystemUpdateTask(config=system_update_config, settings=system_update_settings)
 
 
-def _block_all(mocker, *, terminal=True, unread_news=False) -> None:
-    """Neutralise the three pre_check() utilities so a test can isolate one of them."""
-    mocker.patch(f"{_MODULE}.check_command_exists", return_value=True)
-    mocker.patch(f"{_MODULE}.has_interactive_terminal", return_value=terminal)
-    mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=unread_news)
+def _clear_static_gates(mocker, *, stale_mirrorlist=False) -> None:
+    """Stub the two host-dependent `should_run()` gates that have nothing to do with the test.
+
+    Gate 1 reads the real `/etc/pacman.d/mirrorlist` and gate 3 inspects `/usr/lib/modules`.
+    Left unpatched, both make the outcome depend on the machine running the suite — which might
+    not even be an Arch linux system. Patching the utils boundary (not the filesystem) keeps these
+    tests hermetic while still exercising the gate code itself.
+    """
+    fresh = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    stale = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d %H:%M:%S")
+    mocker.patch(
+        f"{_MODULE}.get_mirrorlist_info",
+        return_value=MirrorlistInfo(last_modified=stale if stale_mirrorlist else fresh),
+    )
+    mocker.patch(f"{_MODULE}.get_pending_kernel_reboot", return_value=None)
 
 
 def _updates(count: int) -> list[PackageUpdateInfo]:
@@ -84,6 +94,48 @@ def _updates(count: int) -> list[PackageUpdateInfo]:
         PackageUpdateInfo(name=f"pkg{i}", old_version="1.0-1", new_version="2.0-1")
         for i in range(count)
     ]
+
+
+def _unread_news(mocker, headlines: list[str] | None = None) -> None:
+    """Stub the two calls the news gate makes once `has_unread_arch_news()` reports `True`.
+
+    `headlines` defaults to empty, which is what a real `informant`/`paru` run that cannot be
+    parsed into titles yields — the prompt then falls back to generic wording.
+    """
+    mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=True)
+    mocker.patch(
+        f"{_MODULE}.fetch_arch_news_headlines",
+        return_value=headlines if headlines else [],
+    )
+
+
+def _interaction(task: SystemUpdateTask, *, confirm: bool = True) -> MagicMock:
+    """Inject a specced interaction port into `task` whose `confirm()` answers with `confirm`.
+
+    Returned so a test can assert on `confirm.assert_called_once()` /
+    `confirm.assert_not_called()`. A specced mock keeps the port's contract honest: a call to a
+    method `TaskInteraction` does not define fails loudly instead of silently passing.
+    """
+    interaction = MagicMock(spec=TaskInteraction)
+    interaction.confirm.return_value = confirm
+    task.interaction = interaction
+    return interaction
+
+
+def _prompted_at(task: SystemUpdateTask, when: datetime | None) -> MagicMock:
+    """Give `task` a persisted state whose `system-update` entry was last prompted at `when`.
+
+    `when=None` models a user who has never been prompted, which is what makes the cooldown
+    inapplicable. Only `last_news_prompt` is set, because that is the single field the news gate
+    reads — setting the rest of `TaskState` would imply they matter when they do not.
+
+    Returns:
+        MagicMock: The state, so a test can assert the gate recorded a new prompt timestamp
+            via `state.set_task_news_prompt`.
+    """
+    task.state = MagicMock()
+    task.state.tasks = {"system-update": MagicMock(last_news_prompt=when)}
+    return task.state
 
 
 def _ok(command: str = "mock") -> CommandResult:
@@ -165,14 +217,16 @@ def transaction(task: SystemUpdateTask, mocker, mock_progress: MagicMock) -> _Wi
         "backup_sync_db": {"return_value": backup},
         "restore_sync_db": {"return_value": None},
         "clean_cache": {"return_value": 0},
-        "run_command": {"return_value": _ok()},
+        "get_pending_kernel_reboot": {"return_value": None},
         "run_system_upgrade": {"return_value": _ok()},
         "run_aur_upgrade": {"return_value": _ok()},
         "detect_btrfs_snapshot_tooling": {"return_value": False},
         "diff_manifests": {"return_value": REMOVED_PACKAGES},
         "list_pacnew_files": {"return_value": PACNEW_FILES},
     }
-    mocks = {name: mocker.patch(f"{_MODULE}.{name}", **kwargs) for name, kwargs in stubs.items()}
+    mocks: dict[str, MagicMock] = {
+        name: mocker.patch(f"{_MODULE}.{name}", **kwargs) for name, kwargs in stubs.items()
+    }
 
     task.progress = mock_progress
     return _Wiring(patch=mocker.patch, mocks=mocks, progress=mock_progress)
@@ -227,351 +281,245 @@ class TestPreCheckCommands:
 
 class TestPreCheckTerminal:
     def test_missing_terminal_blocks(self, task: SystemUpdateTask, mocker):
-        _block_all(mocker, terminal=False)
+        mocker.patch(f"{_MODULE}.check_command_exists", return_value=True)
+        mocker.patch(f"{_MODULE}.has_interactive_terminal", return_value=False)
 
         can_run, reason = task.pre_check()
 
         assert can_run is False
         assert "interactive terminal" in reason
 
-    def test_terminal_is_checked_before_news(self, task: SystemUpdateTask, mocker):
-        """A missing terminal is the more fundamental blocker; report it first."""
-        _block_all(mocker, terminal=False, unread_news=True)
+    def test_terminal_is_the_last_pre_check(self, task: SystemUpdateTask, mocker):
+        """Every command present but no TTY: the terminal verdict is what gets reported."""
+        mocker.patch(f"{_MODULE}.check_command_exists", return_value=True)
+        mocker.patch(f"{_MODULE}.has_interactive_terminal", return_value=False)
 
         can_run, reason = task.pre_check()
 
         assert can_run is False
         assert "interactive terminal" in reason
-        assert "news" not in reason
+        assert "`pacman` not found" not in reason
 
+    def test_all_prerequisites_present_passes(self, task: SystemUpdateTask, mocker):
+        """`pre_check()` is purely static now: a clean host returns `(True, "")` with no stubs.
 
-class TestPreCheckMirrorlist:
-    def test_stale_mirrorlist_blocks(self, task: SystemUpdateTask, tmp_path: Path, mocker):
-        # Create an old mirrorlist file (10 days ago) at the configured path
-        import os
-        import time
-
-        _block_all(mocker)
-
-        old_mirror = tmp_path / "mirrorlist"
-        old_mirror.write_text("Server = https://example.com\n")
-        past = time.time() - 10 * 86400
-        os.utime(str(old_mirror), (past, past))
-        task.settings.mirrorlist.path = old_mirror
-
-        can_run, reason = task.pre_check()
-        assert can_run is False
-        assert "Mirrorlist" in reason
-        assert "older than 7 days" in reason
-
-    def test_fresh_mirrorlist_passes(self, task: SystemUpdateTask, tmp_path: Path, mocker):
-        _block_all(mocker)
-        mocker.patch.object(task, "_requires_reboot", return_value="")
-
-        mirrorlist = tmp_path / "mirrorlist"
-        mirrorlist.write_text("Server = https://example.com\n")
-        task.settings.mirrorlist.path = mirrorlist
+        Deliberately patches *nothing* else — `should_run()` owns the host-dependent gates, so a
+        passing `pre_check()` must not require any of them to be stubbed first.
+        """
+        mocker.patch(f"{_MODULE}.check_command_exists", return_value=True)
+        mocker.patch(f"{_MODULE}.has_interactive_terminal", return_value=True)
 
         assert task.pre_check() == (True, "")
 
 
-class TestPreCheckRequiresReboot:
-    """Tests for the else-branch of pre_check() when _requires_reboot() is evaluated."""
+class TestShouldRunMirrorlist:
+    """Gate 1 of `should_run()`: a stale mirrorlist blocks before any update query runs."""
 
-    def test_requires_reboot_blocks(self, task: SystemUpdateTask, mocker):
-        """When a kernel update is pending, pre_check blocks with reboot message."""
-        _block_all(mocker)
+    def test_stale_mirrorlist_blocks(self, task: SystemUpdateTask, mocker):
+        _clear_static_gates(mocker, stale_mirrorlist=True)
 
-        # Mock the _requires_reboot chain to return a reboot message
-        mocker.patch.object(
-            task,
-            "_requires_reboot",
-            return_value=(
-                "Pending reboot: loaded 6.9.1-arch1-1 but linux 6.9.2.arch1-1 is installed."
-            ),
+        should_run, reason, skip_reason = task.should_run()
+
+        assert should_run is False
+        assert skip_reason == SkipReason.MIRRORLIST_STALE
+        assert "older than 7 days" in reason
+        assert "mirrorlist-update" in reason
+
+    def test_stale_mirrorlist_names_the_configured_path(self, task: SystemUpdateTask, mocker):
+        """The message must name the path that is actually stale, not a hardcoded default."""
+        _clear_static_gates(mocker, stale_mirrorlist=True)
+        task.settings.mirrorlist.path = Path("/etc/pacman.d/custom-mirrorlist")
+
+        _, reason, _ = task.should_run()
+
+        assert "/etc/pacman.d/custom-mirrorlist" in reason
+
+    def test_unresolvable_mirrorlist_does_not_block(self, task: SystemUpdateTask, mocker):
+        """A missing mirrorlist file yields `last_modified is None` — unknown, not stale.
+
+        Failing open here is deliberate: the task must not invent a staleness verdict from an
+        absent file, which is exactly the state `mirrorlist-update` is about to fix.
+        """
+        _clear_static_gates(mocker)
+        mocker.patch(f"{_MODULE}.get_mirrorlist_info", return_value=MirrorlistInfo())
+        mocker.patch(f"{_MODULE}.get_pending_repo_updates", return_value=_updates(30))
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
+
+        assert task.should_run() == (True, "", None)
+
+    def test_mirrorlist_gate_runs_before_the_update_query(self, task: SystemUpdateTask, mocker):
+        """A stale mirrorlist must short-circuit: no network query is spent on a known blocker."""
+        _clear_static_gates(mocker, stale_mirrorlist=True)
+        query: MagicMock = mocker.patch(f"{_MODULE}.get_pending_repo_updates")
+
+        task.should_run()
+
+        query.assert_not_called()
+
+    def test_seven_day_old_mirrorlist_still_passes(self, task: SystemUpdateTask, mocker):
+        """The threshold is strict (`> 7` days), so exactly seven days is not yet stale."""
+        _clear_static_gates(mocker)
+        edge = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
+        mocker.patch(
+            f"{_MODULE}.get_mirrorlist_info",
+            return_value=MirrorlistInfo(last_modified=edge),
+        )
+        mocker.patch(f"{_MODULE}.get_pending_repo_updates", return_value=_updates(30))
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
+
+        assert task.should_run() == (True, "", None)
+
+    def test_just_over_the_threshold_blocks(self, task: SystemUpdateTask, mocker):
+        """Eight days is one day past the strict threshold — the smallest blocking delta."""
+        _clear_static_gates(mocker)
+        edge = (datetime.now() - timedelta(days=8)).strftime("%Y-%m-%d %H:%M:%S")
+        mocker.patch(
+            f"{_MODULE}.get_mirrorlist_info",
+            return_value=MirrorlistInfo(last_modified=edge),
+        )
+        mocker.patch(f"{_MODULE}.get_pending_repo_updates", return_value=_updates(30))
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
+
+        should_run, _, skip_reason = task.should_run()
+
+        assert should_run is False
+        assert skip_reason == SkipReason.MIRRORLIST_STALE
+
+    def test_mirrorlist_gate_beats_the_reboot_gate(self, task: SystemUpdateTask, mocker):
+        """A stale mirrorlist is reported ahead of a pending reboot: it is the cheaper fix.
+
+        Telling someone to reboot when `archcare task run mirrorlist-update` is all that is
+        needed would send them through a much heavier remedy for no reason.
+        """
+        _clear_static_gates(mocker, stale_mirrorlist=True)
+        mocker.patch(
+            f"{_MODULE}.get_pending_repo_updates",
+            return_value=_updates(30),
+        )
+        mocker.patch(
+            f"{_MODULE}.get_pending_kernel_reboot",
+            return_value=("6.12.1-arch1-1", ["6.12.2.arch1-1"]),
         )
 
-        can_run, reason = task.pre_check()
+        _, reason, skip_reason = task.should_run()
 
-        assert can_run is False
+        assert skip_reason == SkipReason.MIRRORLIST_STALE
+        assert "Pending reboot" not in reason
+
+
+class TestShouldRunReboot:
+    """Gate 3 of `should_run()`: a replaced running kernel blocks until the user reboots.
+
+    The gate sits *after* the threshold gate on purpose — there is no point telling someone to
+    reboot when there is nothing to install — and *before* the news prompt, so the news
+    acknowledgement doesn't come before a pending reboot which would block the task
+    execution anyway.
+    """
+
+    def test_pending_reboot_blocks(self, task: SystemUpdateTask, mocker):
+        _clear_static_gates(mocker)
+        mocker.patch(f"{_MODULE}.get_pending_repo_updates", return_value=_updates(30))
+        mocker.patch(
+            f"{_MODULE}.get_pending_kernel_reboot",
+            return_value=("6.12.1-arch1-1", ["6.12.2.arch1-1"]),
+        )
+
+        should_run, reason, skip_reason = task.should_run()
+
+        assert should_run is False
+        assert skip_reason == SkipReason.REBOOT_REQUIRED
         assert "Pending reboot" in reason
-        assert "loaded 6.9.1-arch1-1" in reason
-        assert "linux 6.9.2.arch1-1 is installed" in reason
+        assert "6.12.1-arch1-1" in reason
+        assert "6.12.2.arch1-1" in reason
+        assert "Reboot" in reason
 
-    def test_no_reboot_passes(self, task: SystemUpdateTask, mocker):
-        """When no reboot is needed, pre_check passes."""
-        _block_all(mocker)
-        mocker.patch.object(task, "_requires_reboot", return_value="")
+    def test_reboot_message_lists_every_installed_kernel(self, task: SystemUpdateTask, mocker):
+        """A multi-kernel system must show all of them, not just one misidentified target."""
+        _clear_static_gates(mocker)
+        mocker.patch(f"{_MODULE}.get_pending_repo_updates", return_value=_updates(30))
+        mocker.patch(
+            f"{_MODULE}.get_pending_kernel_reboot",
+            return_value=("7.2.0.arch1-1", ["7.2.0.arch1-1", "6.18.35-1-lts"]),
+        )
 
-        assert task.pre_check() == (True, "")
+        _, reason, _ = task.should_run()
+
+        assert "7.2.0.arch1-1, 6.18.35-1-lts" in reason
+
+    def test_pending_reboot_skips_the_news_prompt(self, task: SystemUpdateTask, mocker):
+        """The reboot verdict wins over the news prompt: don't ask about news, ask for a reboot."""
+        _clear_static_gates(mocker)
+        mocker.patch(f"{_MODULE}.get_pending_repo_updates", return_value=_updates(30))
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=True)
+        mocker.patch(
+            f"{_MODULE}.get_pending_kernel_reboot",
+            return_value=("6.12.1-arch1-1", ["6.12.2.arch1-1"]),
+        )
+        interaction = _interaction(task)
+
+        _, _, skip_reason = task.should_run()
+
+        assert skip_reason == SkipReason.REBOOT_REQUIRED
+        interaction.confirm.assert_not_called()
+
+    def test_current_kernel_proceeds(self, task: SystemUpdateTask, mocker):
+        """`None` from the utils probe means the running kernel is current — nothing to block on."""
+        _clear_static_gates(mocker)
+        mocker.patch(f"{_MODULE}.get_pending_repo_updates", return_value=_updates(30))
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
+
+        assert task.should_run() == (True, "", None)
+
+    def test_reboot_gate_is_skipped_below_the_threshold(self, task: SystemUpdateTask, mocker):
+        """Nothing to install means no reboot check — and no `/usr/lib/modules` scan."""
+        _clear_static_gates(mocker)
+        mock_reboot: MagicMock = mocker.patch(f"{_MODULE}.get_pending_kernel_reboot")
+        mocker.patch(f"{_MODULE}.get_pending_repo_updates", return_value=_updates(2))
+
+        should_run, _, skip_reason = task.should_run()
+
+        assert should_run is False
+        assert skip_reason == SkipReason.NO_WORK_NEEDED
+        mock_reboot.assert_not_called()
 
 
 class TestRequiresReboot:
-    """Tests for _requires_reboot() and its helper methods."""
+    """`_requires_reboot()` translates the utils probe into a user-facing message.
 
-    def test_requires_reboot_when_kernel_updated(self, task: SystemUpdateTask, mocker):
-        """Full chain: loaded kernel older than installed package version -> reboot required."""
-        mocker.patch.object(task, "_get_loaded_kernel", return_value="7.2.8-arch1-1")
-        mocker.patch.object(task, "_get_kernel_package_owner", return_value="linux")
-        mocker.patch.object(task, "_get_installed_package_version", return_value="7.2.9.arch1-1")
+    The pkgbase detection itself (directory scan, `OSError` handling, running-kernel matching)
+    belongs to `get_pending_kernel_reboot` and is covered in its corresponding unit test; these
+    tests cover only the message formatting.
+    """
 
-        result = task._requires_reboot()
+    def test_returns_empty_when_nothing_is_pending(self, task: SystemUpdateTask, mocker):
+        mocker.patch(f"{_MODULE}.get_pending_kernel_reboot", return_value=None)
 
-        assert "Pending reboot" in result
-        assert "loaded 7.2.8-arch1-1" in result
-        assert "linux 7.2.9.arch1-1 is installed" in result
+        assert task._requires_reboot() == ""
 
-    def test_no_reboot_when_same_version(self, task: SystemUpdateTask, mocker):
-        """Loaded kernel matches installed package version -> no reboot."""
-        mocker.patch.object(task, "_get_loaded_kernel", return_value="7.2.8-arch1-1")
-        mocker.patch.object(task, "_get_kernel_package_owner", return_value="linux")
-        mocker.patch.object(task, "_get_installed_package_version", return_value="7.2.8.arch1-1")
-
-        result = task._requires_reboot()
-
-        assert result == ""
-
-    def test_no_reboot_when_uname_fails(self, task: SystemUpdateTask, mocker):
-        """uname -r fails -> no reboot check (empty string)."""
-        mocker.patch.object(task, "_get_loaded_kernel", return_value="")
-
-        result = task._requires_reboot()
-
-        assert result == ""
-
-    def test_no_reboot_when_pacman_Qo_fails(self, task: SystemUpdateTask, mocker):
-        """pacman -Qo fails to find owner -> no reboot check."""
-        mocker.patch.object(task, "_get_loaded_kernel", return_value="7.2.8-arch1-1")
-        mocker.patch.object(task, "_get_kernel_package_owner", return_value=None)
-
-        result = task._requires_reboot()
-
-        assert result == ""
-
-    def test_no_reboot_when_pacman_Q_fails(self, task: SystemUpdateTask, mocker):
-        """pacman -Q fails to get version -> no reboot check."""
-        mocker.patch.object(task, "_get_loaded_kernel", return_value="7.2.8-arch1-1")
-        mocker.patch.object(task, "_get_kernel_package_owner", return_value="linux")
-        mocker.patch.object(task, "_get_installed_package_version", return_value=None)
-
-        result = task._requires_reboot()
-
-        assert result == ""
-
-
-class TestGetLoadedKernel:
-    def test_get_loaded_kernel_success(self, task: SystemUpdateTask, mocker):
-        mocker.patch(
-            f"{_MODULE}.run_command",
-            return_value=CommandResult(
-                command="uname -r", returncode=0, stdout="7.2.8-arch1-1\n", stderr="", success=True
-            ),
-        )
-
-        result = task._get_loaded_kernel()
-
-        assert result == "7.2.8-arch1-1"
-
-    def test_get_loaded_kernel_failure(self, task: SystemUpdateTask, mocker):
-        mocker.patch(
-            f"{_MODULE}.run_command",
-            return_value=CommandResult(
-                command="uname -r",
-                returncode=1,
-                stdout="",
-                stderr="Linux got `rm -rf`'d",
-                success=False,
-            ),
-        )
-
-        result = task._get_loaded_kernel()
-
-        assert result == ""
-
-
-class TestGetKernelPackageOwner:
-    def test_get_kernel_package_owner_success(self, task: SystemUpdateTask, mocker):
-        mocker.patch(
-            f"{_MODULE}.run_command",
-            return_value=CommandResult(
-                command="pacman -Qo /usr/lib/modules/7.2.8-arch1-1",
-                returncode=0,
-                stdout="/usr/lib/modules/7.2.8-arch1-1 is owned by linux 7.2.8.arch1-1",
-                stderr="",
-                success=True,
-            ),
-        )
-
-        result = task._get_kernel_package_owner("7.2.8-arch1-1")
-
-        assert result == "linux"
-
-    def test_get_kernel_package_owner_failure(self, task: SystemUpdateTask, mocker):
-        mocker.patch(
-            f"{_MODULE}.run_command",
-            return_value=CommandResult(
-                command="pacman -Qo /usr/lib/modules/7.2.8-arch1-1",
-                returncode=1,
-                stdout="",
-                stderr="error: no package owns /usr/lib/modules/7.2.8-arch1-1",
-                success=False,
-            ),
-        )
-
-        result = task._get_kernel_package_owner("7.2.8-arch1-1")
-
-        assert result is None
-
-    def test_get_kernel_package_owner_malformed_output(self, task: SystemUpdateTask, mocker):
-        """Malformed pacman output (too few parts) returns None."""
-        mocker.patch(
-            f"{_MODULE}.run_command",
-            return_value=CommandResult(
-                command="pacman -Qo /usr/lib/modules/7.2.8-arch1-1",
-                returncode=0,
-                stdout="unexpected output",
-                stderr="",
-                success=True,
-            ),
-        )
-
-        result = task._get_kernel_package_owner("7.2.8-arch1-1")
-
-        assert result is None
-
-
-class TestGetInstalledPackageVersion:
-    def test_get_installed_package_version_success(self, task: SystemUpdateTask, mocker):
-        mocker.patch(
-            f"{_MODULE}.run_command",
-            return_value=CommandResult(
-                command="pacman -Q linux",
-                returncode=0,
-                stdout="linux 7.2.8.arch1-1",
-                stderr="",
-                success=True,
-            ),
-        )
-
-        result = task._get_installed_package_version("linux")
-
-        assert result == "7.2.8.arch1-1"
-
-    def test_get_installed_package_version_failure(self, task: SystemUpdateTask, mocker):
-        mocker.patch(
-            f"{_MODULE}.run_command",
-            return_value=CommandResult(
-                command="pacman -Q linux",
-                returncode=1,
-                stdout="",
-                stderr="error: package 'linux' not found",
-                success=False,
-            ),
-        )
-
-        result = task._get_installed_package_version("linux")
-
-        assert result is None
-
-    def test_get_installed_package_version_malformed_output(self, task: SystemUpdateTask, mocker):
-        """Malformed pacman output (too few parts) returns None."""
-        mocker.patch(
-            f"{_MODULE}.run_command",
-            return_value=CommandResult(
-                command="pacman -Q linux",
-                returncode=0,
-                stdout="unexpected",
-                stderr="",
-                success=True,
-            ),
-        )
-
-        result = task._get_installed_package_version("linux")
-
-        assert result is None
-
-
-class TestKernelVersionParsing:
-    """Tests for _clean_kernel_version and _parse_kernel_version helpers."""
-
-    @pytest.mark.parametrize(
-        ("kernel_release", "expected_package_ver"),
-        [
-            ("7.2.8-arch1-2", "7.2.8.arch1-2"),
-            ("7.2.9-zen1-1-zen", "7.2.9.zen1-1"),
-            ("6.18.55-1-lts", "6.18.55-1"),
-            ("6.1.29-1-lts", "6.1.29-1"),
-            ("5.15.100-1-lts", "5.15.100-1"),
-            ("6.3.0-arch1-1", "6.3.0.arch1-1"),
-            ("6.3.0-zen1-1-zen", "6.3.0.zen1-1"),
-        ],
-    )
-    def test_clean_kernel_version(
-        self, task: SystemUpdateTask, kernel_release: str, expected_package_ver: str
+    def test_returns_a_message_when_the_running_kernel_was_replaced(
+        self, task: SystemUpdateTask, mocker
     ):
-        """Kernel release (uname -r) normalizes to pacman package version format."""
-        assert task._clean_kernel_version(kernel_release) == expected_package_ver
+        mocker.patch(
+            f"{_MODULE}.get_pending_kernel_reboot",
+            return_value=("7.2.8-arch1-1", ["7.2.9.arch1-1"]),
+        )
 
-    @pytest.mark.parametrize(
-        ("package_version", "expected_tuple"),
-        [
-            ("7.2.8.arch1-2", (7, 2, 8, 1, 2)),
-            ("7.2.9.zen1-1", (7, 2, 9, 1, 1)),
-            ("6.18.55-1", (6, 18, 55, 0, 1)),
-            ("6.1.29-1", (6, 1, 29, 0, 1)),
-            ("5.15.100-1", (5, 15, 100, 0, 1)),
-            ("6.3.0.arch1-1", (6, 3, 0, 1, 1)),
-            ("6.3.0.zen1-1", (6, 3, 0, 1, 1)),
-        ],
-    )
-    def test_parse_kernel_version(
-        self, task: SystemUpdateTask, package_version: str, expected_tuple: tuple[int, ...]
-    ):
-        """Arch kernel package version parses to comparable tuple."""
-        assert task._parse_kernel_version(package_version) == expected_tuple
+        result = task._requires_reboot()
 
+        assert result.startswith("Pending reboot")
+        assert "the running kernel (7.2.8-arch1-1) was replaced by an upgrade" in result
+        assert "installed: 7.2.9.arch1-1" in result
+        assert "Reboot, then re-run." in result
 
-class TestPendingRebootDetection:
-    """Tests for the pending reboot detection logic in _requires_reboot."""
+    def test_delegates_the_probe_to_the_utils_helper(self, task: SystemUpdateTask, mocker):
+        """The gate must not re-implement detection; it must call the shared helper."""
+        mock_reboot: MagicMock = mocker.patch(
+            f"{_MODULE}.get_pending_kernel_reboot", return_value=None
+        )
 
-    @pytest.mark.parametrize(
-        ("installed_ver", "loaded_kernel", "should_reboot"),
-        [
-            # linux: same version -> no reboot
-            ("7.2.8.arch1-2", "7.2.8-arch1-2", False),
-            # linux: higher pkgrel -> reboot
-            ("7.2.8.arch1-3", "7.2.8-arch1-2", True),
-            # linux: higher upstream -> reboot
-            ("7.2.9.arch1-1", "7.2.8-arch1-2", True),
-            # linux: higher flavor ver -> reboot
-            ("7.2.8.arch2-1", "7.2.8-arch1-5", True),
-            # linux-zen: same version -> no reboot
-            ("7.2.9.zen1-1", "7.2.9-zen1-1-zen", False),
-            # linux-zen: higher pkgrel -> reboot
-            ("7.2.9.zen1-2", "7.2.9-zen1-1-zen", True),
-            # linux-zen: higher upstream -> reboot
-            ("7.2.10.zen1-1", "7.2.9-zen1-1-zen", True),
-            # linux-zen: higher flavor ver -> reboot
-            ("7.2.9.zen2-1", "7.2.9-zen1-5-zen", True),
-            # linux-lts: same version -> no reboot
-            ("6.18.55-1", "6.18.55-1-lts", False),
-            # linux-lts: higher pkgrel -> reboot
-            ("6.18.55-2", "6.18.55-1-lts", True),
-            # linux-lts: higher upstream -> reboot
-            ("6.18.56-1", "6.18.55-1-lts", True),
-        ],
-    )
-    def test_reboot_required_comparison(
-        self,
-        task: SystemUpdateTask,
-        installed_ver: str,
-        loaded_kernel: str,
-        should_reboot: bool,
-    ):
-        """_is_reboot_required correctly compares installed vs loaded kernel versions."""
+        task._requires_reboot()
 
-        result = task._is_reboot_required(loaded_kernel, installed_ver)
-        assert result == should_reboot
+        mock_reboot.assert_called_once()
 
 
 class TestRecoveryFilePath:
@@ -647,19 +595,27 @@ class TestPendingRepoUpdateCache:
         assert query.call_count == 1
 
 
-class TestShouldRun:
+class TestShouldRunPendingRepo:
+    """Gate 2 of `should_run()`: the `min_repo_updates_threshold` batching gate.
+
+    `_clear_static_gates` is applied by every test here because the mirrorlist and reboot gates
+    run *before* this one; without it the outcome would depend on the developer's machine.
+    """
+
     def test_skips_below_threshold(self, task: SystemUpdateTask, mocker):
+        _clear_static_gates(mocker)
         mocker.patch(f"{_MODULE}.get_pending_repo_updates", return_value=_updates(4))
         mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
 
         should_run, reason, skip_reason = task.should_run()
 
         assert should_run is False
-        assert skip_reason is SkipReason.NO_WORK_NEEDED
+        assert skip_reason == SkipReason.NO_WORK_NEEDED
         assert "4" in reason
         assert "30" in reason
 
     def test_skips_when_one_below_threshold(self, task: SystemUpdateTask, mocker):
+        _clear_static_gates(mocker)
         mocker.patch(f"{_MODULE}.get_pending_repo_updates", return_value=_updates(29))
         mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
 
@@ -669,12 +625,14 @@ class TestShouldRun:
 
     def test_runs_at_exactly_the_threshold(self, task: SystemUpdateTask, mocker):
         """30 pending updates meets the default threshold of 30: the boundary is inclusive."""
+        _clear_static_gates(mocker)
         mocker.patch(f"{_MODULE}.get_pending_repo_updates", return_value=_updates(30))
         mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
 
         assert task.should_run() == (True, "", None)
 
     def test_runs_above_threshold(self, task: SystemUpdateTask, mocker):
+        _clear_static_gates(mocker)
         mocker.patch(f"{_MODULE}.get_pending_repo_updates", return_value=_updates(45))
         mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
 
@@ -682,37 +640,49 @@ class TestShouldRun:
 
     def test_runs_with_zero_pending_when_threshold_is_zero(self, task: SystemUpdateTask, mocker):
         """A user who sets the threshold to 0 opts into updating on every run."""
+        _clear_static_gates(mocker)
         mocker.patch(f"{_MODULE}.get_pending_repo_updates", return_value=[])
         mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
         task.settings.system_update.min_repo_updates_threshold = 0
 
         assert task.should_run() == (True, "", None)
 
-    def test_honours_a_custom_threshold(self, system_update_config: TaskConfig, mocker):
-        settings = AppSettings(user=None)
-        settings.system_update.min_repo_updates_threshold = 1
-        task = SystemUpdateTask(config=system_update_config, settings=settings)
+    def test_honours_a_custom_threshold(self, task: SystemUpdateTask, mocker):
+        _clear_static_gates(mocker)
+        task.settings.system_update.min_repo_updates_threshold = 1
         mocker.patch(f"{_MODULE}.get_pending_repo_updates", return_value=_updates(1))
         mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
 
         assert task.should_run() == (True, "", None)
 
-    def test_skips_with_a_raised_threshold(self, system_update_config: TaskConfig, mocker):
+    def test_skips_with_a_raised_threshold(self, task: SystemUpdateTask, mocker):
         """Raising the threshold above what is pending must skip, not run."""
-        settings = AppSettings(user=None)
-        settings.system_update.min_repo_updates_threshold = 200
-        task = SystemUpdateTask(config=system_update_config, settings=settings)
+        _clear_static_gates(mocker)
+        task.settings.system_update.min_repo_updates_threshold = 200
         mocker.patch(f"{_MODULE}.get_pending_repo_updates", return_value=_updates(45))
         mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
 
         should_run, reason, skip_reason = task.should_run()
 
         assert should_run is False
-        assert skip_reason is SkipReason.NO_WORK_NEEDED
+        assert skip_reason == SkipReason.NO_WORK_NEEDED
         assert "200" in reason
+
+    def test_threshold_skip_does_not_prompt_about_news(self, task: SystemUpdateTask, mocker):
+        """Batching means quiet: a skip below the threshold must not ask the user anything."""
+        _clear_static_gates(mocker)
+        mocker.patch(f"{_MODULE}.get_pending_repo_updates", return_value=_updates(2))
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=True)
+        interaction = _interaction(task)
+
+        _, _, skip_reason = task.should_run()
+
+        assert skip_reason == SkipReason.NO_WORK_NEEDED
+        interaction.confirm.assert_not_called()
 
     def test_propagates_a_failing_update_query(self, task: SystemUpdateTask, mocker):
         """A broken package manager must surface, not silently skip."""
+        _clear_static_gates(mocker)
         mocker.patch(
             f"{_MODULE}.get_pending_repo_updates",
             side_effect=OSError("checkupdates failed (exit 2)"),
@@ -724,6 +694,7 @@ class TestShouldRun:
 
     def test_skips_when_user_declines_unread_news(self, task: SystemUpdateTask, mocker):
         """User declining to read news must skip the update."""
+        _clear_static_gates(mocker)
         mocker.patch.object(task, "_pending_repo_updates", return_value=_updates(30))
         mocker.patch.object(
             task,
@@ -731,116 +702,290 @@ class TestShouldRun:
             return_value=(False, "skipped", SkipReason.USER_CANCELLED),
         )
 
-        should_run, skip_reason, reason = task.should_run()
+        should_run, reason, skip_reason = task.should_run()
 
         assert should_run is False
-        assert skip_reason == "skipped"
-        assert reason == SkipReason.USER_CANCELLED
+        assert skip_reason == SkipReason.USER_CANCELLED
+        assert reason == "skipped"
 
     def test_runs_when_user_acknowledges_news(self, task: SystemUpdateTask, mocker):
         """User acknowledges news -> run."""
+        _clear_static_gates(mocker)
         mocker.patch.object(task, "_pending_repo_updates", return_value=_updates(30))
         mocker.patch.object(task, "_handle_unread_news_prompt", return_value=(True, "", None))
 
-        should_run, skip_reason, reason = task.should_run()
+        should_run, reason, skip_reason = task.should_run()
 
         assert should_run is True
-        assert skip_reason == ""
-        assert reason is None
+        assert reason == ""
+        assert skip_reason is None
+
+    def test_news_gate_is_last(self, task: SystemUpdateTask, mocker):
+        """Only the news gate may prompt: it is reached after all the cheap deterministic gates.
+
+        Patching it here (rather than `_pending_repo_updates`) is what proves the ordering — the
+        news helper returns a refusal, so if any earlier gate had already blocked, the refusal
+        would never be observed and the skip reason would not be `USER_CANCELLED`.
+        """
+        _clear_static_gates(mocker)
+        mocker.patch.object(
+            task,
+            "_handle_unread_news_prompt",
+            return_value=(False, "declined", SkipReason.USER_CANCELLED),
+        )
+        mock_repo: MagicMock = mocker.patch(
+            f"{_MODULE}.get_pending_repo_updates", return_value=_updates(30)
+        )
+
+        should_run, reason, skip_reason = task.should_run()
+
+        assert should_run is False
+        assert skip_reason == SkipReason.USER_CANCELLED
+        assert reason == "declined"
+        # The threshold gate must have passed for the news gate to be reached at all.
+        mock_repo.assert_called_once()
 
 
 class TestNewsAcknowledgement:
     def test_noop_when_no_news_tool_installed(self, task: SystemUpdateTask, mocker):
-        """Missing news tools must not block a non-interactive-style run."""
+        """Missing news tools must not block a non-interactive-style run.
+
+        `has_unread_arch_news()` fails open, so this is the contract the gate relies on: the
+        gate never re-checks for the tool itself, it simply trusts `False` to mean "nothing
+        unread or unknowable" and proceeds.
+        """
         mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
-        mocker.patch(f"{_MODULE}.has_interactive_terminal", return_value=True)
 
         assert task._handle_unread_news_prompt() == (True, "", None)
 
+    def test_noop_does_not_touch_the_interaction_port(self, task: SystemUpdateTask, mocker):
+        """No news means no question asked — the interaction port must stay unused."""
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
+        interaction = _interaction(task)
+
+        assert task._handle_unread_news_prompt() == (True, "", None)
+        interaction.confirm.assert_not_called()
+
+    def test_headlines_are_included_in_the_prompt_when_available(
+        self, task: SystemUpdateTask, mocker
+    ):
+        """Headlines must reach the user verbatim — they are the whole point of the prompt."""
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=True)
+        mocker.patch(
+            f"{_MODULE}.fetch_arch_news_headlines",
+            return_value=["`python` 3.13.0-2 requires manual intervention", "News item two"],
+        )
+        interaction = _interaction(task, confirm=True)
+
+        task._handle_unread_news_prompt()
+
+        prompt = interaction.confirm.call_args.args[0]
+        assert "python` 3.13.0-2 requires manual intervention" in prompt
+        assert "News item two" in prompt
+
+    def test_fallback_prompt_when_no_headlines_can_be_fetched(self, task: SystemUpdateTask, mocker):
+        """An unread-news signal with no parseable headlines still prompts, generically."""
+        _unread_news(mocker)
+        interaction = _interaction(task, confirm=True)
+
+        task._handle_unread_news_prompt()
+
+        prompt = interaction.confirm.call_args.args[0]
+        assert "unread Arch Linux news items" in prompt
+        assert "archlinux.org/news" in prompt
+
+    def test_no_state_means_no_cooldown(self, task: SystemUpdateTask, mocker):
+        """With no persisted state there is no memory of a previous prompt, so it must ask again."""
+        _unread_news(mocker)
+        interaction = _interaction(task, confirm=True)
+        task.state = None
+
+        assert task._handle_unread_news_prompt() == (True, "", None)
+        interaction.confirm.assert_called_once()
+
+    def test_recording_is_skipped_without_state(self, task: SystemUpdateTask):
+        """`_record_news_prompt()` must not explode when there is nothing to persist to."""
+        task.state = None
+
+        task._record_news_prompt()  # must not raise
+
+    def test_cooldown_window_honours_the_configured_minutes(self, task: SystemUpdateTask, mocker):
+        """A custom cooldown must be respected, not the hardcoded 30-minute default."""
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=True)
+        task.settings.system_update.news_acknowledge_cooldown_minutes = 120
+        interaction = _interaction(task)
+        task.state = MagicMock()
+        task.state.tasks = {
+            "system-update": MagicMock(
+                last_news_prompt=datetime.now() - timedelta(minutes=90), last_status=None
+            )
+        }
+
+        assert task._handle_unread_news_prompt() == (True, "", None)
+        interaction.confirm.assert_not_called()
+
+    def test_zero_cooldown_always_prompts(self, task: SystemUpdateTask, mocker):
+        """A cooldown of 0 disables the window entirely, so a prompt is due immediately."""
+        _unread_news(mocker)
+        task.settings.system_update.news_acknowledge_cooldown_minutes = 0
+        interaction = _interaction(task, confirm=True)
+        task.state = _prompted_at(task, datetime.now())
+
+        assert task._handle_unread_news_prompt() == (True, "", None)
+        interaction.confirm.assert_called_once()
+
+    def test_missing_task_state_entry_means_no_cooldown(self, task: SystemUpdateTask, mocker):
+        """A state file with no entry for this task behaves like never-prompted."""
+        _unread_news(mocker)
+        interaction = _interaction(task, confirm=True)
+        task.state = MagicMock()
+        task.state.tasks = {"some-other-task": MagicMock(last_news_prompt=datetime.now())}
+
+        assert task._handle_unread_news_prompt() == (True, "", None)
+        interaction.confirm.assert_called_once()
+
     def test_prompts_when_unread_news_is_detected(self, task: SystemUpdateTask, mocker):
         """Unread news -> interact via the injected interaction port."""
-        mocker.patch(f"{_MODULE}.check_command_exists", return_value=True)
-        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=True)
-        mocker.patch(f"{_MODULE}.fetch_arch_news_headlines", return_value=[])
-        interaction = MagicMock(spec=TaskInteraction)
-        interaction.confirm.return_value = False
-        task.interaction = interaction
+        _unread_news(mocker)
+        interaction = _interaction(task, confirm=False)
 
         should_run, reason, skip_reason = task._handle_unread_news_prompt()
 
         interaction.confirm.assert_called_once()
         assert should_run is False
-        assert skip_reason is SkipReason.USER_CANCELLED
+        assert skip_reason == SkipReason.USER_CANCELLED
         assert "declined" in reason.lower()
 
     def test_proceeds_on_acknowledge(self, task: SystemUpdateTask, mocker):
         """Unread news plus an accepted acknowledgement -> proceed and record the prompt."""
-        mocker.patch(f"{_MODULE}.check_command_exists", return_value=True)
-        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=True)
-        mocker.patch(f"{_MODULE}.fetch_arch_news_headlines", return_value=[])
-        interaction = MagicMock(spec=TaskInteraction)
-        interaction.confirm.return_value = True
-        task.interaction = interaction
+        _unread_news(mocker)
+        interaction = _interaction(task, confirm=True)
 
         assert task._handle_unread_news_prompt() == (True, "", None)
-
         interaction.confirm.assert_called_once()
 
     def test_skips_prompt_within_cooldown(self, task: SystemUpdateTask, mocker):
         """No prompt is shown while the last acknowledgement is still in its cooldown window."""
-        from datetime import datetime
-
-        mocker.patch(f"{_MODULE}.check_command_exists", return_value=True)
-        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=True)
-        interaction = MagicMock(spec=TaskInteraction)
-        task.state = MagicMock()
-        task.state.tasks = {
-            "system-update": MagicMock(last_news_prompt=datetime.now(), last_status=None)
-        }
+        _unread_news(mocker)
+        interaction = _interaction(task, confirm=True)
+        _prompted_at(task, datetime.now())
 
         assert task._handle_unread_news_prompt() == (True, "", None)
-
         interaction.confirm.assert_not_called()
 
     def test_reprompts_after_cooldown_expired(self, task: SystemUpdateTask, mocker):
-        from datetime import datetime, timedelta
+        _unread_news(mocker)
+        interaction = _interaction(task, confirm=True)
+        _prompted_at(task, datetime.now() - timedelta(minutes=31))
 
-        mocker.patch(f"{_MODULE}.check_command_exists", return_value=True)
-        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=True)
-        mocker.patch(f"{_MODULE}.fetch_arch_news_headlines", return_value=[])
-        interaction = MagicMock(spec=TaskInteraction)
-        interaction.confirm.return_value = True
-        task.interaction = interaction
-        task.state = MagicMock()
-        task.state.tasks = {
-            "system-update": MagicMock(
-                last_news_prompt=datetime.now() - timedelta(minutes=31), last_status=None
-            )
-        }
+        assert task._handle_unread_news_prompt() == (True, "", None)
+        interaction.confirm.assert_called_once()
+
+    def test_records_prompt_timestamp_on_any_answer(self, task: SystemUpdateTask, mocker):
+        """Prompt timestamp is recorded whether the user accepts or declines."""
+        _unread_news(mocker)
+        _interaction(task, confirm=False)
+        state = _prompted_at(task, datetime.now() - timedelta(minutes=31))
+
+        task._handle_unread_news_prompt()
+
+        state.set_task_news_prompt.assert_called_once_with("system-update")
+
+    def test_prompts_when_never_prompted_before(self, task: SystemUpdateTask, mocker):
+        """`last_news_prompt is None` means the user has never been asked, so the cooldown does
+        not apply — the very first run with unread news must prompt."""
+        _unread_news(mocker)
+        interaction = _interaction(task, confirm=True)
+        _prompted_at(task, None)
 
         assert task._handle_unread_news_prompt() == (True, "", None)
 
         interaction.confirm.assert_called_once()
 
-    def test_records_prompt_timestamp_on_any_answer(self, task: SystemUpdateTask, mocker):
-        """Prompt timestamp is recorded whether the user accepts or declines."""
-        from datetime import datetime, timedelta
-
-        mocker.patch(f"{_MODULE}.check_command_exists", return_value=True)
+    def test_shows_the_headlines_when_they_are_available(self, task: SystemUpdateTask, mocker):
+        """The prompt must surface actual headlines, not just a bare yes/no question."""
         mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=True)
-        mocker.patch(f"{_MODULE}.fetch_arch_news_headlines", return_value=[])
-        interaction = MagicMock(spec=TaskInteraction)
-        interaction.confirm.return_value = False
-        task.interaction = interaction
+        mocker.patch(
+            f"{_MODULE}.fetch_arch_news_headlines",
+            return_value=["glibc 2.41 requires manual intervention"],
+        )
+        interaction = _interaction(task, confirm=False)
+        _prompted_at(task, None)
+
+        should_run, _, skip_reason = task._handle_unread_news_prompt()
+
+        assert should_run is False
+        assert skip_reason == SkipReason.USER_CANCELLED
+        prompt = interaction.confirm.call_args.args[0]
+        assert "glibc 2.41 requires manual intervention" in prompt
+        assert "Proceed with the system update anyway?" in prompt
+
+    def test_prompts_without_headlines_when_the_list_is_empty(self, task: SystemUpdateTask, mocker):
+        """No parseable headlines must not blank the prompt: the generic wording still applies."""
+        _unread_news(mocker)
+        interaction = _interaction(task, confirm=True)
+        _prompted_at(task, None)
+
+        assert task._handle_unread_news_prompt() == (True, "", None)
+
+        prompt = interaction.confirm.call_args.args[0]
+        assert "There are unread Arch Linux news items." in prompt
+
+
+class TestShouldSkipPrompt:
+    """`_should_skip_prompt()` — the cooldown half of the news gate.
+
+    It exists so the prompt is asked at most once per `news_acknowledge_cooldown_minutes` window;
+    a `state` of `None` (unit tests, programmatic callers) means there is nothing to remember,
+    so the cooldown cannot apply and the prompt must always be shown.
+    """
+
+    def test_no_state_means_no_cooldown(self, task: SystemUpdateTask):
+        assert task.state is None
+        assert task._should_skip_prompt() is False
+
+    def test_unknown_task_name_means_no_cooldown(self, task: SystemUpdateTask):
+        task.state = MagicMock(tasks={})
+
+        assert task._should_skip_prompt() is False
+
+    def test_never_prompted_means_no_cooldown(self, task: SystemUpdateTask):
         task.state = MagicMock()
-        task.state.tasks = {
-            "system-update": MagicMock(last_news_prompt=datetime.now() - timedelta(minutes=31))
-        }
-        task.state.set_task_news_prompt = MagicMock()
+        task.state.tasks = {"system-update": MagicMock(last_news_prompt=None)}
 
-        task._handle_unread_news_prompt()
+        assert task._should_skip_prompt() is False
 
+    def test_recent_prompt_is_inside_the_window(self, task: SystemUpdateTask):
+        _prompted_at(task, datetime.now())
+
+        assert task._should_skip_prompt() is True
+
+    def test_expired_prompt_leaves_the_window(self, task: SystemUpdateTask):
+        _prompted_at(task, datetime.now() - timedelta(minutes=31))
+
+        assert task._should_skip_prompt() is False
+
+    def test_zero_cooldown_never_suppresses_the_prompt(self, task: SystemUpdateTask):
+        """A cooldown of 0 is the opt-out: the user is asked every single run."""
+        task.settings.system_update.news_acknowledge_cooldown_minutes = 0
+        _prompted_at(task, datetime.now())
+
+        assert task._should_skip_prompt() is False
+
+
+class TestRecordNewsPrompt:
+    """`_record_news_prompt()` — stamps the cooldown start into state, when state exists."""
+
+    def test_stamps_the_task_name(self, task: SystemUpdateTask):
+        task.state = MagicMock()
+
+        task._record_news_prompt()
         task.state.set_task_news_prompt.assert_called_once_with("system-update")
+
+    def test_no_state_is_not_an_error(self, task: SystemUpdateTask):
+        """A stateless caller must not crash the gate — it only loses the cooldown."""
+        assert task.state is None
+        task._record_news_prompt()  # must not raise
 
 
 class TestExecuteHappyPath:
