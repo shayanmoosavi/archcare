@@ -146,14 +146,14 @@ question at run time.
 
 [`TaskState`][archcare.config.models.TaskState] is the per-task execution record — six fields:
 
-| Field         | Type                                                                    | Meaning                                                                                             |
-| ------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `last_run`    | <code>datetime &#124; None</code>                                       | Timestamp of last execution                                                                         |
-| `last_status` | <code>[TaskStatus][archcare.config.enums.TaskStatus] &#124; None</code> | Outcome of last execution                                                                           |
-| `next_due`    | <code>datetime &#124; None</code>                                       | `now()` + `frequency` days; set on success, preserved on skip/failure, cleared on a `DISABLED` skip |
-| `run_count`   | `int`                                                                   | Total executions (`>=0`)                                                                            |
-| `last_error`  | <code>str &#124; None</code>                                            | Error message when `last_status` is `FAILURE`                                                       |
-| `skip_reason` | <code>[SkipReason][archcare.config.enums.SkipReason] &#124; None</code> | Reason when `last_status` is `SKIPPED`                                                              |
+| Field         | Type                                                                    | Meaning                                                                                                               |
+| ------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `last_run`    | <code>datetime &#124; None</code>                                       | Timestamp of last execution                                                                                           |
+| `last_status` | <code>[TaskStatus][archcare.config.enums.TaskStatus] &#124; None</code> | Outcome of last execution                                                                                             |
+| `next_due`    | <code>datetime &#124; None</code>                                       | `now()` + `frequency` days; set on success / `NO_WORK_NEEDED`, preserved on other skip/failure, cleared on `DISABLED` |
+| `run_count`   | `int`                                                                   | Total executions (`>=0`)                                                                                              |
+| `last_error`  | <code>str &#124; None</code>                                            | Error message when `last_status` is `FAILURE`                                                                         |
+| `skip_reason` | <code>[SkipReason][archcare.config.enums.SkipReason] &#124; None</code> | Reason when `last_status` is `SKIPPED`                                                                                |
 
 Datetimes serialize as ISO 8601 strings in `state.json` and are parsed back on startup.
 [`AppState`][archcare.config.models.AppState] is the root document: a
@@ -179,7 +179,7 @@ All four live in [`archcare.config.enums`][], separate from the models:
 | ------------------------------------------------ | --------------------------------------------------------------------------------------- | ------------------------------------------ |
 | [`TaskType`][archcare.config.enums.TaskType]     | `AUTOMATED`, `MANUAL`                                                                   | `tasks.toml` `type`; `task list --type`    |
 | [`TaskStatus`][archcare.config.enums.TaskStatus] | `SUCCESS`, `FAILURE`, `SKIPPED`, `PARTIAL`                                              | `state.json`; `task status` output         |
-| [`SkipReason`][archcare.config.enums.SkipReason] | `NO_WORK_NEEDED`, `DISABLED`, `DEPENDENCY_FAILED`, `USER_CANCELLED`, `NOT_DUE`, `OTHER` | `state.json` skip records; `task status`   |
+| [`SkipReason`][archcare.config.enums.SkipReason] | `NO_WORK_NEEDED`, `DISABLED`, `DEPENDENCY_FAILED`, `USER_CANCELLED`, `NOT_DUE`, `MIRRORLIST_STALE`, `REBOOT_REQUIRED` | `state.json` skip records; `task status`   |
 | [`LogLevel`][archcare.config.enums.LogLevel]     | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`                                         | `settings.toml` `log_level`; log filtering |
 
 ### UserContext: who am I running as
