@@ -207,7 +207,6 @@ class SkipReason(Enum):
         NOT_DUE (str): Task is not due for execution according to its frequency schedule.
         MIRRORLIST_STALE (str): Mirrorlist is older than the freshness threshold.
         REBOOT_REQUIRED (str): A pending kernel update requires a reboot first.
-        OTHER (str): Miscellaneous or custom skip reason specified by the task implementation.
 
     Examples:
         >>> from archcare.config.enums import SkipReason
@@ -228,7 +227,6 @@ class SkipReason(Enum):
     NOT_DUE = "not_due"
     MIRRORLIST_STALE = "mirrorlist_stale"
     REBOOT_REQUIRED = "reboot_required"
-    OTHER = "other"
 
     def __str__(self) -> str:
         """
