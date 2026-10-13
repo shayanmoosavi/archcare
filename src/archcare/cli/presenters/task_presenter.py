@@ -355,12 +355,12 @@ class TaskPresenter:
         # Build the universal outer shell
         lines = [
             f"[bold]Status:[/bold] {self._get_status_text(result.status)}",
-            f"[bold]Message:[/bold] {result.message}",
+            f"[bold]Message:[/bold] {escape(result.message)}",
             f"[bold]Duration:[/bold] {result.duration_seconds:.2f}s",
         ]
 
         if result.error:
-            lines.append(f"[bold red]Error:[/bold red] {result.error}")
+            lines.append(f"[bold red]Error:[/bold red] {escape(result.error)}")
 
         # Delegate the domain details to the factory if verbose
         if verbose and result.details is not None:
