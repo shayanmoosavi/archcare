@@ -108,14 +108,15 @@ utils/      → subprocess wrappers, system/hardware queries, notifications
 
 ### Utils Layer (`src/archcare/utils/`)
 
-| File             | Purpose                                                                                                                                                          |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `hardware.py`    | Disk, memory, CPU queries via psutil                                                                                                                             |
-| `pacman.py`      | Pacman database/package health checks                                                                                                                            |
-| `mirrorlist.py`  | Mirrorlist parsing, reflector invocation                                                                                                                         |
-| `info_models.py` | Frozen dataclasses returned by utils queries: `ServiceStatusInfo`, `DiskUsageInfo`, `MemoryInfo`, `CpuInfo`, `MirrorlistInfo`                                    |
-| `output.py`      | Global Rich `Console` + print helpers (`print_success`, `print_error`, `print_panel`, `print_table`); `configure_console()` mutes output in non-interactive runs |
-| `system.py`      | `run_command`, `run_command_with_sudo` - subprocess wrappers (the ONLY OS boundary); `CommandOptions` - dataclass for command options                            |
+| File               | Purpose                                                                                                                                                          |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hardware.py`      | Disk, memory, CPU queries via psutil                                                                                                                             |
+| `pacman.py`        | Pacman database/package health checks                                                                                                                            |
+| `mirrorlist.py`    | Mirrorlist parsing, reflector invocation                                                                                                                         |
+| `info_models.py`   | Frozen dataclasses returned by utils queries: `ServiceStatusInfo`, `DiskUsageInfo`, `MemoryInfo`, `CpuInfo`, `MirrorlistInfo`                                    |
+| `output.py`        | Global Rich `Console` + print helpers (`print_success`, `print_error`, `print_panel`, `print_table`); `configure_console()` mutes output in non-interactive runs |
+| `system.py`        | `run_command`, `run_command_with_sudo` - subprocess wrappers (the ONLY OS boundary); `CommandOptions` - dataclass for command options                            |
+| `system_update.py` | AUR upgrades, Arch news checks, kernel reboot detection, Btrfs snapshot helpers for `system-update` task                                                         |
 
 ---
 
