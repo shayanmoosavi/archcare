@@ -406,6 +406,24 @@ class TestShouldRunMirrorlist:
         assert skip_reason == SkipReason.MIRRORLIST_STALE
         assert "Pending reboot" not in reason
 
+    def test_stale_mirrorlist_uses_configurable_threshold(self, task: SystemUpdateTask, mocker):
+        """The staleness gate reads threshold from SystemUpdateSettings."""
+        _clear_static_gates(mocker, stale_mirrorlist=True)
+        # Default threshold is 7; make it 3 so a 10-day stale mirrorlist clearly exceeds it
+        task.settings.system_update.mirrorlist_stale_threshold_days = 3
+        # Re-patch with 10-day stale to ensure it exceeds the configured 3-day threshold
+        stale_10 = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d %H:%M:%S")
+        mocker.patch(
+            f"{_MODULE}.get_mirrorlist_info", return_value=MirrorlistInfo(last_modified=stale_10)
+        )
+        mocker.patch(f"{_MODULE}.get_pending_repo_updates", return_value=_updates(30))
+        mocker.patch(f"{_MODULE}.has_unread_arch_news", return_value=False)
+
+        should_run, reason, skip_reason = task.should_run()
+        assert should_run is False
+        assert skip_reason == SkipReason.MIRRORLIST_STALE
+        assert "older than 3 days" in reason
+
 
 class TestShouldRunReboot:
     """Gate 3 of `should_run()`: a replaced running kernel blocks until the user reboots.
