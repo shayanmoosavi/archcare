@@ -318,7 +318,7 @@ class SystemUpdateTask(BaseTask):
         # A stale mirrorlist is a common source of errors and slow / failing downloads.
         info = get_mirrorlist_info(self.settings.mirrorlist.path)
         if info.last_modified is not None:
-            STALE_THRESHOLD = 7
+            STALE_THRESHOLD = self.settings.system_update.mirrorlist_stale_threshold_days
             mtime = datetime.strptime(info.last_modified, "%Y-%m-%d %H:%M:%S")
             if (datetime.now() - mtime).days > STALE_THRESHOLD:
                 return (
