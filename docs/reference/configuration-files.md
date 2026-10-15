@@ -136,8 +136,10 @@ Settings for the `system-update` task.
 | Key                               | Default | Valid values / description                                                                                         |
 | --------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
 | `min_repo_updates_threshold`      | `30`    | Minimum number of pending official repository updates required before the task runs. `0` = any update triggers it. |
+| `mirrorlist_stale_threshold_days` | `7`     | Mirrorlist age (in days) beyond which the task skips and suggests running `mirrorlist-update`.                     |
 | `cache_keep_versions`             | `2`     | Number of cached versions to keep per installed package (passed to `paccache -rk`).                                |
 | `cache_keep_uninstalled_versions` | `1`     | Number of cached versions to keep per uninstalled package (passed to `paccache -ruk`).                             |
+| `news_acknowledge_cooldown_minutes` | `30`  | Minutes between repeated news acknowledgement prompts for unread Arch news. `0` = ask every run.                   |
 
 !!! tip
 
@@ -167,7 +169,7 @@ One entry per task tracks its schedule and last outcome:
 | `next_due`    | <code>datetime &#124; null</code> | When the task should run next                                                                                                 |
 | `run_count`   | `int`                             | Total executions (default `0`)                                                                                                |
 | `last_error`  | <code>string &#124; null</code>   | Error message from the most recent failed run                                                                                 |
-| `skip_reason` | <code>string &#124; null</code>   | Why the last run was skipped, one of: `no_work_needed`, `disabled`, `dependency_failed`, `user_cancelled`, `not_due`, `other` |
+| `skip_reason` | <code>string &#124; null</code>   | Why the last run was skipped, one of: `no_work_needed`, `disabled`, `dependency_failed`, `user_cancelled`, `not_due`, `mirrorlist_stale`, `reboot_required` |
 
 Scheduling rule: on a successful run, `next_due` becomes `last_run + frequency` days;
 on a skip or failure it is preserved, so an overdue task stays overdue.

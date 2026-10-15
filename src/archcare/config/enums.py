@@ -205,7 +205,8 @@ class SkipReason(Enum):
         DEPENDENCY_FAILED (str): Task requires a missing system command or program.
         USER_CANCELLED (str): User explicitly declined to run the task when prompted.
         NOT_DUE (str): Task is not due for execution according to its frequency schedule.
-        OTHER (str): Miscellaneous or custom skip reason specified by the task implementation.
+        MIRRORLIST_STALE (str): Mirrorlist is older than the freshness threshold.
+        REBOOT_REQUIRED (str): A pending kernel update requires a reboot first.
 
     Examples:
         >>> from archcare.config.enums import SkipReason
@@ -224,7 +225,8 @@ class SkipReason(Enum):
     DEPENDENCY_FAILED = "dependency_failed"
     USER_CANCELLED = "user_cancelled"
     NOT_DUE = "not_due"
-    OTHER = "other"
+    MIRRORLIST_STALE = "mirrorlist_stale"
+    REBOOT_REQUIRED = "reboot_required"
 
     def __str__(self) -> str:
         """

@@ -318,12 +318,13 @@ to persist the outcome:
 
 `TaskExecutor._calculate_next_due` (also private) controls what `next_due` becomes:
 
-| Terminal `status`                    | New `next_due`                                 |
-| ------------------------------------ | ---------------------------------------------- |
-| `SUCCESS` / `PARTIAL`                | `now() + frequency days` — schedule advances.  |
-| `SKIPPED` with `SkipReason.DISABLED` | `None` — disabled tasks have no schedule.      |
-| `SKIPPED` (any other reason)         | preserved — skipped tasks don't slide forward. |
-| `FAILURE`                            | preserved — failed tasks don't slide forward.  |
+| Terminal `status`                    | New `next_due`                                              |
+| ------------------------------------ | ----------------------------------------------------------- |
+| `SUCCESS` / `PARTIAL`                | `now() + frequency days` — schedule advances.               |
+| `SKIPPED` with `SkipReason.DISABLED` | `None` — disabled tasks have no schedule.                   |
+| `SKIPPED` with `NO_WORK_NEEDED`      | `now() + frequency days` — clean check counts like success. |
+| `SKIPPED` (other reasons)            | preserved — skipped tasks don't slide forward.              |
+| `FAILURE`                            | preserved — failed tasks don't slide forward.               |
 
 The [Configuration & state](configuration.md) page walks the
 [`AppState`][archcare.config.models.AppState] schema in detail.
@@ -341,14 +342,18 @@ stateDiagram-v2
     Running --> Failed : execute() returns failed(...) — graceful failure
     Running --> Skipped_Dependency : pre_check() returns (False, _)
     Running --> Skipped_NoWork : should_run() returns (False, _, NO_WORK_NEEDED)
-    Running --> Skipped_Other : should_run() returns (False, _, OTHER)
+    Running --> Skipped_Mirrorlist : should_run() returns (False, _, MIRRORLIST_STALE)
+    Running --> Skipped_Reboot : should_run() returns (False, _, REBOOT_REQUIRED)
+    Running --> Skipped_UserCancelled : should_run() returns (False, _, USER_CANCELLED)
     Running --> Failed : uncaught exception anywhere inside run()'s try block
     Success --> [*]
     Partial --> [*]
     Failed --> [*]
     Skipped_Dependency --> [*]
     Skipped_NoWork --> [*]
-    Skipped_Other --> [*]
+    Skipped_Mirrorlist --> [*]
+    Skipped_Reboot --> [*]
+    Skipped_UserCancelled --> [*]
 ```
 
 - **Two distinct paths into `Failed`** are the part most contributors miss. A _graceful_
@@ -358,12 +363,14 @@ stateDiagram-v2
   the executor's behavior diverges: notification level, log severity, and whether side effects were
   attempted to be reverted.
 
-- **`SKIPPED` is three states, not one.** The [`SkipReason`][archcare.config.enums.SkipReason]
-  classifier is what distinguishes them, and `archcare task status --due` and the
+- **`SKIPPED` has multiple distinct reasons.** The [`SkipReason`][archcare.config.enums.SkipReason]
+  classifier distinguishes them, and `archcare task status --due` and the
   `maintenance-check` task treat them differently:
     - `DEPENDENCY_FAILED` signals a configuration problem (binary missing, permissions wrong) —
       surfaced as a maintenance issue.
     - `NO_WORK_NEEDED` means "ran, found nothing to do" — not a problem, normal idle output.
+    - `MIRRORLIST_STALE` and `REBOOT_REQUIRED` block execution until the user resolves a
+      system precondition (refresh mirrorlist, reboot kernel).
     - `DISABLED`, `NOT_DUE`, `USER_CANCELLED` are scheduling decisions, not maintenance problems.
       Note that these three are decided by the executor's gates (figure 2) _before_ `run()` is ever
       invoked — only `DEPENDENCY_FAILED` and `should_run` rejections originate inside the task

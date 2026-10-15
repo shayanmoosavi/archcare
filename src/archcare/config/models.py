@@ -902,6 +902,14 @@ class SystemUpdateSettings(BaseModel):
             soon as at least 30 packages are pending an update in the official repos. This is
             a whole-task gate — a repo count below the threshold also skips the AUR upgrade step.
 
+        mirrorlist_stale_threshold_days (int): Mirrorlist age (in days) beyond which
+            the task skips and suggests running `mirrorlist-update` first.
+            (Range: >= 0 | Default: 7)
+
+            Serves as the first gate in `should_run()`, checked before the repo update
+            threshold. With the default of `7` the task skips if the mirrorlist is older
+            than 7 days.
+
         cache_keep_versions (int): Number of cached versions to keep per *installed*
             package (including the current installed version), passed to `paccache` as `-rk<n>`.
             (Range: >= 0 | Default: 2)
@@ -930,6 +938,7 @@ class SystemUpdateSettings(BaseModel):
         # previous version); sensible default
         [system_update]
         min_repo_updates_threshold = 30
+        mirrorlist_stale_threshold_days = 7
         cache_keep_versions = 2
         cache_keep_uninstalled_versions = 1
         news_acknowledge_cooldown_minutes = 30
@@ -937,6 +946,7 @@ class SystemUpdateSettings(BaseModel):
         # Batched: only update once 200 repo packages are pending, deep downgrade cache
         [system_update]
         min_repo_updates_threshold = 200
+        mirrorlist_stale_threshold_days = 7
         cache_keep_versions = 5
         cache_keep_uninstalled_versions = 1
         news_acknowledge_cooldown_minutes = 30
@@ -944,6 +954,7 @@ class SystemUpdateSettings(BaseModel):
         # Aggressive: any single update is enough, trim the cache hard
         [system_update]
         min_repo_updates_threshold = 1
+        mirrorlist_stale_threshold_days = 7
         cache_keep_versions = 1
         cache_keep_uninstalled_versions = 1
         news_acknowledge_cooldown_minutes = 30
@@ -986,6 +997,11 @@ class SystemUpdateSettings(BaseModel):
         default=30,
         ge=0,
         description="Minutes between repeated news acknowledgement prompts for unread Arch news",
+    )
+    mirrorlist_stale_threshold_days: int = Field(
+        default=7,
+        ge=0,
+        description="Days after which mirrorlist is considered stale",
     )
 
 
@@ -1556,6 +1572,10 @@ class AppState(BaseModel):
             next_due (datetime.datetime | None): When to run next
             error (str | None): Error message if `FAILURE` (optional)
             skip_reason (SkipReason | None): Why skipped if `SKIPPED` (optional)
+
+        Note:
+            `last_run` and `run_count` are updated on *every* outcome (including skips),
+            while `next_due` advancement is conditional per `_calculate_next_due()`.
 
         Examples:
             >>> from datetime import datetime

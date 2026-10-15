@@ -71,6 +71,7 @@ Public API:
         via `informant list --unread` or a `paru -Pw` fallback.
     - [`fetch_arch_news_headlines`][]: Up to three headline previews of the news above.
     - [`get_pending_aur_updates`][]: List pending AUR updates via `paru -Qua`.
+    - [`get_pending_kernel_reboot`][]: Check if a reboot is required for a kernel update.
     - [`run_aur_upgrade`][]: Run `paru -Sua` with stdio inherited.
     - [`detect_btrfs_snapshot_tooling`][]: Whether `snap-pac` and `grub-btrfs` are installed.
     - [`get_latest_snapshot_id`][]: Newest snapper `pre` snapshot number, for rollback guidance.
@@ -141,15 +142,18 @@ from .system import (
     run_systemctl,
 )
 from .system_update import (
+    KERNEL_MODULES_DIR,
     detect_btrfs_snapshot_tooling,
     fetch_arch_news_headlines,
     get_latest_snapshot_id,
     get_pending_aur_updates,
+    get_pending_kernel_reboot,
     has_unread_arch_news,
     run_aur_upgrade,
 )
 
 __all__ = [
+    "KERNEL_MODULES_DIR",
     "PackageUpdateInfo",
     "backup_file",
     "backup_sync_db",
@@ -171,6 +175,7 @@ __all__ = [
     "get_memory_info",
     "get_mirrorlist_info",
     "get_pending_aur_updates",
+    "get_pending_kernel_reboot",
     "get_pending_repo_updates",
     "get_service_logs",
     "get_service_status",

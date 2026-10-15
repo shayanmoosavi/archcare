@@ -14,6 +14,7 @@ from archcare.utils.system_update import (
     fetch_arch_news_headlines,
     get_latest_snapshot_id,
     get_pending_aur_updates,
+    get_pending_kernel_reboot,
     has_unread_arch_news,
     run_aur_upgrade,
 )
@@ -23,6 +24,9 @@ _MODULE = "archcare.utils.system_update"
 _PATCH_CHECK_COMMAND = f"{_MODULE}.check_command_exists"
 _PATCH_RUN_COMMAND = f"{_MODULE}.run_command"
 _PATCH_RUN_COMMAND_SUDO = f"{_MODULE}.run_command_with_sudo"
+
+LINUX_KERNEL_RUNNING = "6.9.1-arch1-1"
+LINUX_KERNEL_INSTALLED = "6.9.2.arch1-1"
 
 # ---------------------------------------------------------------------------
 # Fixtures and Helpers
@@ -605,3 +609,69 @@ class TestBuildRestoreScriptSyntax:
         )
 
         assert result.returncode == 0, result.stderr
+
+
+class TestGetPendingKernelReboot:
+    def test_running_present_with_pkgbase(self, tmp_path: Path):
+
+        mods = tmp_path / "modules"
+        mods.mkdir()
+        (mods / LINUX_KERNEL_RUNNING).mkdir()
+        (mods / LINUX_KERNEL_RUNNING / "pkgbase").write_text("linux\n")
+        assert (
+            get_pending_kernel_reboot(modules_dir=mods, running_release=LINUX_KERNEL_RUNNING)
+            is None
+        )
+
+    def test_stale_running_dir_without_pkgbase_is_pending(self, tmp_path: Path):
+        mods = tmp_path / "modules"
+        (mods / LINUX_KERNEL_RUNNING).mkdir(parents=True)  # leftover tree, no pkgbase
+        (mods / LINUX_KERNEL_INSTALLED).mkdir()
+        (mods / LINUX_KERNEL_INSTALLED / "pkgbase").write_text("linux\n")
+
+        assert get_pending_kernel_reboot(
+            modules_dir=mods, running_release=LINUX_KERNEL_RUNNING
+        ) == (LINUX_KERNEL_RUNNING, [LINUX_KERNEL_INSTALLED])
+
+    def test_running_kernel_replaced_by_installed_kernel(self, tmp_path: Path):
+
+        mods = tmp_path / "modules"
+        mods.mkdir()
+        (mods / LINUX_KERNEL_INSTALLED).mkdir()
+        (mods / LINUX_KERNEL_INSTALLED / "pkgbase").write_text("linux\n")
+        result = get_pending_kernel_reboot(modules_dir=mods, running_release=LINUX_KERNEL_RUNNING)
+        assert result == (LINUX_KERNEL_RUNNING, [LINUX_KERNEL_INSTALLED])
+
+    def test_two_kernels_installed_only_other_upgraded(self, tmp_path: Path):
+
+        mods = tmp_path / "modules"
+        mods.mkdir()
+        for rel, ker in ((LINUX_KERNEL_RUNNING, "linux\n"), ("7.0.5-zen1-1-zen", "linux-zen\n")):
+            (mods / rel).mkdir()
+            (mods / rel / "pkgbase").write_text(ker)
+        assert (
+            get_pending_kernel_reboot(modules_dir=mods, running_release=LINUX_KERNEL_RUNNING)
+            is None
+        )
+
+    def test_empty_or_missing_tree(self, tmp_path: Path):
+
+        empty = tmp_path / "empty"
+        empty.mkdir()
+        assert (
+            get_pending_kernel_reboot(modules_dir=empty, running_release=LINUX_KERNEL_RUNNING)
+            is None
+        )
+        missing = tmp_path / "nope"
+        assert (
+            get_pending_kernel_reboot(modules_dir=missing, running_release=LINUX_KERNEL_RUNNING)
+            is None
+        )
+
+    def test_oserror_returns_none(self, tmp_path: Path, mocker):
+        mods = tmp_path / "mods"
+        mods.mkdir()
+
+        mocker.patch.object(Path, "iterdir", side_effect=OSError)
+        result = get_pending_kernel_reboot(modules_dir=mods, running_release=LINUX_KERNEL_RUNNING)
+        assert result is None

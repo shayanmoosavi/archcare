@@ -24,6 +24,8 @@ See Also:
     - [`TaskRegistry`][archcare.core.task_registry.TaskRegistry]: Name → formatter routing
 """
 
+from rich.markup import escape
+
 from archcare.core import (
     FailedServiceInfo,
     FailedServicesDetails,
@@ -103,7 +105,7 @@ class FailedServicesFormatter:
             if logs := failure.logs:
                 lines.append("    Recent logs:")
                 # Show last 3 logs and truncate each to 160 chars
-                lines.extend(f"      {log[:160]}" for log in logs[-3:])
+                lines.extend(f"      {escape(log[:160])}" for log in logs[-3:])
 
 
 class HealthCheckFormatter:

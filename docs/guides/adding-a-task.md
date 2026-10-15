@@ -519,6 +519,13 @@ uv run archcare task run my-task --force --verbose
 `--force` bypasses the not-yet-due check from the scheduler; drop it once the task has been run
 within its `frequency` window.
 
+!!! note "NO_WORK_NEEDED advances next due date"
+    When `should_run()` returns `(False, ..., SkipReason.NO_WORK_NEEDED)`, the task is skipped but
+    the scheduler treats it as a successful cycle — `next_due` is advanced by `frequency` days.
+    This prevents a task that finds no work from becoming permanently overdue after its first
+    real run. Only `DISABLED` clears `next_due` entirely; other skip reasons preserve the
+    existing `next_due`.
+
 ## Pitfalls
 
 - **Never import from `cli/` or `services/` in `core/`, `tasks/`, or `config/`.** This is the
