@@ -14,7 +14,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from archcare.config import AppSettings, AppState, TaskConfig, TasksConfig, TaskStatus
+from archcare.config import (
+    AppSettings,
+    AppState,
+    SkipReason,
+    TaskConfig,
+    TasksConfig,
+    TaskStatus,
+)
 from archcare.config.models import MaintenanceCheckSettings
 from archcare.core import (
     IssueSeverity,
@@ -349,6 +356,116 @@ class TestCategorizeIssues:
         task._categorize_issues([issue])
 
         assert getattr(details, list_attr) == [issue]
+
+
+# ---------------------------------------------------------------------------
+# _check_overdue_task (blocked run hints)
+# ---------------------------------------------------------------------------
+
+
+class TestCheckOverdueTaskBlockedRunHints:
+    def test_reboot_required_skip_reason_tailors_recommendation(
+        self, make_task: MaintenanceCheckTaskFactory
+    ):
+        """When last run was skipped due to REBOOT_REQUIRED, recommendation mentions reboot."""
+        config = _task_config("system-update", "manual", frequency=7)
+        tasks_config = TasksConfig(tasks={config.name: config})
+        state = AppState()
+        state.update_task_state(
+            task_name=config.name,
+            status=TaskStatus.SKIPPED,
+            skip_reason=SkipReason.REBOOT_REQUIRED,
+            next_due=datetime.now() - timedelta(days=1),
+        )
+        task = make_task(tasks_config=tasks_config, state=state)
+
+        issues = task._check_task(config.name, config)
+
+        assert len(issues) == 1
+        assert "blocked by a pending kernel reboot" in issues[0].recommendation
+        assert "reboot if you haven't yet" in issues[0].recommendation
+        assert "archcare task run system-update" in issues[0].recommendation
+
+    def test_mirrorlist_stale_skip_reason_tailors_recommendation(
+        self, make_task: MaintenanceCheckTaskFactory
+    ):
+        """When last run was skipped due to MIRRORLIST_STALE, recommendation mentions mirrorlist."""
+        config = _task_config("system-update", "manual", frequency=7)
+        tasks_config = TasksConfig(tasks={config.name: config})
+        state = AppState()
+        state.update_task_state(
+            task_name=config.name,
+            status=TaskStatus.SKIPPED,
+            skip_reason=SkipReason.MIRRORLIST_STALE,
+            next_due=datetime.now() - timedelta(days=1),
+        )
+        task = make_task(tasks_config=tasks_config, state=state)
+
+        issues = task._check_task(config.name, config)
+
+        assert len(issues) == 1
+        assert "blocked by a stale mirrorlist" in issues[0].recommendation
+        assert "archcare task run mirrorlist-update" in issues[0].recommendation
+        assert "archcare task run system-update" in issues[0].recommendation
+
+    def test_other_skip_reason_uses_default_recommendation(
+        self, make_task: MaintenanceCheckTaskFactory
+    ):
+        """When last run was skipped for other reason, default recommendation is used."""
+        config = _task_config("system-update", "manual", frequency=7)
+        tasks_config = TasksConfig(tasks={config.name: config})
+        state = AppState()
+        state.update_task_state(
+            task_name=config.name,
+            status=TaskStatus.SKIPPED,
+            skip_reason=SkipReason.NO_WORK_NEEDED,
+            next_due=datetime.now() - timedelta(days=1),
+        )
+        task = make_task(tasks_config=tasks_config, state=state)
+
+        issues = task._check_task(config.name, config)
+
+        assert len(issues) == 1
+        assert issues[0].recommendation == "Run now: archcare task run system-update"
+
+    def test_success_status_uses_default_recommendation(
+        self, make_task: MaintenanceCheckTaskFactory
+    ):
+        """When last run succeeded, default recommendation is used (no skip reason)."""
+        config = _task_config("system-update", "manual", frequency=7)
+        tasks_config = TasksConfig(tasks={config.name: config})
+        state = AppState()
+        state.update_task_state(
+            task_name=config.name,
+            status=TaskStatus.SUCCESS,
+            next_due=datetime.now() - timedelta(days=1),
+        )
+        task = make_task(tasks_config=tasks_config, state=state)
+
+        issues = task._check_task(config.name, config)
+
+        assert len(issues) == 1
+        assert issues[0].recommendation == "Run now: archcare task run system-update"
+
+    def test_no_skip_reason_uses_default_recommendation(
+        self, make_task: MaintenanceCheckTaskFactory
+    ):
+        """When skip_reason is None, default recommendation is used."""
+        config = _task_config("system-update", "manual", frequency=7)
+        tasks_config = TasksConfig(tasks={config.name: config})
+        state = AppState()
+        state.update_task_state(
+            task_name=config.name,
+            status=TaskStatus.SKIPPED,
+            skip_reason=None,
+            next_due=datetime.now() - timedelta(days=1),
+        )
+        task = make_task(tasks_config=tasks_config, state=state)
+
+        issues = task._check_task(config.name, config)
+
+        assert len(issues) == 1
+        assert issues[0].recommendation == "Run now: archcare task run system-update"
 
 
 # ---------------------------------------------------------------------------

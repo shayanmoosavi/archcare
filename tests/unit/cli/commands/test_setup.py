@@ -263,7 +263,12 @@ class TestSetupCheckDeps:
     def test_exits_1_when_required_missing(self, mocker):
         mock_service = mocker.patch(f"{_MODULE}.ConfigService")
         mock_service.check_dependencies.return_value = DependencyCheckResponse(
-            required=[PackageCheck(name="paru", installed=False)], conditional=[]
+            required=[
+                PackageCheck(name="paru", installed=False),
+                PackageCheck(name="pacman-contrib", installed=True),
+                PackageCheck(name="reflector", installed=True),
+            ],
+            conditional=[],
         )
 
         with pytest.raises(typer.Exit) as exc_info:
@@ -274,7 +279,12 @@ class TestSetupCheckDeps:
     def test_exits_0_when_all_required_present(self, mocker, mock_presenter: MagicMock):
         mock_service = mocker.patch(f"{_MODULE}.ConfigService").return_value
         mock_service.check_dependencies.return_value = DependencyCheckResponse(
-            required=[PackageCheck(name="paru", installed=True)], conditional=[]
+            required=[
+                PackageCheck(name="paru", installed=True),
+                PackageCheck(name="pacman-contrib", installed=True),
+                PackageCheck(name="reflector", installed=True),
+            ],
+            conditional=[],
         )
 
         setup_check_deps()

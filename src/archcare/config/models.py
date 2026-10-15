@@ -902,6 +902,14 @@ class SystemUpdateSettings(BaseModel):
             soon as at least 30 packages are pending an update in the official repos. This is
             a whole-task gate — a repo count below the threshold also skips the AUR upgrade step.
 
+        mirrorlist_stale_threshold_days (int): Mirrorlist age (in days) beyond which
+            the task skips and suggests running `mirrorlist-update` first.
+            (Range: >= 0 | Default: 7)
+
+            Serves as the first gate in `should_run()`, checked before the repo update
+            threshold. With the default of `7` the task skips if the mirrorlist is older
+            than 7 days.
+
         cache_keep_versions (int): Number of cached versions to keep per *installed*
             package (including the current installed version), passed to `paccache` as `-rk<n>`.
             (Range: >= 0 | Default: 2)
@@ -919,26 +927,37 @@ class SystemUpdateSettings(BaseModel):
             Purging to `0` would delete the artifact that recovery path depends on, so one
             version is retained.
 
+        news_acknowledge_cooldown_minutes (int): Minutes between repeated news
+            acknowledgement prompts for unread Arch news, enforced once the user has been
+            prompted at least once (Range: >= 0 | Default: 30). A value of `0` disables the
+            cooldown and asks on every run.
+
     Example Configurations:
         ```toml title="settings.toml"
         # Default: only update once 30 repo packages are pending, keep 2 versions (current and
         # previous version); sensible default
         [system_update]
         min_repo_updates_threshold = 30
+        mirrorlist_stale_threshold_days = 7
         cache_keep_versions = 2
         cache_keep_uninstalled_versions = 1
+        news_acknowledge_cooldown_minutes = 30
 
         # Batched: only update once 200 repo packages are pending, deep downgrade cache
         [system_update]
         min_repo_updates_threshold = 200
+        mirrorlist_stale_threshold_days = 7
         cache_keep_versions = 5
         cache_keep_uninstalled_versions = 1
+        news_acknowledge_cooldown_minutes = 30
 
         # Aggressive: any single update is enough, trim the cache hard
         [system_update]
         min_repo_updates_threshold = 1
+        mirrorlist_stale_threshold_days = 7
         cache_keep_versions = 1
         cache_keep_uninstalled_versions = 1
+        news_acknowledge_cooldown_minutes = 30
         ```
 
     Validation:
@@ -973,6 +992,16 @@ class SystemUpdateSettings(BaseModel):
         default=1,
         ge=0,
         description="Cached versions to keep per uninstalled package",
+    )
+    news_acknowledge_cooldown_minutes: int = Field(
+        default=30,
+        ge=0,
+        description="Minutes between repeated news acknowledgement prompts for unread Arch news",
+    )
+    mirrorlist_stale_threshold_days: int = Field(
+        default=7,
+        ge=0,
+        description="Days after which mirrorlist is considered stale",
     )
 
 
@@ -1399,6 +1428,9 @@ class TaskState(BaseModel):
             (if `last_status` is `SKIPPED`) or `None` if `last_status`
             is not `SKIPPED`.
 
+        last_news_prompt (datetime.datetime | None): Timestamp of most recent news prompt
+            or `None` if never prompted.
+
     JSON Persistence:
         Stored in `~/.local/state/archcare/state.json` as part of [`AppState`][].
         Serialized with datetime objects converted to ISO 8601 strings.
@@ -1429,6 +1461,10 @@ class TaskState(BaseModel):
     )
     last_error: str | None = Field(None, description="Error message from last failed run")
     skip_reason: SkipReason | None = Field(None, description="Reason why task was skipped")
+    last_news_prompt: datetime | None = Field(
+        None,
+        description="Timestamp of the most recent news acknowledgement prompt (system-update only)",
+    )
 
 
 class AppState(BaseModel):
@@ -1448,6 +1484,7 @@ class AppState(BaseModel):
 
     Methods:
         get_task_state: Get state for a task, creating if it doesn't exist.
+        set_task_news_prompt: Set the last news prompt timestamp.
         update_task_state: Update state after task execution.
 
     JSON Persistence Format:
@@ -1507,6 +1544,17 @@ class AppState(BaseModel):
             self.tasks[task_name] = TaskState()
         return self.tasks[task_name]
 
+    def set_task_news_prompt(self, task_name: str, timestamp: datetime | None = None) -> None:
+        """
+        Record the timestamp at which the news acknowledgement prompt was last shown for a task.
+
+        Args:
+            task_name (str): Name of the task (must match `TaskConfig` key, e.g. "system-update").
+            timestamp (datetime.datetime | None): When the prompt was shown; defaults to now.
+        """
+        state = self.get_task_state(task_name)
+        state.last_news_prompt = timestamp or datetime.now()
+
     def update_task_state(
         self,
         task_name: str,
@@ -1524,6 +1572,10 @@ class AppState(BaseModel):
             next_due (datetime.datetime | None): When to run next
             error (str | None): Error message if `FAILURE` (optional)
             skip_reason (SkipReason | None): Why skipped if `SKIPPED` (optional)
+
+        Note:
+            `last_run` and `run_count` are updated on *every* outcome (including skips),
+            while `next_due` advancement is conditional per `_calculate_next_due()`.
 
         Examples:
             >>> from datetime import datetime

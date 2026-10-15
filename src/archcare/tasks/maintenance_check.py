@@ -42,6 +42,7 @@ from loguru import logger
 from archcare.config import (
     AppSettings,
     ConfigLoader,
+    SkipReason,
     TaskConfig,
     TaskState,
     TaskStatus,
@@ -58,6 +59,16 @@ from archcare.core import (
     TaskScheduler,
 )
 
+_BLOCKED_RUN_HINTS = {
+    SkipReason.REBOOT_REQUIRED: (
+        "The last run was blocked by a pending kernel reboot; reboot if you haven't yet, then run"
+    ),
+    SkipReason.MIRRORLIST_STALE: (
+        "The last run was blocked by a stale mirrorlist; "
+        "run `archcare task run mirrorlist-update`, then run"
+    ),
+}
+
 
 class MaintenanceCheckTask(BaseTask):
     """
@@ -70,14 +81,15 @@ class MaintenanceCheckTask(BaseTask):
     - Automated tasks with broken timers (overdue past frequency × 1.5 days)
     - Tasks that have never been run
 
-    Findings are categorized into `info`, `warning`, and `critical` buckets (see `self._check_task`
-    in source code) and aggregated into a [`MaintenanceCheckSummary`][].
+    Findings are categorized into `info`, `warning`, and `critical` buckets (see
+    `self._check_task` in source code) and aggregated into a
+    [`MaintenanceCheckSummary`][].
 
     !!! note "Fresh state"
         Unlike most tasks, `MaintenanceCheckTask` builds its own [`ConfigLoader`][] at instantiation
-        time and loads tasks/state eagerly, rather than deferring to the
-        executor. This guarantees the report reflects the latest on-disk state
-        even when other tasks have run in the same invocation.
+        time and loads tasks/state eagerly, rather than deferring to the executor. This guarantees
+        the report reflects the latest on-disk state even when other tasks have run in the same
+        invocation.
 
     See Also:
         - [`MaintenanceCheckSettings`][archcare.config.models.MaintenanceCheckSettings]:
@@ -257,6 +269,10 @@ class MaintenanceCheckTask(BaseTask):
         issues: list[MaintenanceIssue] = []
 
         # Get task state and schedule info
+        if self.state is None:
+            # Defensive check. Shouldn't happen for maintenance-check task when
+            # state is explicitly set in constructor.
+            raise RuntimeError("State is not initialized")
         task_state = self.state.get_task_state(task_name)
         schedule_info = self.scheduler.get_schedule_info(task_name)
         days_overdue = schedule_info.days_overdue
@@ -312,7 +328,8 @@ class MaintenanceCheckTask(BaseTask):
 
         If the task's schedule indicates it is due, appends a `MaintenanceIssue` whose severity is
         determined by `self._determine_severity` and whose recommendation suggests running the task
-        manually.
+        manually. If the last run was skipped due to a specific blocker (stale mirrorlist or
+        pending reboot), the recommendation is tailored to explain what blocked the last run.
 
         Args:
             days_overdue (int): Number of days the task is overdue (0 = due today).
@@ -323,13 +340,20 @@ class MaintenanceCheckTask(BaseTask):
             task_config (TaskConfig): The task configuration of the task being
                 checked (used for the description text and task name).
             task_state (TaskState): Current persisted state of the task
-                (provides `last_run`/`last_status` for the issue).
+                (provides `last_run`/`last_status`/`skip_reason` for the issue).
 
         Side Effects:
             Appends to `issues` when the task is due.
         """
         if schedule_info.is_due:
             severity = self._determine_severity(days_overdue)
+
+            # Tailor recommendation if the last run was blocked by a known condition
+            recommendation = f"Run now: archcare task run {task_config.name}"
+            if task_state.last_status == TaskStatus.SKIPPED and (
+                hint := _BLOCKED_RUN_HINTS.get(task_state.skip_reason)
+            ):
+                recommendation = f"{hint}: archcare task run {task_config.name}"
 
             issues.append(
                 MaintenanceIssue(
@@ -339,7 +363,7 @@ class MaintenanceCheckTask(BaseTask):
                     days_overdue=days_overdue,
                     last_run=task_state.last_run,
                     last_status=task_state.last_status,
-                    recommendation=f"Run now: archcare task run {task_config.name}",
+                    recommendation=recommendation,
                 )
             )
 

@@ -4,10 +4,13 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
+from archcare.cli.presenters.formatters import FailedServicesFormatter
 from archcare.cli.presenters.task_presenter import TaskPresenter
 from archcare.config import AppSettings, TaskConfig, TaskStatus
 from archcare.config.models import MaintenanceCheckSettings
 from archcare.core import (
+    FailedServiceInfo,
+    FailedServicesDetails,
     MaintenanceCheckDetails,
     TaskRegistry,
     TaskResult,
@@ -690,3 +693,33 @@ class TestRenderRecovery:
         assert "]" in printed_command
         mock_header.assert_called_once_with("Suggested commands (run these yourself)")
         mock_panel.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Markup escaping
+# ---------------------------------------------------------------------------
+
+
+class TestMarkupEscaping:
+    def test_format_task_details_escapes_markup_in_message(self, presenter: TaskPresenter):
+        result = _make_result(message="bad [red]markup[/red] here")
+        output = presenter._format_task_details("t", result, verbose=False)
+        assert r"\[red]" in output  # escaped
+
+    def test_format_task_details_escapes_markup_in_error(self, presenter: TaskPresenter):
+        result = _make_result(error="error [bold]x[/bold]")
+        output = presenter._format_task_details("t", result, verbose=False)
+        assert r"\[bold]" in output
+
+    def test_failed_services_formatter_escapes_log_lines(self):
+        formatter = FailedServicesFormatter()
+        info = FailedServiceInfo(
+            service="svc",
+            description="desc",
+            active="active",
+            logs=["log [red]line[/red] here"],
+        )
+        details = FailedServicesDetails(failed_services=[info])
+        lines = formatter.format(details)
+        joined = "\n".join(lines)
+        assert r"\[red]" in joined

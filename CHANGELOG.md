@@ -1,3 +1,28 @@
+## v0.7.0 (2026-10-15)
+
+### Feat
+
+- make stale mirrorlist threshold configurable
+- **maintenance-check**: improve skip reason recommendation messages
+- **tasks**: made unread news acknowledgement interactive
+- **core**: add interaction port to `BaseTask` to handle user interaction
+- **config**: add new setting and `TaskState` field
+- **utils**: improve unread arch news helpers by adding `paru -Pw` as fallback
+- add `reflector` to the `setup check-deps` command
+- **system-update**: add more checks to pre-check hook
+
+### Fix
+
+- **presenters**: escape Rich markup for logs and error messages
+- **executor**: fix `NO_WORK_NEEDED` skip not advancing the next due
+- update `system-update` task to use the improved reboot detection strategy
+- **utils**: add helper for detecting installed kernels and running kernel
+- **tasks**: fix wrong installation hint for installing `paru`
+
+### Refactor
+
+- **config**: remove dead enum
+
 ## v0.6.0 (2026-10-04)
 
 ### Feat

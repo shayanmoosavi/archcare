@@ -14,8 +14,15 @@ from archcare.config import (
     TasksConfig,
     UserContext,
 )
-from archcare.core import TaskDescriptor, TaskRegistry, TaskResult, success
-from archcare.core.base_task import BaseTask
+from archcare.core import (
+    BaseTask,
+    TaskDescriptor,
+    TaskRegistry,
+    TaskResult,
+    TaskScheduler,
+    skipped,
+    success,
+)
 from archcare.core.executor import TaskExecutor, TaskExecutorPorts
 from archcare.core.notifications import NotificationManager
 from archcare.core.progress import NoOpProgress, TaskProgress
@@ -57,6 +64,16 @@ class FakeTask(BaseTask):
         return success("FakeTask completed")
 
 
+class NoWorkTask(BaseTask):
+    """BaseTask whose should_run() always reports there is nothing to do."""
+
+    def should_run(self) -> tuple[bool, str, SkipReason | None]:
+        return False, "Nothing to do", SkipReason.NO_WORK_NEEDED
+
+    def execute(self) -> TaskResult:  # never reached
+        return success("unreachable")
+
+
 # ---------------------------------------------------------------------------
 # Fixtures and Helpers
 # ---------------------------------------------------------------------------
@@ -90,6 +107,7 @@ def _make_executor(
     notification_manager: MagicMock | None = None,
     user_context: MagicMock | None = None,
     progress: MagicMock | None = None,
+    task_class: type[BaseTask] = FakeTask,
 ) -> TaskExecutor:
     """
     Build a real TaskExecutor backed by a mock ConfigLoader.
@@ -116,7 +134,7 @@ def _make_executor(
 
     task_registry = TaskRegistry(
         tuple(
-            TaskDescriptor(name=task_config.name, task_class=FakeTask)
+            TaskDescriptor(name=task_config.name, task_class=task_class)
             for task_config in tasks_config.tasks.values()
         )
     )
@@ -601,6 +619,65 @@ class TestUpdateState:
 
         task_state = fresh_state.get_task_state(disabled_task.name)
         assert task_state.next_due is None
+
+    @pytest.mark.parametrize(
+        "reason",
+        [
+            SkipReason.DEPENDENCY_FAILED,
+            SkipReason.USER_CANCELLED,
+            SkipReason.REBOOT_REQUIRED,
+            SkipReason.MIRRORLIST_STALE,
+        ],
+    )
+    def test_blocking_skips_preserve_next_due(
+        self,
+        tasks_config: TasksConfig,
+        state_with_recent_run: AppState,
+        automated_task: TaskConfig,
+        reason: SkipReason,
+    ):
+        original = state_with_recent_run.get_task_state(automated_task.name).next_due
+        executor = _make_executor(tasks_config, state_with_recent_run, RecordingInteraction())
+        result = skipped("blocked", skip_reason=reason)
+
+        assert executor._calculate_next_due(result, automated_task) == original
+
+    def test_no_work_needed_skip_advances_next_due(
+        self,
+        tasks_config: TasksConfig,
+        fresh_state: AppState,
+        automated_task: TaskConfig,
+    ):
+        """NO_WORK_NEEDED skip should advance next_due like a successful check."""
+        interaction = RecordingInteraction()
+        executor = _make_executor(tasks_config, fresh_state, interaction)
+
+        # Manually inject a NO_WORK_NEEDED result state
+        result = skipped("No work needed", skip_reason=SkipReason.NO_WORK_NEEDED)
+        # Test _calculate_next_due directly
+        next_due = executor._calculate_next_due(result, automated_task)
+
+        assert next_due is not None
+        assert next_due > datetime.now()
+
+    def test_no_work_needed_skip_stops_task_being_due(
+        self,
+        tasks_config: TasksConfig,
+        state_with_recent_run: AppState,
+        automated_task: TaskConfig,
+    ):
+        """A past next_due from an earlier SUCCESS must not keep the task overdue forever."""
+        task_state = state_with_recent_run.get_task_state(automated_task.name)
+        task_state.next_due = datetime.now() - timedelta(days=5)
+        scheduler = TaskScheduler(tasks_config, state_with_recent_run)
+        assert scheduler.get_schedule_info(automated_task.name).is_due  # precondition
+
+        executor = _make_executor(
+            tasks_config, state_with_recent_run, RecordingInteraction(), task_class=NoWorkTask
+        )
+        executor.execute_task(automated_task.name)
+
+        assert not scheduler.get_schedule_info(automated_task.name).is_due
 
     # -- chown delegation ----------------------------------------------------
 

@@ -185,9 +185,13 @@ class ConfigService:
         # pacman-contrib provides checkupdates, paccache, pacdiff but no "pacman-contrib" binary
         pacman_contrib_installed = is_package_installed("pacman-contrib")
 
+        # reflector is the backend used by the mirrorlist-update task.
+        reflector_installed = check_command_exists("reflector")
+
         required = [
             PackageCheck(name="paru", installed=paru_installed),
             PackageCheck(name="pacman-contrib", installed=pacman_contrib_installed),
+            PackageCheck(name="reflector", installed=reflector_installed),
         ]
 
         # Btrfs tooling: snap-pac + grub-btrfs (both must be present)

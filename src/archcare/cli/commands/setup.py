@@ -10,8 +10,9 @@ Defines the `archcare setup` sub-app and its three commands:
     `/etc/systemd/system/`, reloads the daemon, and optionally enables+starts one timer per
     automated task. Must run via `sudo` since it touches `/etc/systemd/system/`; the target user is
     resolved from `SUDO_USER`.
-- `setup check-deps`: verifies that required and optional packages for the
-    system-update task are present on `PATH`.
+- `setup check-deps`: verifies that required packages for Archcare are present —
+    `paru`, `pacman-contrib`, and `reflector` (used by the `mirrorlist-update` task) —
+    plus optional Btrfs tooling. Exits non-zero if any required package is missing.
 
 All terminal output is delegated to [`SetupPresenter`][]; commands stay thin and translate each
 failure mode into a presenter call plus a non-zero exit.
@@ -49,10 +50,10 @@ def setup_check_deps():
     """
     Verify package dependencies for Archcare functionality.
 
-    Checks `paru`, `pacman-contrib` (required) and `snap-pac`, `grub-btrfs` (conditional,
-    Btrfs only) via [`ConfigService.check_dependencies`][] and renders the result via
-    [`SetupPresenter.render_dependency_check`][]. Exits non-zero when any required package
-    is missing.
+    Checks `paru`, `pacman-contrib`, and `reflector` (required) and `snap-pac`, `grub-btrfs`
+    (conditional, Btrfs only) via [`ConfigService.check_dependencies`][] and renders the
+    result via [`SetupPresenter.render_dependency_check`][]. Exits non-zero when any required
+    package is missing.
     """
     response = ConfigService.check_dependencies()
     SetupPresenter.render_dependency_check(response)

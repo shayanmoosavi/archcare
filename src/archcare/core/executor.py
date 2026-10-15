@@ -180,6 +180,8 @@ class TaskExecutor:
             settings=self.settings,
             notification_manager=self.notification_manager,
             progress=self._progress,
+            interaction=self._interaction,
+            state=self.state,
         )
 
     def execute_task(self, task_name: str, force: bool = False) -> TaskResult:
@@ -358,10 +360,10 @@ class TaskExecutor:
         """
         Calculate the next due timestamp based on task configuration and execution result.
 
-        Success statuses cause the scheduler to shift the next due date by the task's recurrence
-        frequency days. Skipped or failed tasks preserve their existing next-due dates, unless the
-        task was skipped due to a permanent disable configuration (which removes scheduled
-        timelines entirely).
+        Success statuses and `NO_WORK_NEEDED` skips cause the scheduler to shift the next due
+        date by the task's recurrence frequency days. Other skipped or failed tasks preserve their
+        existing next-due dates, unless the task was skipped due to a permanent disable
+        configuration (which removes scheduled timelines entirely).
 
         Args:
             result (TaskResult): The execution outcome model containing status and skip details.
@@ -371,17 +373,19 @@ class TaskExecutor:
             datetime | None: The calculated next due timestamp, or `None` if the task has been
                 permanently disabled.
         """
-        # Skipped or failed tasks should not update next due date
+        # Skipped tasks (except NO_WORK_NEEDED) and failed tasks do not shift next due
         match result.status:
             # Storing the current next due for skipped or failed task
             case TaskStatus.SKIPPED:
-                # Disabled tasks have no next due date
-                if result.skip_reason == SkipReason.DISABLED:
-                    # NOTE: Disabled task last run isn't cleared so it would be considered overdue
-                    #  when enabled again
-                    next_due = None
-                else:
-                    next_due = self.state.get_task_state(task_config.name).next_due
+                match result.skip_reason:
+                    case SkipReason.DISABLED:
+                        # NOTE: Disabled task last run isn't cleared so it would be
+                        # considered overdue when enabled again
+                        next_due = None
+                    case SkipReason.NO_WORK_NEEDED:
+                        next_due = datetime.now() + timedelta(days=task_config.frequency)
+                    case _:
+                        next_due = self.state.get_task_state(task_config.name).next_due
             case TaskStatus.FAILURE:
                 next_due = self.state.get_task_state(task_config.name).next_due
             case _:

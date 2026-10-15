@@ -11,8 +11,10 @@ from archcare.utils.system import CommandResult
 from archcare.utils.system_update import (
     build_restore_script,
     detect_btrfs_snapshot_tooling,
+    fetch_arch_news_headlines,
     get_latest_snapshot_id,
     get_pending_aur_updates,
+    get_pending_kernel_reboot,
     has_unread_arch_news,
     run_aur_upgrade,
 )
@@ -22,6 +24,9 @@ _MODULE = "archcare.utils.system_update"
 _PATCH_CHECK_COMMAND = f"{_MODULE}.check_command_exists"
 _PATCH_RUN_COMMAND = f"{_MODULE}.run_command"
 _PATCH_RUN_COMMAND_SUDO = f"{_MODULE}.run_command_with_sudo"
+
+LINUX_KERNEL_RUNNING = "6.9.1-arch1-1"
+LINUX_KERNEL_INSTALLED = "6.9.2.arch1-1"
 
 # ---------------------------------------------------------------------------
 # Fixtures and Helpers
@@ -68,6 +73,7 @@ class TestHasUnreadArchNews:
     def test_returns_false_when_informant_missing(
         self, mock_check_command: MagicMock, mock_run_command: MagicMock
     ):
+        """informant missing -> no tool at all -> fails open, no news command is run."""
         mock_check_command.return_value = False
 
         assert has_unread_arch_news() is False
@@ -94,7 +100,12 @@ class TestHasUnreadArchNews:
     def test_uses_read_only_list_command(
         self, mock_check_command: MagicMock, mock_run_command: MagicMock
     ):
-        """`informant check` marks a lone unread item as read — it must never be used here."""
+        """
+        `informant check` marks a lone unread item as read — it must never be used here.
+
+        The fallback `paru -Pw` is also read-only:
+        the `-Pw`/`-Pww` show options never mutate state.
+        """
         mock_check_command.return_value = True
         mock_run_command.return_value = _result()
 
@@ -105,11 +116,151 @@ class TestHasUnreadArchNews:
     def test_fails_open_when_informant_errors(
         self, mock_check_command: MagicMock, mock_run_command: MagicMock
     ):
-        """An undeterminable news state must not block an otherwise safe update."""
+        """
+        An undeterminable news state must not block an otherwise safe update.
+
+        When the preferred tool (`informant`) is present but errors, the fallback (`paru -Pw`) is
+        not tried: a preferred tool failure is logged rather than silently degraded.
+        """
         mock_check_command.return_value = True
         mock_run_command.return_value = _result(stderr="network unreachable", returncode=1)
 
         assert has_unread_arch_news() is False
+
+    def test_returns_true_via_paru_fallback_when_informant_missing(
+        self, mock_check_command: MagicMock, mock_run_command: MagicMock
+    ):
+        """informant missing -> fall back to `paru -Pw`."""
+        mock_check_command.side_effect = lambda c: c == "paru"
+        mock_run_command.return_value = _result(stdout="news headline\n")
+        assert has_unread_arch_news() is True
+        assert mock_run_command.call_args.args[0] == ["paru", "-Pw"]
+
+    def test_returns_false_when_both_tools_missing(
+        self, mock_check_command: MagicMock, mock_run_command: MagicMock
+    ):
+        mock_check_command.return_value = False
+
+        assert has_unread_arch_news() is False
+        mock_run_command.assert_not_called()
+
+    def test_returns_false_when_informant_reports_nothing(
+        self, mock_check_command: MagicMock, mock_run_command: MagicMock
+    ):
+        """Empty informant output -> False; no `paru -Pw` fallback is needed."""
+        mock_check_command.side_effect = lambda c: c == "informant"
+        mock_run_command.return_value = _result(stdout="")
+        assert has_unread_arch_news() is False
+
+    def test_returns_true_when_informant_reports_unread_news(
+        self, mock_check_command: MagicMock, mock_run_command: MagicMock
+    ):
+        """Existing behaviour preserved: informant present + unread -> True."""
+        mock_check_command.side_effect = lambda c: c == "informant"
+        mock_run_command.return_value = _result(stdout="kernel needs reboot\n")
+        assert has_unread_arch_news() is True
+
+    def test_returns_false_when_paru_reports_no_new_news(
+        self, mock_check_command: MagicMock, mock_run_command: MagicMock
+    ):
+        """paru -Pw exits with code 1 and 'no new news' in stderr -> no unread news."""
+        mock_check_command.side_effect = lambda c: c == "paru"
+        mock_run_command.return_value = CommandResult(
+            command="paru -Pw",
+            returncode=1,
+            stdout="",
+            stderr="no new news",
+            success=True,  # exit code 1 is success for paru -Pw
+        )
+        assert has_unread_arch_news() is False
+
+    def test_returns_true_via_paru_when_unread_news_exists(
+        self, mock_check_command: MagicMock, mock_run_command: MagicMock
+    ):
+        """paru -Pw exits with code 0 and stdout -> unread news."""
+        mock_check_command.side_effect = lambda c: c == "paru"
+        mock_run_command.return_value = _result(stdout="news headline\n")
+        assert has_unread_arch_news() is True
+
+
+# ---------------------------------------------------------------------------
+# fetch_arch_news_headlines
+# ---------------------------------------------------------------------------
+
+
+class TestFetchArchNewsHeadlines:
+    def test_returns_empty_when_paru_reports_no_new_news(
+        self, mock_check_command: MagicMock, mock_run_command: MagicMock
+    ):
+        """paru -Pw exit code 1 with 'no new news' -> empty list."""
+        mock_check_command.side_effect = lambda c: c == "paru"
+        mock_run_command.return_value = CommandResult(
+            command="paru -Pw",
+            returncode=1,
+            stdout="",
+            stderr="no new news",
+            success=True,
+        )
+        assert fetch_arch_news_headlines() == []
+
+    def test_returns_headlines_when_unread_news_exists(
+        self, mock_check_command: MagicMock, mock_run_command: MagicMock
+    ):
+        """paru -Pw exit code 0 with stdout -> up to 3 headlines."""
+        mock_check_command.side_effect = lambda c: c == "paru"
+        # paru -Pw format: date-prefixed headline lines with multi-line bodies
+        mock_run_command.return_value = CommandResult(
+            command="paru -Pw",
+            returncode=0,
+            stdout=(
+                "2026-07-21 virtualbox-ext-vnc >= 7.2.12-2 requires manual intervention\n"
+                "    Previously, we installed its contents in a way that made pacman not\n"
+                "    aware of the files.\n\n"
+                "2026-09-22 Mkinitcpio >=42 requires manual intervention for TPM2-based unlocking\n"
+                "    Starting with package version 42-1, the mkinitcpio systemd hook now includes\n"
+                "    systemd-pcrosseparator.service.\n\n"
+                "2026-08-15 Some other package update\n"
+                "    Details about this update.\n\n"
+                "2026-06-01 Fourth headline should be ignored\n"
+                "    More details.\n"
+            ),
+            stderr="",
+            success=True,
+        )
+        assert fetch_arch_news_headlines() == [
+            "2026-07-21 virtualbox-ext-vnc >= 7.2.12-2 requires manual intervention",
+            "2026-09-22 Mkinitcpio >=42 requires manual intervention for TPM2-based unlocking",
+            "2026-08-15 Some other package update",
+        ]
+
+    def test_returns_empty_when_no_tool_installed(self, mock_check_command: MagicMock):
+        """Neither informant nor paru installed -> empty list."""
+        mock_check_command.return_value = False
+        assert fetch_arch_news_headlines() == []
+
+    def test_returns_headlines_from_informant_format(
+        self, mock_check_command: MagicMock, mock_run_command: MagicMock
+    ):
+        """informant list --unread format: numbered lines with dates."""
+        mock_check_command.side_effect = lambda c: c == "informant"
+        mock_run_command.return_value = CommandResult(
+            command="informant list --unread",
+            returncode=0,
+            stdout=(
+                "0: Mkinitcpio >=42 requires manual intervention "
+                "for TPM2-based unlocking of LUKS devices "
+                "Tue, 22 Sep 2026 09:09:27 +0000\n"
+                "1: virtualbox-ext-vnc >= 7.2.12-2 requires "
+                "manual intervention "
+                "Tue, 21 Jul 2026 13:01:46 +0000\n"
+            ),
+            stderr="",
+            success=True,
+        )
+        assert fetch_arch_news_headlines() == [
+            "Mkinitcpio >=42 requires manual intervention for TPM2-based unlocking of LUKS devices",
+            "virtualbox-ext-vnc >= 7.2.12-2 requires manual intervention",
+        ]
 
 
 # ---------------------------------------------------------------------------
@@ -458,3 +609,69 @@ class TestBuildRestoreScriptSyntax:
         )
 
         assert result.returncode == 0, result.stderr
+
+
+class TestGetPendingKernelReboot:
+    def test_running_present_with_pkgbase(self, tmp_path: Path):
+
+        mods = tmp_path / "modules"
+        mods.mkdir()
+        (mods / LINUX_KERNEL_RUNNING).mkdir()
+        (mods / LINUX_KERNEL_RUNNING / "pkgbase").write_text("linux\n")
+        assert (
+            get_pending_kernel_reboot(modules_dir=mods, running_release=LINUX_KERNEL_RUNNING)
+            is None
+        )
+
+    def test_stale_running_dir_without_pkgbase_is_pending(self, tmp_path: Path):
+        mods = tmp_path / "modules"
+        (mods / LINUX_KERNEL_RUNNING).mkdir(parents=True)  # leftover tree, no pkgbase
+        (mods / LINUX_KERNEL_INSTALLED).mkdir()
+        (mods / LINUX_KERNEL_INSTALLED / "pkgbase").write_text("linux\n")
+
+        assert get_pending_kernel_reboot(
+            modules_dir=mods, running_release=LINUX_KERNEL_RUNNING
+        ) == (LINUX_KERNEL_RUNNING, [LINUX_KERNEL_INSTALLED])
+
+    def test_running_kernel_replaced_by_installed_kernel(self, tmp_path: Path):
+
+        mods = tmp_path / "modules"
+        mods.mkdir()
+        (mods / LINUX_KERNEL_INSTALLED).mkdir()
+        (mods / LINUX_KERNEL_INSTALLED / "pkgbase").write_text("linux\n")
+        result = get_pending_kernel_reboot(modules_dir=mods, running_release=LINUX_KERNEL_RUNNING)
+        assert result == (LINUX_KERNEL_RUNNING, [LINUX_KERNEL_INSTALLED])
+
+    def test_two_kernels_installed_only_other_upgraded(self, tmp_path: Path):
+
+        mods = tmp_path / "modules"
+        mods.mkdir()
+        for rel, ker in ((LINUX_KERNEL_RUNNING, "linux\n"), ("7.0.5-zen1-1-zen", "linux-zen\n")):
+            (mods / rel).mkdir()
+            (mods / rel / "pkgbase").write_text(ker)
+        assert (
+            get_pending_kernel_reboot(modules_dir=mods, running_release=LINUX_KERNEL_RUNNING)
+            is None
+        )
+
+    def test_empty_or_missing_tree(self, tmp_path: Path):
+
+        empty = tmp_path / "empty"
+        empty.mkdir()
+        assert (
+            get_pending_kernel_reboot(modules_dir=empty, running_release=LINUX_KERNEL_RUNNING)
+            is None
+        )
+        missing = tmp_path / "nope"
+        assert (
+            get_pending_kernel_reboot(modules_dir=missing, running_release=LINUX_KERNEL_RUNNING)
+            is None
+        )
+
+    def test_oserror_returns_none(self, tmp_path: Path, mocker):
+        mods = tmp_path / "mods"
+        mods.mkdir()
+
+        mocker.patch.object(Path, "iterdir", side_effect=OSError)
+        result = get_pending_kernel_reboot(modules_dir=mods, running_release=LINUX_KERNEL_RUNNING)
+        assert result is None

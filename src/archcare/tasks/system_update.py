@@ -7,10 +7,10 @@ recovery story. It is intended to be registered in the static task registry and 
 users as the `system-update` command; that registration lands with the CLI wiring.
 
 Workflow:
-    1. `pre_check()` verifies that `pacman`, `paru`, and `checkupdates` are installed, that
-        this process owns an interactive terminal, and that the user has no unread Arch news.
-    2. `should_run()` applies the `min_repo_updates_threshold` gate, so the system is only
-        upgraded once enough packages are actually pending.
+    1. `pre_check()` verifies that `pacman`, `paru`, and `checkupdates` are installed, and that
+        this process owns an interactive terminal.
+    2. `should_run()` checks mirrorlist freshness, applies the `min_repo_updates_threshold` gate,
+        checks for a pending reboot from a kernel upgrade, and runs the news acknowledgement prompt.
     3. `execute()` captures a pre-upgrade package manifest, backs up the pacman sync
         database, hands the terminal to `pacman -Syu` and then `paru -Sua`, captures a
         post-upgrade manifest, and diffs the two to report what was removed.
@@ -71,9 +71,12 @@ from archcare.utils import (
     clean_cache,
     detect_btrfs_snapshot_tooling,
     diff_manifests,
+    fetch_arch_news_headlines,
     format_bytes,
     get_latest_snapshot_id,
+    get_mirrorlist_info,
     get_pending_aur_updates,
+    get_pending_kernel_reboot,
     get_pending_repo_updates,
     has_interactive_terminal,
     has_unread_arch_news,
@@ -95,9 +98,8 @@ class SystemUpdateTask(BaseTask):
 
     This task follows the [`BaseTask`][] Template Method contract:
 
-    - `pre_check()`: requires `pacman`, `paru`, and `checkupdates`, an attached terminal,
-        and no unread Arch news
-    - `should_run()`: requires at least `min_repo_updates_threshold` pending repo updates
+    - `pre_check()`: requires `pacman`, `paru`, and `checkupdates`, plus an attached terminal
+    - `should_run()`: applies the mirrorlist gate, then repo-threshold gate, then reboot/news gates
     - `execute()`: manifest -> sync-db backup -> pacman -> snapshot id -> AUR -> manifest ->
         diff -> pacnew -> recovery record
     - `post_execute()`: `paccache` cleanup on a fully successful outcome, plus a desktop
@@ -173,17 +175,83 @@ class SystemUpdateTask(BaseTask):
                 self._pending_repo = get_pending_repo_updates()
         return self._pending_repo
 
+    def _should_skip_prompt(self) -> bool:
+        """Return True if we already prompted for news acknowledgement recently."""
+        if self.state is None:
+            return False
+        state = self.state.tasks.get(self.name)
+        if state is None or state.last_news_prompt is None:
+            return False
+        window_seconds = self.settings.system_update.news_acknowledge_cooldown_minutes * 60
+        return (datetime.now() - state.last_news_prompt).total_seconds() < window_seconds
+
+    def _present_news_prompt(self) -> bool:
+        """Show the news acknowledgement prompt and return the user's answer."""
+        headlines = fetch_arch_news_headlines()
+        if headlines:
+            preview = "\n    - ".join(headlines)
+            prompt = (
+                f"There are unread Arch Linux news item(s), including:\n\n"
+                f"    - {preview}\n\n"
+                f"Read them before updating (`sudo informant read`, or `paru -Pw` if informant "
+                f"can't be found), or visit https://archlinux.org/news/. Some updates require "
+                f"manual intervention.\n\n"
+                f"Proceed with the system update anyway?"
+            )
+        else:
+            prompt = (
+                "There are unread Arch Linux news items. Read them before updating "
+                "(`sudo informant read`, or `paru -Pw` if informant can't be found), or visit "
+                "https://archlinux.org/news/. Some updates require manual intervention.\n\n"
+                "Proceed with the system update anyway?"
+            )
+        return self.interaction.confirm(prompt)
+
+    def _record_news_prompt(self) -> None:
+        """Persist the timestamp of the prompt that was just shown."""
+        if self.state is not None:
+            self.state.set_task_news_prompt(self.name)
+
+    def _handle_unread_news_prompt(self) -> tuple[bool, str, SkipReason | None]:
+        """
+        Check for unread Arch news and, if the acknowledgement prompt is due, ask the user.
+
+        Returns:
+            (proceed, reason, skip_reason):
+              - (True, "", None)    -> proceed: no news,
+                                     acknowledged, no tool, or in cooldown
+              - (False, reason, USER_CANCELLED) -> user declined
+        """
+        if not has_unread_arch_news():
+            return True, "", None
+        if self._should_skip_prompt():
+            # Still within the acknowledgement window: don't nag again, let the user proceed.
+            return True, "", None
+        if self._present_news_prompt():
+            self._record_news_prompt()
+            return True, "", None
+        # Timestamp recorded as soon as the prompt is shown — whether the user accepts or declines,
+        # so the cooldown prevents nagging again within the acknowledgement window either way.
+        self._record_news_prompt()
+        return (
+            False,
+            (
+                "Unread Arch Linux news — you declined to proceed. Read the news with "
+                "`sudo informant read` (or `paru -Pw`) or at https://archlinux.org/news/ "
+                "and re-run when ready."
+            ),
+            SkipReason.USER_CANCELLED,
+        )
+
     def pre_check(self) -> tuple[bool, str]:
         """
         Verify prerequisites for the system update.
 
-        Three classes of precondition, each with an actionable message:
+        Two classes of precondition, each with an actionable message:
 
         1. Required commands — `pacman`, `paru`, and `checkupdates` (from `pacman-contrib`).
         2. An attached interactive terminal — both transaction halves inherit stdio, so
            without a TTY pacman's confirmation and paru's diff review have nowhere to render.
-        3. No unread Arch news — upgrading past a news item that demands manual intervention
-           is the single most common way to break an Arch install.
 
         Returns:
             (tuple[bool, str]): A tuple of:
@@ -192,89 +260,153 @@ class SystemUpdateTask(BaseTask):
                 - `reason` (`str`): The blocking explanation, or an empty string on success.
 
         Note:
-            `BaseTask.run()` classifies any `pre_check()` failure as `SkipReason.DEPENDENCY_FAILED`.
-            The skip reason is therefore generic for the terminal and news cases; the message text
-            is what actually tells the user what to do.
+            `BaseTask.run()` classifies any `pre_check()` failure as `SkipReason.DEPENDENCY_FAILED`;
+            the skip reason is therefore generic for the terminal case and the message text is
+            what actually tells the user what to do.
 
         See also:
             [`SkipReason`][archcare.config.enums.SkipReason]: The skip reason enum.
         """
 
-        # A missing `pacman` is a much more serious issue, deserving a separate branch.
+        # A missing `pacman` is an extremely serious issue; hard fail.
         if not check_command_exists("pacman"):
-            return (
-                False,
+            reason = (
                 "`pacman` not found. What have you done? 💀\n"
                 "Follow this guide in Arch wiki to manually re-install it:\n"
-                "https://wiki.archlinux.org/title/Pacman#Manually_reinstalling_pacman",
+                "https://wiki.archlinux.org/title/Pacman#Manually_reinstalling_pacman"
             )
 
-        commands = (
-            ("paru", "paru"),
-            ("checkupdates", "pacman-contrib"),
-        )
-        for command, package in commands:
-            if not check_command_exists(command):
-                return (
-                    False,
-                    f"'{command}' command not found. Install with: sudo pacman -S {package}",
-                )
+        # Paru is needed for AUR updates.
+        elif not check_command_exists("paru"):
+            reason = (
+                "'paru' not found. Build and install it from the AUR:\n"
+                "    sudo pacman -S --needed base-devel\n"
+                "    git clone https://aur.archlinux.org/paru.git\n"
+                "    cd paru && makepkg -si\n"
+                "(or use another AUR helper, e.g. `yay -S paru`). "
+                "See https://wiki.archlinux.org/title/Paru"
+            )
 
-        if not has_interactive_terminal():
-            return False, (
+        # `pacman-contrib` is needed for `checkupdates`.
+        elif not check_command_exists("checkupdates"):
+            reason = "'checkupdates' command not found. Install with: sudo pacman -S pacman-contrib"
+
+        # Updates must be run interactively and sometimes need manual intervention, it's not safe
+        # to update Arch Linux unattended.
+        elif not has_interactive_terminal():
+            reason = (
                 "system-update needs an interactive terminal: pacman and paru must be able "
                 "to show confirmations and conflicts. Run it directly from a shell, not from "
                 "a pipe, a script, or a systemd timer."
             )
 
-        if has_unread_arch_news():
-            return False, (
-                "Unread Arch Linux news. Read it before updating (run `sudo informant read`, "
-                "or visit https://archlinux.org/news/) and then re-run — some updates require "
-                "manual intervention."
-            )
+        else:
+            reason = ""
 
-        return True, ""
+        if reason:
+            return False, reason
+        return True, reason
+
+    def _has_stale_mirrorlist(self) -> str:
+        """
+        Check if mirrorlist is stale.
+
+        Returns:
+            str: Helpful message if the mirrorlist is stale, or an empty string if the
+                mirrorlist is not stale.
+        """
+        # A stale mirrorlist is a common source of errors and slow / failing downloads.
+        info = get_mirrorlist_info(self.settings.mirrorlist.path)
+        if info.last_modified is not None:
+            STALE_THRESHOLD = self.settings.system_update.mirrorlist_stale_threshold_days
+            mtime = datetime.strptime(info.last_modified, "%Y-%m-%d %H:%M:%S")
+            if (datetime.now() - mtime).days > STALE_THRESHOLD:
+                return (
+                    f"Mirrorlist ({self.settings.mirrorlist.path}) is "
+                    f"older than {STALE_THRESHOLD} days; "
+                    "run `archcare task run mirrorlist-update` first."
+                )
+        return ""
+
+    def _requires_reboot(self) -> str:
+        """
+        Check if a reboot is pending due to a kernel update.
+
+        Uses pkgbase-based detection via `get_pending_kernel_reboot`. Hard stop
+        because kernel modules are removed and DKMS is per-kernel, so the running
+        system can't load modules until reboot.
+
+        Returns:
+            str: A message indicating if a reboot is pending, or an empty
+                string if no reboot is required.
+        """
+        pending = get_pending_kernel_reboot()
+        if pending is None:
+            return ""
+        running, installed = pending
+        return (
+            f"Pending reboot: the running kernel ({running}) was replaced by an upgrade "
+            f"(installed: {', '.join(installed)}). Reboot, then re-run."
+        )
 
     def should_run(self) -> tuple[bool, str, SkipReason | None]:
         """
-        Decide whether enough packages are pending to justify an upgrade.
+        Decide whether the task should run.
 
-        Applies the whole-task gate described in
-        [`SystemUpdateSettings.min_repo_updates_threshold`][archcare.config.models.SystemUpdateSettings]:
-        the system is only upgraded once at least that many *official repository* updates are
-        pending.
+        Runs the following gates in order:
 
-        The gate covers the whole task, not just the repository half — a repo count below the
-        threshold skips the AUR upgrade too. Repository updates are a good proxy for how far
-        behind the system is, and most "AUR" packages are in practice covered by the official
-        repos or the semi-official [Chaotic AUR](https://chaotic.aur.cx/) repository.
+        1. **Mirrorlist staleness** — blocks if mirrorlist is older than 7 days.
+        2. **Threshold gate** — blocks if pending repository updates are below
+           `min_repo_updates_threshold`.
+        3. **Pending reboot** — blocks if the running kernel was replaced by an upgrade.
+        4. **Unread news** — prompts for acknowledgement if unread news exists and
+           cooldown has expired.
 
         Returns:
             (tuple[bool, str, SkipReason | None]): A tuple of:
 
-                - `should_run` (`bool`): `True` when the threshold is met.
+                - `should_run` (`bool`): `True` when all gates pass.
                 - `reason` (`str`): Explanation when skipping; empty when running.
-                - `skip_reason` (`SkipReason | None`): `NO_WORK_NEEDED` when skipping;
-                    `None` otherwise.
+                - `skip_reason` (`SkipReason | None`): `MIRRORLIST_STALE`, `NO_WORK_NEEDED`,
+                  `REBOOT_REQUIRED`, or `USER_CANCELLED` depending on which gate blocked;
+                  `None` when running.
 
         Raises:
             OSError: If the `checkupdates` query fails. Propagating is deliberate: without a
                 working update query the task cannot know whether there is work, and a
                 silent skip would hide a broken package manager behind a clean exit code.
                 `BaseTask.run()` converts it into a task failure.
-        """
-        threshold = self.settings.system_update.min_repo_updates_threshold
-        pending = self._pending_repo_updates()
 
-        if len(pending) < threshold:
+        Note:
+            The threshold gate covers the whole task — a repo count below the threshold
+            skips the AUR upgrade too. Repository updates are a good proxy for how far
+            behind the system is, and most "AUR" packages are in practice covered by the
+            official repos or the semi-official [Chaotic AUR](https://chaotic.aur.cx/)
+            repository.
+        """
+
+        # Gate 1: Mirrorlist staleness
+        if stale := self._has_stale_mirrorlist():
+            return False, stale, SkipReason.MIRRORLIST_STALE
+
+        # Gate 2: Pending repo updates below threshold
+        threshold = self.settings.system_update.min_repo_updates_threshold
+        if len(repo := self._pending_repo_updates()) < threshold:
             return (
                 False,
-                f"Only {len(pending)} repository update(s) pending, below the configured "
+                f"Only {len(repo)} repository update(s) pending, below the configured "
                 f"threshold of {threshold}.",
                 SkipReason.NO_WORK_NEEDED,
             )
 
+        # Gate 3: Pending reboot
+        if reboot := self._requires_reboot():
+            return False, reboot, SkipReason.REBOOT_REQUIRED
+
+        # Gate 4: Unread news acknowledgement
+        proceed, reason, skip_reason = self._handle_unread_news_prompt()
+        if not proceed:
+            return False, reason, skip_reason
         return True, "", None
 
     def execute(self) -> TaskResult[SystemUpdateDetails]:

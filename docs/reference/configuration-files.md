@@ -68,15 +68,29 @@ you invoke `archcare task run <name>` explicitly. To add your own task, see
 
 Settings for the `mirrorlist-update` task (consumed by `reflector`).
 
-| Key                      | Default                      | Description                                 |
-| ------------------------ | ---------------------------- | ------------------------------------------- |
-| `path`                   | `"/etc/pacman.d/mirrorlist"` | Mirrorlist file to rewrite                  |
-| `country`                | `"Germany"`                  | Country filter for mirror selection         |
-| `protocol`               | `"https"`                    | Mirror protocol                             |
-| `sort`                   | `"rate"`                     | Mirror sort strategy                        |
-| `latest`                 | `20`                         | Consider the N most recently synced mirrors |
-| `number_of_mirrors`      | `5`                          | Number of mirrors to write                  |
-| `backup_retention_count` | `5`                          | Number of backups to keep                   |
+| Key                      | Default                      | Description                                            |
+| ------------------------ | ---------------------------- | ------------------------------------------------------ |
+| `path`                   | `"/etc/pacman.d/mirrorlist"` | Mirrorlist file to rewrite                             |
+| `country`                | `"Germany"`                  | Country filter (name or ISO code) for mirror selection |
+| `protocol`               | `"https"`                    | Mirror protocol                                        |
+| `sort`                   | `"rate"`                     | Mirror sort strategy                                   |
+| `latest`                 | `20`                         | Number of most recently synced mirrors to consider     |
+| `number_of_mirrors`      | `5`                          | Number of mirrors to write                             |
+| `backup_retention_count` | `5`                          | Number of mirrorlist backup files to keep              |
+
+!!! tip
+
+    You can also specify a list of countries to the filter.
+
+    Example:
+    ```toml title="settings.toml"
+    [mirrorlist]
+    country = ["Germany", "Netherlands"] # List of countries
+
+    # or
+    [mirrorlist]
+    country = ["DE", "NL"] # List of country codes
+    ```
 
 ### `[maintenance_check]`
 
@@ -122,8 +136,10 @@ Settings for the `system-update` task.
 | Key                               | Default | Valid values / description                                                                                         |
 | --------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
 | `min_repo_updates_threshold`      | `30`    | Minimum number of pending official repository updates required before the task runs. `0` = any update triggers it. |
+| `mirrorlist_stale_threshold_days` | `7`     | Mirrorlist age (in days) beyond which the task skips and suggests running `mirrorlist-update`.                     |
 | `cache_keep_versions`             | `2`     | Number of cached versions to keep per installed package (passed to `paccache -rk`).                                |
 | `cache_keep_uninstalled_versions` | `1`     | Number of cached versions to keep per uninstalled package (passed to `paccache -ruk`).                             |
+| `news_acknowledge_cooldown_minutes` | `30`  | Minutes between repeated news acknowledgement prompts for unread Arch news. `0` = ask every run.                   |
 
 !!! tip
 
@@ -153,7 +169,7 @@ One entry per task tracks its schedule and last outcome:
 | `next_due`    | <code>datetime &#124; null</code> | When the task should run next                                                                                                 |
 | `run_count`   | `int`                             | Total executions (default `0`)                                                                                                |
 | `last_error`  | <code>string &#124; null</code>   | Error message from the most recent failed run                                                                                 |
-| `skip_reason` | <code>string &#124; null</code>   | Why the last run was skipped, one of: `no_work_needed`, `disabled`, `dependency_failed`, `user_cancelled`, `not_due`, `other` |
+| `skip_reason` | <code>string &#124; null</code>   | Why the last run was skipped, one of: `no_work_needed`, `disabled`, `dependency_failed`, `user_cancelled`, `not_due`, `mirrorlist_stale`, `reboot_required` |
 
 Scheduling rule: on a successful run, `next_due` becomes `last_run + frequency` days;
 on a skip or failure it is preserved, so an overdue task stays overdue.

@@ -28,8 +28,9 @@ from typing import Any
 
 from loguru import logger
 
-from archcare.config import AppSettings, SkipReason, TaskConfig, setup_task_logging
+from archcare.config import AppSettings, AppState, SkipReason, TaskConfig, setup_task_logging
 
+from .interaction import NonInteractive, TaskInteraction
 from .models import TaskResult, TaskStep, failed, skipped
 from .notifications import NotificationManager
 from .progress import NoOpProgress, TaskProgress
@@ -57,13 +58,16 @@ class BaseTask(ABC):
         create_result: Inject execution duration statistics into the completed `TaskResult`.
     """
 
-    def __init__(
+    # TODO: re-baseline after this feature branch — see cleanup notes in plan §9
+    def __init__(  # noqa: PLR0913,PLR0917
         self,
         config: TaskConfig,
         settings: AppSettings,
         notification_manager: NotificationManager | None = None,
         progress: TaskProgress | None = None,
-    ):
+        interaction: TaskInteraction | None = None,
+        state: AppState | None = None,
+    ) -> None:
         """
         Initialize the base task context.
 
@@ -74,6 +78,10 @@ class BaseTask(ABC):
                 Optional so tasks can be instantiated cheaply in unit tests.
             progress (TaskProgress | None): Real-time progress reporter. If None,
                 uses a `NoOpProgress` stub.
+            interaction (TaskInteraction | None): User interaction port for confirmations.
+                If None, uses a `NonInteractive` stub.
+            state (AppState | None): Shared execution state for the task run.
+                Optional so tasks can be instantiated cheaply in unit tests.
 
         Side Effects:
             Initializes internal `_start_time` tracking variable to 0.0.
@@ -82,6 +90,8 @@ class BaseTask(ABC):
         self.settings = settings
         self.notification_manager = notification_manager
         self.progress = progress or NoOpProgress()
+        self.interaction = interaction or NonInteractive()
+        self.state = state
         self._start_time: int | float = 0.0
 
     @property

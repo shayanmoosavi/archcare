@@ -7,7 +7,9 @@ unattended maintenance in five steps. If you want to change or extend Archcare i
 ## Before you begin
 
 - An Arch Linux system running systemd
-- [reflector](https://man.archlinux.org/man/reflector.1), needed by the `mirrorlist-update` task
+- [reflector](https://wiki.archlinux.org/title/Reflector), needed by the `mirrorlist-update` task
+- [paru](https://wiki.archlinux.org/title/Paru) — an AUR helper, needed by the `system-update` task
+- `pacman-contrib`, needed by the `system-update` task (it provides `checkupdates`)
 - The Archcare binary, installed via the
   [README installation steps](https://github.com/shayanmoosavi/archcare#installation)
 
@@ -58,7 +60,7 @@ enabled = true
 
 ```toml
 [mirrorlist]
-country = "Germany"      # or a list of countries
+country = "Germany"      # or a list of countries (e.g., ["Germany", "France"], or ["DE", "FR"])
 protocol = "https"
 sort = "rate"
 number_of_mirrors = 5
@@ -78,8 +80,10 @@ duration; `--verbose` adds the full structured details — here, every failed sy
 status and recent logs.
 
 The other tasks work the same way: `health-check`, `mirrorlist-update`, and `maintenance-check`
-(the scheduler-aware "what's due" report). All command and flag variants are in the
-[CLI reference](../reference/cli.md).
+(the scheduler-aware "what's due" report). `system-update` does the full upgrade
+(`pacman -Syu` + `paru -Sua`), but pre-checks that the mirrorlist is fresh, that you've read
+Arch news, and that no kernel update is waiting for a reboot. All command and flag variants are
+in the [CLI reference](../reference/cli.md).
 
 !!! note "Task isn't due yet?"
 

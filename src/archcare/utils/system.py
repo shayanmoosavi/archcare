@@ -189,11 +189,14 @@ def run_command(
             stderr=result.stderr.strip() if result.stderr else "",
             success=(
                 # Systemctl status returns an exit code of 3 for failed services
-                result.returncode in {3, 0}
+                result.returncode in {0, 3}
                 if "systemctl" in command_str
                 # checkupdates signals "no updates" with exit code 2
                 else result.returncode in {0, 2}
                 if "checkupdates" in command_str
+                # paru -Pw "no new news" with exit code 1
+                else result.returncode in {0, 1}
+                if "paru" in command_str and "-Pw" in command_str
                 else result.returncode == 0
             ),
         )
