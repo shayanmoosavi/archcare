@@ -46,6 +46,7 @@ DEFAULT_TASK_REGISTRY = TaskRegistry(
         TaskDescriptor("health-check", HealthCheckTask, HealthCheckFormatter),
         TaskDescriptor("mirrorlist-update", MirrorlistUpdateTask, MirrorlistUpdateFormatter),
         TaskDescriptor("maintenance-check", MaintenanceCheckTask, MaintenanceCheckFormatter),
+        TaskDescriptor("system-update", SystemUpdateTask, SystemUpdateFormatter),
     )
 )
 ```
@@ -80,8 +81,8 @@ flowchart TD
 - _figure 1_ — one name, two routing destinations
 
 The two destinations have different lifecycles. The **execution class** is instantiated once per
-run by the executor, wired with the run's shared settings, notification manager, and progress
-port, and driven through the full pipeline. The **formatter class** is instantiated per render and
+run by the executor, wired with the run's shared settings, state, and collaborator bundle, and
+driven through the full pipeline. The **formatter class** is instantiated per render and
 called exactly once — and only when two conditions hold: the user passed `--verbose`, and the
 [`TaskResult[TDetails]`][archcare.core.models.TaskResult] actually carries a `details` object
 (see [`archcare.core.task_details`][]). The universal outer shell of the result panel
@@ -90,11 +91,11 @@ only the domain-specific block beneath it.
 
 ### Who consumes the registry
 
-| Consumer                                                                                         | API call                                                               | Purpose                                                                            |
-| ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| [`AppContext.executor`][archcare.cli.context.AppContext.executor]                                | — (passes `DEFAULT_TASK_REGISTRY` into the `TaskExecutor` constructor) | makes the registry the executor's only task source                                 |
-| [`TaskExecutor`][archcare.core.executor.TaskExecutor] `_create_task()`                           | `get_task_class()`                                                     | instantiate the task with `config`, `settings`, `notification_manager`, `progress` |
-| [`TaskPresenter`][archcare.cli.presenters.task_presenter.TaskPresenter] `_format_task_details()` | `get_formatter_class()`                                                | render the verbose details block of a run's result panel                           |
+| Consumer                                                                                         | API call                                                               | Purpose                                                                                     |
+| ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| [`AppContext.executor`][archcare.cli.context.AppContext.executor]                                | — (passes `DEFAULT_TASK_REGISTRY` into the `TaskExecutor` constructor) | makes the registry the executor's only task source                                          |
+| [`TaskExecutor`][archcare.core.executor.TaskExecutor] `_create_task()`                           | `get_task_class()`                                                     | instantiate the task with `config`, `settings`, `state`, and the `deps` collaborator bundle |
+| [`TaskPresenter`][archcare.cli.presenters.task_presenter.TaskPresenter] `_format_task_details()` | `get_formatter_class()`                                                | render the verbose details block of a run's result panel                                    |
 
 !!! warning "The registry is not the task list"
 
@@ -109,11 +110,11 @@ only the domain-specific block beneath it.
 Three [`Protocol`](https://typing.readthedocs.io/en/latest/spec/protocol.html) classes defined in
 core invert every dependency core would otherwise have on a terminal:
 
-| Port                                                                 | Defined in            | CLI adapter                                                                                   | Fallback implementation                                        | How it reaches core code                                                                                                                                      |
-| -------------------------------------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`TaskInteraction`][archcare.core.interaction.TaskInteraction]       | `core/interaction.py` | [`CliInteraction`][archcare.cli.interaction.CliInteraction]                                   | [`NonInteractive`][archcare.core.interaction.NonInteractive]   | constructor injection — [`AppContext.executor`][archcare.cli.context.AppContext.executor] passes it to `TaskExecutor` only when the invocation is interactive |
-| [`TaskProgress`][archcare.core.progress.TaskProgress]                | `core/progress.py`    | [`RichProgress`][archcare.cli.progress.RichProgress]                                          | [`NoOpProgress`][archcare.core.progress.NoOpProgress]          | constructor injection — same wiring; the executor then hands it to every task it creates                                                                      |
-| [`TaskDetailFormatter`][archcare.core.formatter.TaskDetailFormatter] | `core/formatter.py`   | four formatters in [`archcare.cli.presenters.formatters`][archcare.cli.presenters.formatters] | [`DefaultFormatter`][archcare.core.formatter.DefaultFormatter] | registry routing — selected by task name at render time, never injected                                                                                       |
+| Port                                                                 | Defined in            | CLI adapter                                                                                   | Fallback implementation                                        | How it reaches core code                                                                                                                                                                             |
+| -------------------------------------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`TaskInteraction`][archcare.core.interaction.TaskInteraction]       | `core/interaction.py` | [`CliInteraction`][archcare.cli.interaction.CliInteraction]                                   | [`NonInteractive`][archcare.core.interaction.NonInteractive]   | constructor injection — [`AppContext.executor`][archcare.cli.context.AppContext.executor] passes it to `TaskExecutor` (inside the `TaskDependencies` bundle) only when the invocation is interactive |
+| [`TaskProgress`][archcare.core.progress.TaskProgress]                | `core/progress.py`    | [`RichProgress`][archcare.cli.progress.RichProgress]                                          | [`NoOpProgress`][archcare.core.progress.NoOpProgress]          | constructor injection — same wiring; the executor then hands the bundle to every task it creates                                                                                                     |
+| [`TaskDetailFormatter`][archcare.core.formatter.TaskDetailFormatter] | `core/formatter.py`   | four formatters in [`archcare.cli.presenters.formatters`][archcare.cli.presenters.formatters] | [`DefaultFormatter`][archcare.core.formatter.DefaultFormatter] | registry routing — selected by task name at render time, never injected                                                                                                                              |
 
 ### TaskInteraction
 
@@ -124,17 +125,25 @@ The user interaction port: two methods.
 - `confirm(prompt) -> bool` — ask a yes/no question. The CLI adapter delegates to `typer.confirm`,
   which blocks until the user answers.
 
-Currently, its only consumer is [`TaskExecutor`][archcare.core.executor.TaskExecutor]'s pre-run
-gates — the disabled-task warning, the not-due message, and the two `"Run anyway?"` confirmations
-shown in _figure 2_ of the [lifecycle page](task-lifecycle.md). Prompts elsewhere in the CLI (such
-as the `setup config` overwrite question) call `typer.confirm` directly, because that code already
-lives in the CLI layer and has nothing to invert; the port exists for core code that must not import
-Typer.
+There are currently two consumers of this port:
+
+- [`TaskExecutor`][archcare.core.executor.TaskExecutor]'s pre-run gates — the disabled-task
+  warning, the not-due message, and the two `"Run anyway?"` confirmations shown in _figure 2_ of
+  the [lifecycle page](task-lifecycle.md).
+- The task pipeline itself: [`SystemUpdateTask`][archcare.tasks.system_update.SystemUpdateTask]
+  asks `confirm()` inside `should_run()` for the Arch-news acknowledgement prompt
+  (`_handle_unread_news_prompt()`); declining skips the update with `SkipReason.USER_CANCELLED`.
+  Other tasks that might need confirmation will also need this port to handle user decision.
+
+Prompts elsewhere in the CLI (such as the `setup config` overwrite question) call `typer.confirm`
+directly, because that code already lives in the CLI layer and has nothing to invert; the port
+exists for lower layers that must not import Typer.
 
 The fallback [`NonInteractive`][archcare.core.interaction.NonInteractive] implementation makes
 headless runs safe by design: `notify()` is a no-op, and `confirm()` **always returns `False`**.
-That single line is what makes a systemd-timer run silently decline a `"Run anyway?"` prompt
-instead of hanging on stdin that will never answer.
+That single line is what makes a systemd-timer run silently decline a `"Run anyway?"` prompt —
+and quietly skip a `system-update` run blocked on unread news — instead of hanging on stdin that
+will never answer.
 
 ### TaskProgress
 
@@ -152,13 +161,13 @@ The widest port — five methods, plus the [`TaskStep`][archcare.core.models.Tas
 [`RichProgress`][archcare.cli.progress.RichProgress] drives a single
 [Rich](https://github.com/Textualize/rich) `Progress` widget in either determinate (`total=N` bar)
 or indeterminate (spinner) mode. The [`NoOpProgress`][archcare.core.progress.NoOpProgress] fallback
-swallows every call — the null object that makes non-interactive runs free. Both are also what the
-executor substitutes internally when constructed with `None`, so core code never needs an `is None`
-check.
+swallows every call — the null object that makes non-interactive runs free. Both null objects are
+supplied by the [`TaskDependencies`][archcare.core.dependencies.TaskDependencies] bundle's default
+factories, so core code never needs an `is None` check.
 
-Wiring detail worth knowing: the executor stores the port once and passes it into **every task it
-constructs** (as the `progress` constructor argument), so a task can report the progress of its
-own internal steps — e.g. a health check advancing once per subsystem.
+Wiring detail worth knowing: the executor stores the bundle once and passes a derived copy into
+**every task it constructs** (as the `deps` constructor argument), so a task can report the
+progress of its own internal steps — e.g. a health check advancing once per subsystem.
 
 ### TaskDetailFormatter
 
@@ -190,12 +199,22 @@ while still making a dedicated formatter the polished path.
 The ports table hides a deliberate asymmetry: two ports are **constructor-injected**, while the
 third is **registry-routed**. The split follows object lifetime and state:
 
+The injection vehicle is [`TaskDependencies`][archcare.core.dependencies.TaskDependencies]
+(`core/dependencies.py`) — a frozen dataclass grouping the optional behavioral collaborators
+(`interaction`, `progress`, and the `notification_manager`). The rule it teaches: **data travels
+as explicit constructor arguments (`config`, `settings`, `state`); collaborators travel in the
+bundle (`deps`)**. Port fields get null-object default factories, so an omitted field means "use
+the default implementation"; `notification_manager` is the only `None`-able field (`None` means
+notifications are disabled — production code resolves the real manager lazily via the executor's
+`notification_manager` property). A GUI frontend supplies its own implementations by passing one
+bundle into the executor; the executor derives a task-facing copy of it for every task it creates.
+
 - **`TaskInteraction` and `TaskProgress` are instance state of a specific run.** A Rich progress
   widget must be one shared object across the whole pipeline — every task advances the same bar,
   and `pause()` only makes sense if the prompt renders to the same terminal surface the widget
-  owns. Sharing a single instance through the executor's constructor is the only way to get that
-  consistency, and passing `None` (non-interactive runs) cleanly degrades to the null-object
-  fallbacks.
+  owns. Sharing a single bundle through the executor's constructor is the only way to get that
+  consistency, and a bare `TaskDependencies()` (non-interactive runs) cleanly selects the
+  null-object fallbacks.
 
 - **`TaskDetailFormatter` is stateless and name-keyed.** A formatter is instantiated per render,
   holds no state, and is selected by the exact task name the registry already maps. Folding it
@@ -214,8 +233,9 @@ A second asymmetry sits inside the injection itself:
 [`CliInteraction`][archcare.cli.interaction.CliInteraction] and
 [`RichProgress`][archcare.cli.progress.RichProgress] **only when the invocation is interactive**
 ([`UserContext.is_interactive`][archcare.config.user.UserContext.is_interactive]). Under a systemd
-timer both arguments are `None`, the executor falls back to `NonInteractive` and `NoOpProgress`,
-and the run is silent and prompt-free by construction rather than by convention.
+timer the bundle is a bare `TaskDependencies()`, whose null-object default factories supply
+`NonInteractive` and `NoOpProgress`, and the run is silent and prompt-free by construction rather
+than by convention.
 
 ## Adding a new port
 
@@ -226,8 +246,8 @@ and the run is silent and prompt-free by construction rather than by convention.
    than re-rolling output primitives — see [`archcare.cli.interaction`][] and
    [`archcare.cli.progress`][].
 3. **Choose the injection point.** Stateful, per-run, or shared across the pipeline → constructor
-   injection wired in `AppContext.executor`. Stateless and name-keyed → a `TaskDescriptor` field
-   routed through `TaskRegistry`.
+   injection inside the `TaskDependencies` bundle, wired in `AppContext.executor`. Stateless and
+   name-keyed → a `TaskDescriptor` field routed through `TaskRegistry`.
 4. **Document the seam** on this page and reference it from the port's docstring.
 
 !!! tip "API-docs rendering"
