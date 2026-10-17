@@ -19,7 +19,10 @@ See Also:
     - [`TaskExecutor`][archcare.core.executor.TaskExecutor]: Coordinates the lifecycle
         and execution of tasks
     - [`TaskResult`][]: Schema representation of task run outcomes
-    - [`TaskProgress`][]: Protocol used to report execution milestones
+    - [`TaskProgress`][archcare.core.progress.TaskProgress]: Protocol used to report
+        execution milestones
+    - [`TaskDependencies`][archcare.core.dependencies.TaskDependencies]: Optional collaborator
+        bundle injected at construction time
 """
 
 import time
@@ -30,20 +33,18 @@ from loguru import logger
 
 from archcare.config import AppSettings, AppState, SkipReason, TaskConfig, setup_task_logging
 
-from .interaction import NonInteractive, TaskInteraction
+from .dependencies import TaskDependencies
 from .models import TaskResult, TaskStep, failed, skipped
-from .notifications import NotificationManager
-from .progress import NoOpProgress, TaskProgress
 
 
 class BaseTask(ABC):
     """
     Abstract base class defining the contract and workflow for all maintenance tasks.
 
-    All tasks in the system are subclassed from `BaseTask`. It uses the Template
-    Method design pattern: the `run()` method defines the exact execution skeleton,
-    while subclasses customize behavior by implementing `execute()`, and optionally
-    overriding `pre_check()`, `should_run()`, `post_execute()`, and `rollback()`.
+    All tasks in the system are subclassed from `BaseTask`. It uses the Template Method design
+    pattern: the `run()` method defines the exact execution skeleton, while subclasses customize
+    behavior by implementing `execute()`, and optionally overriding `pre_check()`, `should_run()`,
+    `post_execute()`, and `rollback()`.
 
     Methods:
         name: *(property)* Task identifier, derived from `config.name` (read-only).
@@ -58,15 +59,13 @@ class BaseTask(ABC):
         create_result: Inject execution duration statistics into the completed `TaskResult`.
     """
 
-    # TODO: re-baseline after this feature branch — see cleanup notes in plan §9
-    def __init__(  # noqa: PLR0913,PLR0917
+    def __init__(
         self,
         config: TaskConfig,
         settings: AppSettings,
-        notification_manager: NotificationManager | None = None,
-        progress: TaskProgress | None = None,
-        interaction: TaskInteraction | None = None,
+        *,
         state: AppState | None = None,
+        deps: TaskDependencies | None = None,
     ) -> None:
         """
         Initialize the base task context.
@@ -74,24 +73,24 @@ class BaseTask(ABC):
         Args:
             config (TaskConfig): Task-specific configuration (e.g., enabled, frequency).
             settings (AppSettings): Application-wide settings (e.g., log levels, paths).
-            notification_manager (NotificationManager | None): Desktop notification manager.
-                Optional so tasks can be instantiated cheaply in unit tests.
-            progress (TaskProgress | None): Real-time progress reporter. If None,
-                uses a `NoOpProgress` stub.
-            interaction (TaskInteraction | None): User interaction port for confirmations.
-                If None, uses a `NonInteractive` stub.
-            state (AppState | None): Shared execution state for the task run.
-                Optional so tasks can be instantiated cheaply in unit tests.
+
+        Keyword Args:
+            state (AppState | None): Shared execution state for the task run. Optional so tasks can
+                be instantiated cheaply in unit tests.
+            deps (TaskDependencies | None): Optional behavioral collaborators
+                (interaction, progress, notification manager). If `None`, a default
+                `TaskDependencies` is used (no-op interaction/progress, notifications disabled).
 
         Side Effects:
             Initializes internal `_start_time` tracking variable to 0.0.
         """
+        deps = deps or TaskDependencies()
         self.config = config
         self.settings = settings
-        self.notification_manager = notification_manager
-        self.progress = progress or NoOpProgress()
-        self.interaction = interaction or NonInteractive()
         self.state = state
+        self.interaction = deps.interaction
+        self.progress = deps.progress
+        self.notification_manager = deps.notification_manager
         self._start_time: int | float = 0.0
 
     @property
