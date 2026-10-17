@@ -31,9 +31,11 @@ loader, then the bootstrap path.
 | `ignored-services.toml` | `~/.config/archcare/`      | [`IgnoredServicesConfig`][archcare.config.models.IgnoredServicesConfig] |
 | `state.json`            | `~/.local/state/archcare/` | [`AppState`][archcare.config.models.AppState]                           |
 
-Two sibling directories are derived from [`AppSettings`][archcare.config.models.AppSettings] path
-properties rather than configured: `~/.local/state/archcare/logs/` (global + per-task logs) and
-`~/.local/state/archcare/reports/` (`maintenance-check` reports).
+Three sibling directories are derived from [`AppSettings`][archcare.config.models.AppSettings] path
+properties rather than configured: `~/.local/state/archcare/logs/` (global + per-task logs),
+`~/.local/state/archcare/reports/` (`maintenance-check` reports), and
+`~/.local/state/archcare/recovery/` (`system-update` recovery records — created on demand by the
+task that writes them, deliberately outside [`ensure_directories`][archcare.config.models.AppSettings.ensure_directories]).
 
 Where those directories actually resolve is decided once, in
 [`AppSettings.home_dir`][archcare.config.models.AppSettings.home_dir]:
@@ -45,7 +47,7 @@ flowchart LR
     B -- no --> D{"settings.user set?"}
     D -- yes --> E["pwd.getpwnam(user)"]
     D -- no --> F["Path.home()"]
-    C --> G["config_dir, state_file, log_dir, report_dir"]
+    C --> G["config_dir, state_file, log_dir, report_dir, recovery_dir"]
     E --> G
     F --> G
 ```
@@ -110,14 +112,16 @@ groups, and is the source of every computed path on the system.
 | `mirrorlist`         | [`MirrorlistSettings`][archcare.config.models.MirrorlistSettings]             | model defaults | Settings specific to the `mirrorlist-update` task                   |
 | `maintenance_check`  | [`MaintenanceCheckSettings`][archcare.config.models.MaintenanceCheckSettings] | model defaults | Settings specific to the `maintenance-check` task                   |
 | `health_check`       | [`HealthCheckSettings`][archcare.config.models.HealthCheckSettings]           | model defaults | Settings specific to the `health-check` task                        |
+| `system_update`      | [`SystemUpdateSettings`][archcare.config.models.SystemUpdateSettings]         | model defaults | Settings specific to the `system-update` task                       |
 
-The path properties (`home_dir`, `config_dir`, `state_file`, `log_dir`, `report_dir`) are computed,
-excluded from serialization, and covered [above](#the-file-map).
+The path properties (`home_dir`, `config_dir`, `state_file`, `log_dir`, `report_dir`,
+`recovery_dir`) are computed, excluded from serialization, and covered [above](#the-file-map).
 
 [`MirrorlistSettings`][archcare.config.models.MirrorlistSettings] configures the `reflector` run:
 `country` (a single country or a list), `protocol` (`http` / `https` / `rsync`), `sort` (validated
-against a fixed allowlist), the `latest` / `number_of_mirrors` count caps, and the mirrorlist
-`path` — serialized to a string on save for TOML compatibility.
+against a fixed allowlist), the `latest` / `number_of_mirrors` count caps, the mirrorlist
+`path` — serialized to a string on save for TOML compatibility — and `backup_retention_count`,
+which prunes old timestamped mirrorlist backups after a successful update.
 
 [`MaintenanceCheckSettings`][archcare.config.models.MaintenanceCheckSettings] configures the
 "what's due" report: `critical_threshold_days` / `warning_threshold_days` (overdue severity, with
@@ -132,6 +136,14 @@ thresholds: `cpu_warning_percent`, `memory_critical_percent`, `memory_warning_pe
 integers 0-100 with cross-field validators ensuring warning thresholds are strictly below their
 corresponding critical thresholds (e.g., `memory_warning_percent` < `memory_critical_percent`).
 
+[`SystemUpdateSettings`][archcare.config.models.SystemUpdateSettings] configures the full-system
+upgrade: `min_repo_updates_threshold` (how many pending repository updates justify a run),
+`cache_keep_versions` / `cache_keep_uninstalled_versions` (`paccache` retention — the uninstalled
+count defaults to `1` precisely so the `task recover` reinstall path keeps its artifacts),
+`news_acknowledge_cooldown_minutes` (how often the Arch-news gate re-prompts), and
+`mirrorlist_stale_threshold_days` (the staleness gate that blocks an upgrade after
+`mirrorlist-update` has been neglected).
+
 ### `ignored-services.toml` — what to forgive
 
 [`IgnoredServicesConfig`][archcare.config.models.IgnoredServicesConfig] is the list of systemd units
@@ -144,16 +156,17 @@ question at run time.
 
 ### `state.json` — what has happened
 
-[`TaskState`][archcare.config.models.TaskState] is the per-task execution record — six fields:
+[`TaskState`][archcare.config.models.TaskState] is the per-task execution record — seven fields:
 
-| Field         | Type                                                                    | Meaning                                                                                                               |
-| ------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `last_run`    | <code>datetime &#124; None</code>                                       | Timestamp of last execution                                                                                           |
-| `last_status` | <code>[TaskStatus][archcare.config.enums.TaskStatus] &#124; None</code> | Outcome of last execution                                                                                             |
-| `next_due`    | <code>datetime &#124; None</code>                                       | `now()` + `frequency` days; set on success / `NO_WORK_NEEDED`, preserved on other skip/failure, cleared on `DISABLED` |
-| `run_count`   | `int`                                                                   | Total executions (`>=0`)                                                                                              |
-| `last_error`  | <code>str &#124; None</code>                                            | Error message when `last_status` is `FAILURE`                                                                         |
-| `skip_reason` | <code>[SkipReason][archcare.config.enums.SkipReason] &#124; None</code> | Reason when `last_status` is `SKIPPED`                                                                                |
+| Field              | Type                                                                    | Meaning                                                                                                               |
+| ------------------ | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `last_run`         | <code>datetime &#124; None</code>                                       | Timestamp of last execution                                                                                           |
+| `last_status`      | <code>[TaskStatus][archcare.config.enums.TaskStatus] &#124; None</code> | Outcome of last execution                                                                                             |
+| `next_due`         | <code>datetime &#124; None</code>                                       | `now()` + `frequency` days; set on success / `NO_WORK_NEEDED`, preserved on other skip/failure, cleared on `DISABLED` |
+| `run_count`        | `int`                                                                   | Total executions (`>=0`)                                                                                              |
+| `last_error`       | <code>str &#124; None</code>                                            | Error message when `last_status` is `FAILURE`                                                                         |
+| `skip_reason`      | <code>[SkipReason][archcare.config.enums.SkipReason] &#124; None</code> | Reason when `last_status` is `SKIPPED`                                                                                |
+| `last_news_prompt` | <code>datetime &#124; None</code>                                       | Last time the user was prompted to acknowledge Arch news (`system-update` cooldown gate)                              |
 
 Datetimes serialize as ISO 8601 strings in `state.json` and are parsed back on startup.
 [`AppState`][archcare.config.models.AppState] is the root document: a
@@ -175,12 +188,12 @@ mutation entry point.
 
 All four live in [`archcare.config.enums`][], separate from the models:
 
-| Enum                                             | Values                                                                                  | Surfaces in                                |
-| ------------------------------------------------ | --------------------------------------------------------------------------------------- | ------------------------------------------ |
-| [`TaskType`][archcare.config.enums.TaskType]     | `AUTOMATED`, `MANUAL`                                                                   | `tasks.toml` `type`; `task list --type`    |
-| [`TaskStatus`][archcare.config.enums.TaskStatus] | `SUCCESS`, `FAILURE`, `SKIPPED`, `PARTIAL`                                              | `state.json`; `task status` output         |
+| Enum                                             | Values                                                                                                                | Surfaces in                                |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| [`TaskType`][archcare.config.enums.TaskType]     | `AUTOMATED`, `MANUAL`                                                                                                 | `tasks.toml` `type`; `task list --type`    |
+| [`TaskStatus`][archcare.config.enums.TaskStatus] | `SUCCESS`, `FAILURE`, `SKIPPED`, `PARTIAL`                                                                            | `state.json`; `task status` output         |
 | [`SkipReason`][archcare.config.enums.SkipReason] | `NO_WORK_NEEDED`, `DISABLED`, `DEPENDENCY_FAILED`, `USER_CANCELLED`, `NOT_DUE`, `MIRRORLIST_STALE`, `REBOOT_REQUIRED` | `state.json` skip records; `task status`   |
-| [`LogLevel`][archcare.config.enums.LogLevel]     | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`                                         | `settings.toml` `log_level`; log filtering |
+| [`LogLevel`][archcare.config.enums.LogLevel]     | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`                                                                       | `settings.toml` `log_level`; log filtering |
 
 ### UserContext: who am I running as
 
