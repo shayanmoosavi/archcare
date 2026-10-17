@@ -1,3 +1,15 @@
+## v0.7.1 (2026-10-18)
+
+### Fix
+
+- **interaction**: resolve ty invalid-argument-type warning
+
+### Refactor
+
+- **tasks**: update constructor signature of every overriding task
+- **cli**: update executor property to reflect the changes
+- **core**: add `TaskDependencies` for collaborator bundling and update constructor signatures
+
 ## v0.7.0 (2026-10-15)
 
 ### Feat
