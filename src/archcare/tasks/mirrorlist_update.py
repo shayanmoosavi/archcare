@@ -35,15 +35,7 @@ from typing import Any
 
 from loguru import logger
 
-from archcare.config import AppSettings, AppState, TaskConfig
-from archcare.core import (
-    BaseTask,
-    MirrorlistUpdateDetails,
-    TaskDependencies,
-    TaskResult,
-    failed,
-    success,
-)
+from archcare.core import BaseTask, MirrorlistUpdateDetails, TaskResult, failed, success
 from archcare.utils import (
     backup_file,
     check_command_exists,
@@ -81,34 +73,23 @@ class MirrorlistUpdateTask(BaseTask):
             [`MirrorlistSettings.path`][archcare.config.models.MirrorlistSettings].
     """
 
-    def __init__(
-        self,
-        config: TaskConfig,
-        settings: AppSettings,
-        *,
-        state: AppState | None = None,
-        deps: TaskDependencies | None = None,
-        backup_path: Path | None = None,
-    ) -> None:
+    def __init__(self, backup_path: Path | None = None, *args, **kwargs):
         """
         Initialize the mirrorlist update task.
 
         Args:
-            config (TaskConfig): Task-specific configuration (e.g., enabled, frequency).
-            settings (AppSettings): Application-wide settings (e.g., log levels, paths).
-
-        Keyword Args:
-            state (AppState | None): Shared execution state for the task run.
-            deps (TaskDependencies | None): Optional behavioral collaborators (interaction,
-                progress, notification manager).
             backup_path (Path | None): Optional pre-existing backup path to use instead of creating
                 a new one. Primarily useful for testing rollback behavior. Defaults to `None` (a
                 fresh timestamped backup is created in `execute()`).
 
+        Other Args:
+            *args (tuple): Forwarded to `BaseTask.__init__()` (`config`, `settings`, etc.).
+            **kwargs (dict): Forwarded to `BaseTask.__init__()`.
+
         Side Effects:
             Resolves `self.mirrorlist_path` from `self.settings.mirrorlist.path`.
         """
-        super().__init__(config, settings, state=state, deps=deps)
+        super().__init__(*args, **kwargs)
         self.backup_path: Path | None = backup_path
         self.mirrorlist_path = self.settings.mirrorlist.path
 

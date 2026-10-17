@@ -199,7 +199,7 @@ class TestExecutorProperty:
         assert kwargs["config_loader"] is mock_config_loader
         assert kwargs["settings"] == "SETTINGS"
         assert kwargs["state"] == "STATE"
-        assert kwargs["user_context"] is context.user_ctx
+        assert kwargs["ports"].user_context is context.user_ctx
 
     def test_builds_with_interactive_cli_interaction(
         self, mock_executor: MagicMock, context: AppContext
@@ -207,7 +207,7 @@ class TestExecutorProperty:
         _ = context.executor
 
         _, kwargs = mock_executor.call_args
-        interaction = kwargs["deps"].interaction
+        interaction = kwargs["ports"].interaction
         assert isinstance(interaction, CliInteraction)
 
     def test_builds_with_default_task_registry(self, mock_executor: MagicMock, context: AppContext):
@@ -385,20 +385,20 @@ class TestExecutorForUser:
         _, kwargs = mock_executor.call_args
         assert "user_context" not in kwargs
 
-    def test_builds_with_default_task_registry(
-        self,
-        per_user_home_dir: Path,
-        context: AppContext,
-        monkeypatch,
-        mock_executor: MagicMock,
-    ):
-        monkeypatch.setenv("SUDO_USER", "alice")
-        self._init_target_user_config(per_user_home_dir, "alice")
+        def test_builds_with_default_task_registry(
+            self,
+            per_user_home_dir: Path,
+            context: AppContext,
+            monkeypatch,
+            mock_executor: MagicMock,
+        ):
+            monkeypatch.setenv("SUDO_USER", "alice")
+            self._init_target_user_config(per_user_home_dir, "alice")
 
-        context.executor_for_user("alice")
+            context.executor_for_user("alice")
 
-        _, kwargs = mock_executor.call_args
-        assert kwargs["task_registry"] is DEFAULT_TASK_REGISTRY
+            _, kwargs = mock_executor.call_args
+            assert kwargs["task_registry"] is DEFAULT_TASK_REGISTRY
 
     def test_builds_a_fresh_instance_each_call(
         self,

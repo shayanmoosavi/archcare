@@ -19,7 +19,7 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
 from archcare.config import AppSettings, SkipReason, TaskConfig
-from archcare.core import SystemUpdateDetails, TaskDependencies, failed, partial, success
+from archcare.core import SystemUpdateDetails, failed, partial, success
 from archcare.core.interaction import TaskInteraction
 from archcare.core.progress import TaskProgress
 from archcare.tasks.system_update import SystemUpdateTask
@@ -1438,7 +1438,7 @@ class TestPostExecute:
         task = SystemUpdateTask(
             config=system_update_config,
             settings=system_update_settings,
-            deps=TaskDependencies(notification_manager=manager),
+            notification_manager=manager,
         )
 
         task.post_execute(failed("boom", error="boom"))  # must not raise

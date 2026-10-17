@@ -35,7 +35,7 @@ utils/      → subprocess wrappers, system/hardware queries, notifications
 
 1. **Dependency Injection** - `AppContext` builds a `TaskExecutor` once per invocation and threads it down through `ctx.obj`; nothing reaches for global state.
 
-2. **Ports for Environment-Specific Code** - `TaskInteraction` (confirm/notify), `TaskProgress` (progress display), and `TaskDetailFormatter` (render task details) are duck-typed protocols defined in `core/`, with CLI implementations in `cli/` injected via the `TaskDependencies` bundle (`deps=` constructor argument; data travels as arguments, collaborators in the bundle). This enables a future GUI to reuse `core/` and `config/` unmodified. See `docs/architecture/registry-and-ports.md`.
+2. **Ports for Environment-Specific Code** - `TaskInteraction` (confirm/notify), `TaskProgress` (progress display), and `TaskDetailFormatter` (render task details) are duck-typed protocols defined in `core/`, with CLI implementations in `cli/` that are injected into the executor. This enables a future GUI to reuse `core/` and `config/` unmodified. See `docs/architecture/registry-and-ports.md`.
 
 3. **Static Registry** - `TaskRegistry` (`core/task_registry.py`) maps each task name to its execution class and detail formatter class.
 
@@ -52,11 +52,10 @@ utils/      → subprocess wrappers, system/hardware queries, notifications
 | File               | Purpose                                                                                                                                        |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `base_task.py`     | `BaseTask` - abstract base with `execute()`, `pre_check()`, `should_run()`, `post_execute()`, `rollback()`, `run()`                            |
-| `dependencies.py`  | `TaskDependencies` - frozen dataclass bundle of optional collaborators (`interaction`, `progress`, `notification_manager`)                     |
-| `executor.py`      | `TaskExecutor` - coordinates task instantiation, execution, state updates; derives task-facing `TaskDependencies` bundles in `_create_task()`  |
+| `executor.py`      | `TaskExecutor` - coordinates task instantiation, execution, state updates; `TaskExecutorPorts` - dataclass grouping optional port dependencies |
 | `task_registry.py` | `TaskRegistry`, `TaskDescriptor` - static mapping of task name → (class, formatter)                                                            |
 | `models.py`        | `TaskResult[TDetails]`, `TaskStep`, `IssueSeverity`, `MaintenanceIssue`, factory functions (`success`, `failed`, `skipped`, `partial`)         |
-| `task_details.py`  | Per-task detail dataclasses: `FailedServicesDetails`, `HealthCheckDetails`, `MaintenanceCheckDetails`, `MirrorlistUpdateDetails`, `SystemUpdateDetails` |
+| `task_details.py`  | Per-task detail dataclasses: `FailedServicesDetails`, `HealthCheckDetails`, `MaintenanceCheckDetails`, `MirrorlistUpdateDetails`               |
 | `scheduler.py`     | `TaskScheduler` - determines if tasks are due based on frequency/last run                                                                      |
 | `formatter.py`     | `TaskDetailFormatter` protocol, `DefaultFormatter`                                                                                             |
 | `interaction.py`   | `TaskInteraction` protocol, `NonInteractive` implementation                                                                                    |
@@ -68,10 +67,9 @@ utils/      → subprocess wrappers, system/hardware queries, notifications
 
 | File          | Purpose                                                                                                                                                                                |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `models.py`   | Pydantic models: `TaskConfig`, `TasksConfig`, `AppSettings`, `AppState`, `TaskState`, `MirrorlistSettings`, `MaintenanceCheckSettings`, `HealthCheckSettings`, `SystemUpdateSettings`, `IgnoredServicesConfig` |
+| `models.py`   | Pydantic models: `TaskConfig`, `TasksConfig`, `AppSettings`, `AppState`, `TaskState`, `MirrorlistSettings`, `MaintenanceCheckSettings`, `HealthCheckSettings`, `IgnoredServicesConfig` |
 | `enums.py`    | Enums: `TaskType`, `TaskStatus`, `SkipReason`, `LogLevel`                                                                                                                              |
 | `loader.py`   | `ConfigLoader` - loads/saves TOML (settings, tasks, ignored-services) and JSON (state)                                                                                                 |
-| `exceptions.py` | Config-layer exceptions rooted at `ArchcareConfigError` (`UnknownTaskError`, `HomeDirectoryResolutionError`, `InvalidUnitNameError`, ...) — several deliberately also subclass `ValueError` |
 | `defaults.py` | Default TOML document builders for initial config creation                                                                                                                             |
 | `logging.py`  | Logging setup with loguru                                                                                                                                                              |
 | `user.py`     | `UserContext` - resolves ARCHCARE_USER/SUDO_USER, chown helpers                                                                                                                        |
@@ -424,7 +422,7 @@ archcare debug test-notification --severity warning
 | `TaskDetailFormatter` | `core/formatter.py`   | `cli/presenters/*.py`               | format() -> list[str]                          |
 | `TaskProgress`        | `core/progress.py`    | `cli/progress.py:RichProgress`      | start(), advance(), stop(), pause(), spinner() |
 
-A GUI frontend would implement the `TaskInteraction` and `TaskProgress` protocols, wrap them in one `TaskDependencies` bundle, and pass it to `TaskExecutor` via `deps=` (see `docs/architecture/registry-and-ports.md`).
+A GUI frontend would implement these three protocols and inject them into `TaskExecutor` (see `docs/architecture/registry-and-ports.md`).
 
 ---
 

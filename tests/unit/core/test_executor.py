@@ -1,6 +1,5 @@
 """Unit tests for TaskExecutor."""
 
-from dataclasses import replace
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
@@ -17,7 +16,6 @@ from archcare.config import (
 )
 from archcare.core import (
     BaseTask,
-    TaskDependencies,
     TaskDescriptor,
     TaskRegistry,
     TaskResult,
@@ -25,7 +23,7 @@ from archcare.core import (
     skipped,
     success,
 )
-from archcare.core.executor import TaskExecutor
+from archcare.core.executor import TaskExecutor, TaskExecutorPorts
 from archcare.core.notifications import NotificationManager
 from archcare.core.progress import NoOpProgress, TaskProgress
 
@@ -125,12 +123,10 @@ def _make_executor(
     its real notify-send subprocess check) on every execute_task() call
     in this file.
 
-    progress defaults to None; when set, it is overlaid onto the bundle with
-    dataclasses.replace. An explicit None must not be passed into the dataclass
-    field - a default_factory only applies to omitted fields, so a literal None
-    would defeat the null-object default and disable progress reporting.
-    NoOpProgress has no expensive construction to guard against anyway,
-    unlike NotificationManager's real notify-send subprocess check.
+    progress defaults to None (→ NoOpProgress internally) rather than a
+    MagicMock like notification_manager - NoOpProgress() has no expensive
+    construction to guard against, unlike NotificationManager's real
+    notify-send subprocess check.
     """
     loader = MagicMock(spec=ConfigLoader)
     loader.load_tasks.return_value = tasks_config
@@ -143,20 +139,17 @@ def _make_executor(
         )
     )
 
-    deps = TaskDependencies(
-        interaction=interaction,
-        notification_manager=notification_manager or MagicMock(spec=NotificationManager),
-    )
-    if progress is not None:
-        deps = replace(deps, progress=progress)
-
     return TaskExecutor(
         config_loader=loader,
         settings=AppSettings(user=user),
         state=state,
         task_registry=task_registry,
-        deps=deps,
-        user_context=user_context or MagicMock(spec=UserContext),
+        ports=TaskExecutorPorts(
+            interaction=interaction,  # ty:ignore[invalid-argument-type]
+            notification_manager=notification_manager or MagicMock(spec=NotificationManager),
+            user_context=user_context or MagicMock(spec=UserContext),
+            progress=progress,
+        ),
     )
 
 
@@ -178,7 +171,7 @@ class TestNotificationManagerProperty:
             settings=AppSettings(),
             state=AppState(),
             task_registry=_EMPTY_REGISTRY,
-            deps=TaskDependencies(notification_manager=mock_manager_class.return_value),
+            ports=TaskExecutorPorts(notification_manager=mock_manager_class.return_value),
         )
 
         assert executor.notification_manager is mock_manager_class.return_value
@@ -236,7 +229,7 @@ class TestUserContextConstruction:
             settings=AppSettings(),
             state=AppState(),
             task_registry=_EMPTY_REGISTRY,
-            user_context=mock_user_context,
+            ports=TaskExecutorPorts(user_context=mock_user_context),
         )
 
         assert executor.user_context is mock_user_context
@@ -270,7 +263,7 @@ class TestProgressConstruction:
             settings=AppSettings(),
             state=AppState(),
             task_registry=_EMPTY_REGISTRY,
-            deps=TaskDependencies(progress=mock_progress),
+            ports=TaskExecutorPorts(progress=mock_progress),
         )
 
         assert executor._progress is mock_progress

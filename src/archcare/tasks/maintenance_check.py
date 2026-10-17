@@ -41,7 +41,6 @@ from loguru import logger
 
 from archcare.config import (
     AppSettings,
-    AppState,
     ConfigLoader,
     SkipReason,
     TaskConfig,
@@ -55,7 +54,6 @@ from archcare.core import (
     MaintenanceCheckDetails,
     MaintenanceCheckSummary,
     MaintenanceIssue,
-    TaskDependencies,
     TaskResult,
     TaskScheduleInfo,
     TaskScheduler,
@@ -103,10 +101,9 @@ class MaintenanceCheckTask(BaseTask):
         self,
         config: TaskConfig,
         settings: AppSettings,
-        *,
-        state: AppState | None = None,
-        deps: TaskDependencies | None = None,
-    ) -> None:
+        *args,
+        **kwargs,
+    ):
         """
         Initialize the maintenance check task and load current schedule state.
 
@@ -120,20 +117,16 @@ class MaintenanceCheckTask(BaseTask):
                 [`MaintenanceCheckSettings`][archcare.config.models.MaintenanceCheckSettings]
                 thresholds and the target `user`.
 
-        Keyword Args:
-            state (AppState | None): Shared execution state for the task run. Deliberately
-                re-shadowed below with fresh on-disk state — see Side Effects.
-            deps (TaskDependencies | None): Optional behavioral collaborators (interaction,
-                progress, notification manager).
+        Other Args:
+            *args (tuple): Forwarded to `BaseTask.__init__()`.
+            **kwargs (dict): Forwarded to `BaseTask.__init__()`.
 
         Side Effects:
             - Initializes `_info_issues`, `_warning_issues`, and
                 `_critical_issues` to empty lists.
-            - Reads `state.json` and `tasks.toml` from disk via the loader and
-                re-shadows `self.state` with the fresh on-disk state (the
-                documented "Fresh state" behavior).
+            - Reads `state.json` and `tasks.toml` from disk via the loader.
         """
-        super().__init__(config, settings, state=state, deps=deps)
+        super().__init__(config, settings, *args, **kwargs)
 
         # Initialize issue lists
         self._info_issues: list[MaintenanceIssue] = []
