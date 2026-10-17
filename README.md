@@ -418,7 +418,6 @@ section of the Contributing guide explains the reasoning behind the split.
     - [x] system-update
     - [ ] journal-cleanup
     - [ ] orphan-removal
-    - [ ] pacnew-review
     - [ ] btrfs-scrub
     - [ ] disk-space-review
     - [ ] cache-cleanup

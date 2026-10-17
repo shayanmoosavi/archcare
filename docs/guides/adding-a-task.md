@@ -78,10 +78,12 @@ from pathlib import Path
 
 from loguru import logger
 
-from archcare.config import AppSettings, AppState, TaskConfig, TaskStatus
+from archcare.config import AppSettings, TaskConfig, TaskStatus
 from archcare.config.enums import SkipReason
-from archcare.core import TaskDependencies, TaskResult, TaskStep, failed, success
+from archcare.core import TaskResult, TaskStep, failed, success
 from archcare.core.base_task import BaseTask
+from archcare.core.notifications import NotificationManager
+from archcare.core.progress import TaskProgress
 from archcare.core.task_details import MyTaskDetails
 from archcare.utils.system import check_command_exists, run_command
 
@@ -99,11 +101,10 @@ class MyTask(BaseTask):
         self,
         config: TaskConfig,
         settings: AppSettings,
-        *,
-        state: AppState | None = None,
-        deps: TaskDependencies | None = None,
+        notification_manager: NotificationManager | None = None,
+        progress: TaskProgress | None = None,
     ) -> None:
-        super().__init__(config, settings, state=state, deps=deps)
+        super().__init__(config, settings, notification_manager, progress)
         # Task-specific state goes in the subclass __init__, after super().__init__().
         self.report_path = self.settings.report_dir / "my-task-report.txt"
 
@@ -166,7 +167,7 @@ is in the [lifecycle page](../architecture/task-lifecycle.md#the-basetask-contra
 
 | Hook           | When it runs                                                                          | What the example does                                                                                                                                  |
 | -------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `__init__`     | when the [`TaskExecutor`][archcare.core.executor.TaskExecutor] instantiates the class | forwards config/settings/state/deps via `super().__init__()`, then adds task state (`report_path`)                                                      |
+| `__init__`     | when the [`TaskExecutor`][archcare.core.executor.TaskExecutor] instantiates the class | forwards config/settings via `super().__init__()`, then adds task state (`report_path`)                                                                |
 | `pre_check`    | first gate                                                                            | env prerequisite via [`check_command_exists`][archcare.utils.system.check_command_exists]; `(False, reason)` skips with `SkipReason.DEPENDENCY_FAILED` |
 | `should_run`   | second gate                                                                           | cheap probe; `(False, reason, skip_reason)` skips with that reason                                                                                     |
 | `execute`      | the work, inside a contextualized logger                                              | the only required hook; returns `TaskResult[MyTaskDetails]`                                                                                            |

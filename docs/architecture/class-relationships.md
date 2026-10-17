@@ -28,10 +28,8 @@ classDiagram
         <<abstract>>
         +config: TaskConfig
         +settings: AppSettings
-        +state: AppState | None
-        +interaction: TaskInteraction
-        +progress: TaskProgress
         +notification_manager: NotificationManager | None
+        +progress: TaskProgress
         +run() TaskResult
         +pre_check() tuple[bool, str]
         +should_run() tuple[bool, str, SkipReason | None]
@@ -44,13 +42,11 @@ classDiagram
     class HealthCheckTask
     class MirrorlistUpdateTask
     class MaintenanceCheckTask
-    class SystemUpdateTask
 
     BaseTask <|-- FailedServicesTask
     BaseTask <|-- HealthCheckTask
     BaseTask <|-- MirrorlistUpdateTask
     BaseTask <|-- MaintenanceCheckTask
-    BaseTask <|-- SystemUpdateTask
 ```
 
 Each concrete task is a thin subclass. The lifecycle contract lives in
@@ -66,19 +62,11 @@ classDiagram
         +state: AppState
         +task_registry: TaskRegistry
         +user_context: UserContext
-        +notification_manager: NotificationManager
-        -_deps: TaskDependencies
-        -_interaction: TaskInteraction
-        -_progress: TaskProgress
+        +interaction: TaskInteraction
+        +progress: TaskProgress
         +execute_task(name, force) TaskResult
         -_create_task(config) BaseTask
         -_update_state(config, result)
-    }
-
-    class TaskDependencies {
-        +interaction: TaskInteraction
-        +progress: TaskProgress
-        +notification_manager: NotificationManager | None
     }
 
     class TaskRegistry {
@@ -109,8 +97,6 @@ classDiagram
 
     TaskExecutor o-- TaskRegistry : resolves names
     TaskRegistry *-- TaskDescriptor : built from
-    TaskExecutor *-- TaskDependencies : shared collaborators
-    TaskDependencies ..> BaseTask : task-facing bundle passed to _create_task()
     TaskExecutor ..> BaseTask : creates via registry
     TaskExecutor ..> TaskResult : returns
 ```
@@ -124,13 +110,6 @@ creates task instances by calling the `task_class` attribute of the descriptor. 
 resolved separately at render time by
 [`TaskPresenter`][archcare.cli.presenters.task_presenter.TaskPresenter] from the same registry. See
 [task lifecycle](task-lifecycle.md) for details.
-
-[`TaskDependencies`][archcare.core.dependencies.TaskDependencies] is the collaborator bundle: a
-frozen dataclass holding the optional behavioral collaborators. **Data travels as explicit
-constructor arguments (`config`, `settings`, `state`); collaborators travel in the bundle
-(`deps`)**. The executor owns one shared bundle; `_create_task()` derives a task-facing copy of
-it with the lazily resolved notification manager, so a task's `post_execute()` can send desktop
-notifications without breaking the executor's lazy-construction contract.
 
 ## Port protocols and CLI adapters
 
@@ -223,7 +202,6 @@ classDiagram
         +mirrorlist: MirrorlistSettings
         +maintenance_check: MaintenanceCheckSettings
         +health_check: HealthCheckSettings
-        +system_update: SystemUpdateSettings
         +ensure_directories()
     }
 
@@ -241,7 +219,6 @@ classDiagram
         +run_count: int
         +last_error: str | None
         +skip_reason: SkipReason | None
-        +last_news_prompt: datetime | None
     }
 
     class TasksConfig {
@@ -269,7 +246,6 @@ classDiagram
     AppSettings *-- MirrorlistSettings
     AppSettings *-- MaintenanceCheckSettings
     AppSettings *-- HealthCheckSettings
-    AppSettings *-- SystemUpdateSettings
     AppState o-- TaskState : many
     TasksConfig o-- TaskConfig : many
 ```
