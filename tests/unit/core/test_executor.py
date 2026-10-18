@@ -208,6 +208,20 @@ class TestNotificationManagerProperty:
         mock_manager_class.assert_called_once()
         assert result is mock_manager
 
+    def test_constructs_with_target_user_from_context(self, mock_manager_class: MagicMock):
+        """Root-launched runs need the target user so notify-send can be re-executed as them."""
+        executor = TaskExecutor(
+            config_loader=MagicMock(spec=ConfigLoader),
+            settings=AppSettings(),
+            state=AppState(),
+            task_registry=_EMPTY_REGISTRY,
+            user_context=UserContext(archcare_user="alice"),
+        )
+
+        _ = executor.notification_manager
+
+        mock_manager_class.assert_called_once_with(target_user="alice")
+
     def test_lazy_construction_is_cached(self, mock_manager_class: MagicMock):
         executor = TaskExecutor(
             config_loader=MagicMock(spec=ConfigLoader),

@@ -135,7 +135,9 @@ class TaskExecutor:
             NotificationManager: Active notification sender.
         """
         if self.__notification_manager is None:
-            self.__notification_manager = NotificationManager()
+            self.__notification_manager = NotificationManager(
+                target_user=self.user_context.archcare_user
+            )
         return self.__notification_manager
 
     def _create_task(self, task_config: TaskConfig) -> BaseTask:

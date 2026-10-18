@@ -140,7 +140,7 @@ class TestSetupTimersMainFlow:
         """Every test in this class needs user resolution to succeed."""
         mocker.patch(
             _PATCH_RESOLVE_USER,
-            return_value=("alice", "/home/alice"),
+            return_value=("alice", "/home/alice", "1000"),
         )
 
     @pytest.mark.usefixtures("mock_presenter")
@@ -166,7 +166,7 @@ class TestSetupTimersMainFlow:
         setup_timers(ctx)  # ty:ignore[invalid-argument-type]
 
         mock_timer_service_class.assert_called_once_with(
-            "EXECUTOR_SENTINEL", "alice", "/home/alice"
+            "EXECUTOR_SENTINEL", "alice", "/home/alice", "1000"
         )
 
     def test_automated_tasks_present_calls_setup_timers_and_renders(

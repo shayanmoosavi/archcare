@@ -23,6 +23,8 @@ See Also:
     - [`archcare.core.interaction`][]: The user interaction port.
 """
 
+import os
+import pwd
 import subprocess
 from dataclasses import dataclass
 from enum import Enum
@@ -134,10 +136,15 @@ class NotificationManager:
     """
     Manages desktop notifications using notify-send.
 
-    The manager handles initializing the notification connection check, logging fallback
-    warnings when `notify-send` command is not available, formatting and executing
-    notification subprocess invocations with timeouts, and mapping application alerts to
-    appropriate urgency states.
+    The manager handles initializing the notification connection check, logging fallback warnings
+    when `notify-send` command is not available, formatting and executing notification subprocess
+    invocations with timeouts, and mapping application alerts to appropriate urgency states.
+
+    Root-launched runs (systemd timers, `sudo` invocations) carry a `target_user`: the bus policy of
+    a user session rejects connections from any other uid — root included — so in that case
+    `notify-send` is re-executed via `runuser(1)` as the target user, with the session-bus
+    environment re-established explicitly (see `NotificationManager._build_send_prefix` in
+    source code).
 
     Examples:
         >>> from archcare.core.notifications import NotificationManager
@@ -153,13 +160,21 @@ class NotificationManager:
         - [`NotificationIcon`][]: Defines standard icon definitions.
     """
 
-    def __init__(self):
+    def __init__(self, target_user: str | None = None):
         """
         Initialize the notification manager and verify `notify-send` availability.
 
         Queries the system `PATH` to detect if the `notify-send` binary is present. If it
         is missing, a warning is logged and desktop notifications are marked as unavailable.
+
+        Args:
+            target_user (str | None): Name of the user whose desktop notifications are being
+                produced. Only used when the current process runs as root (systemd timers,
+                `sudo`): the notification is then dispatched through `runuser(1)` as this
+                user so the session bus recognizes the peer. Pass `None` for direct
+                user-context execution.
         """
+        self._target_user = target_user
         self._notify_send_available = check_command_exists("notify-send")
 
         if not self._notify_send_available:
@@ -183,6 +198,46 @@ class NotificationManager:
         """
         return self._notify_send_available
 
+    def _build_send_prefix(self) -> list[str]:
+        """
+        Build the command prefix that dispatches `notify-send` as the target user.
+
+        Active only when the current process runs as **root** *and* a `target_user` is known
+        (systemd timers, `sudo` invocations). The session bus of a user session enforces its
+        default D-Bus policy against every other peer uid — root included: the bus completes
+        the authentication handshake, then closes the connection, which `notify-send`
+        surfaces as ``Failed to show notification: Error sending data: Broken pipe``. Root
+        therefore re-executes `notify-send` through `runuser(1)` as the owning user, with
+        `DBUS_SESSION_BUS_ADDRESS` / `XDG_RUNTIME_DIR` re-declared explicitly because `sudo`
+        and system units scrub (or never expose) the end-user environment.
+
+        Returns:
+            list[str]: Prefix tokens to prepend to the `notify-send` command; empty for a
+                direct user-context send or in case of failure.
+        """
+        if self._target_user is None or os.geteuid() != 0:
+            return []
+
+        try:
+            uid = pwd.getpwnam(self._target_user).pw_uid
+        except KeyError:
+            logger.warning(
+                f"Cannot resolve uid of user '{self._target_user}'; attempting direct "
+                "notification send (session bus may reject it)."
+            )
+            return []
+
+        runtime_dir = f"/run/user/{uid}"
+        return [
+            "runuser",
+            "--user",
+            self._target_user,
+            "--",
+            "env",
+            f"DBUS_SESSION_BUS_ADDRESS=unix:path={runtime_dir}/bus",
+            f"XDG_RUNTIME_DIR={runtime_dir}",
+        ]
+
     def send_notification(
         self,
         payload: NotificationPayload,
@@ -190,7 +245,9 @@ class NotificationManager:
         """
         Send a desktop notification using `notify-send`.
 
-        Assembles and executes the low-level `notify-send` command with custom arguments from a
+        Assembles and executes the low-level `notify-send` command — optionally re-executed via
+        `runuser(1)` when running as root for a target user (see
+        `NotificationManager._build_send_prefix` in source code) — with custom arguments from a
         [`NotificationPayload`][]. This operation includes a short execution timeout of 5 seconds to
         prevent blocks in headless environments where standard DBus message buses are unreachable
         or hanging.
@@ -227,8 +284,9 @@ class NotificationManager:
                 str(payload.icon) if isinstance(payload.icon, NotificationIcon) else payload.icon
             )
 
-            # Build notify-send command
+            # Build notify-send command (optionally re-executed as the target user)
             cmd = [
+                *self._build_send_prefix(),
                 "notify-send",
                 "--app-name",
                 payload.app_name,

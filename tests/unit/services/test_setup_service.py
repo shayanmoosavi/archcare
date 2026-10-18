@@ -45,7 +45,7 @@ def timer_service(
     the real /etc/systemd/system.
     """
     monkeypatch.setattr(TimerService, "SYSTEMD_DIR", tmp_path)
-    return TimerService(mock_executor, user="alice", home_dir=str(tmp_path / "home"))
+    return TimerService(mock_executor, user="alice", home_dir=str(tmp_path / "home"), uid="1000")
 
 
 @pytest.fixture
@@ -216,6 +216,30 @@ class TestInstallTemplates:
         """
         timer_service.install_templates(dry_run=False)
         assert "archcare task run" in timer_service.service_file.read_text()
+
+    def test_service_file_routes_notify_send_to_user_session_bus(self, timer_service: TimerService):
+        """
+        Regression: a root system service has no DBUS_SESSION_BUS_ADDRESS, and
+        libnotify's fallback (autolaunch) fails without X11 $DISPLAY — so the
+        target user's session bus address must be baked into the unit or
+        desktop notifications sent from timer runs can never be delivered.
+        """
+        timer_service.install_templates(dry_run=False)
+        content = timer_service.service_file.read_text()
+        assert 'Environment="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus"' in content
+        assert 'Environment="XDG_RUNTIME_DIR=/run/user/1000"' in content
+
+    def test_uid_flows_from_constructor_into_service_template(
+        self, tmp_path: Path, mock_executor: MagicMock, monkeypatch: MonkeyPatch
+    ):
+        """The uid is only known at setup time, so it comes from the caller."""
+        monkeypatch.setattr(TimerService, "SYSTEMD_DIR", tmp_path)
+        service = TimerService(
+            mock_executor, user="bob", home_dir=str(tmp_path / "home"), uid="4242"
+        )
+        assert 'Environment="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/4242/bus"' in (
+            service._service_content
+        )
 
     def test_response_carries_service_file_path(self, timer_service: TimerService):
         response = timer_service.install_templates(dry_run=False)
