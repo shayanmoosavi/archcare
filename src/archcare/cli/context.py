@@ -30,8 +30,8 @@ from archcare.cli.presenters import (
 )
 from archcare.cli.progress import RichProgress
 from archcare.config import AppSettings, ConfigLoader, UserContext, setup_logging
-from archcare.core import TaskDescriptor, TaskRegistry
-from archcare.core.executor import TaskExecutor, TaskExecutorPorts
+from archcare.core import TaskDependencies, TaskDescriptor, TaskRegistry
+from archcare.core.executor import TaskExecutor
 from archcare.services.exceptions import ConfigNotInitializedError
 from archcare.tasks import (
     FailedServicesTask,
@@ -146,8 +146,8 @@ class AppContext:
         Wires in the CLI-side [`TaskInteraction`][archcare.core.interaction.TaskInteraction]
         ([`CliInteraction`][]) and [`TaskProgress`][archcare.core.progress.TaskProgress]
         ([`RichProgress`][]) implementations only when running interactively; non-interactive
-        (systemd) runs leave them as `None` so the executor falls back to its non-interactive
-        defaults.
+        (systemd) runs get a bare `TaskDependencies` whose null-object default factories supply
+        the default implementations.
 
         Returns:
             TaskExecutor: The shared executor for this invocation.
@@ -159,11 +159,10 @@ class AppContext:
                 settings=self.settings,
                 state=state,
                 task_registry=self.task_registry,
-                ports=TaskExecutorPorts(
-                    interaction=CliInteraction() if self.is_interactive else None,
-                    user_context=self.user_ctx,
-                    progress=RichProgress() if self.is_interactive else None,
-                ),
+                deps=TaskDependencies(interaction=CliInteraction(), progress=RichProgress())
+                if self.is_interactive
+                else TaskDependencies(),
+                user_context=self.user_ctx,
             )
             self._executor = executor
         return self._executor

@@ -25,6 +25,7 @@ Key Concepts:
 
 Modules:
     base_task: Abstract [`BaseTask`][] contract and execution lifecycle.
+    dependencies: Optional [`TaskDependencies`][] collaborator bundle for executor and tasks.
     executor: [`TaskExecutor`][archcare.core.executor.TaskExecutor] orchestrating instantiation,
         guards, and state updates.
     exceptions: Core-layer exception hierarchy rooted at `ArchcareCoreError`.
@@ -42,6 +43,8 @@ Modules:
 
 Public API:
     - [`BaseTask`][]: Abstract base every maintenance task inherits from.
+    - [`TaskDependencies`][]: Optional collaborator bundle (interaction, progress,
+        notification manager) threaded into the executor and tasks.
     - [`TaskResult`][]: Generic run outcome carrying status, message, error, and details.
     - [`success`][]: Factory for successful results.
     - [`failed`][]: Factory for failed results.
@@ -70,6 +73,7 @@ See Also:
 """
 
 from .base_task import BaseTask
+from .dependencies import TaskDependencies
 from .models import (
     IssueSeverity,
     MaintenanceIssue,
@@ -105,6 +109,7 @@ __all__ = [
     "MaintenanceIssue",
     "MirrorlistUpdateDetails",
     "SystemUpdateDetails",
+    "TaskDependencies",
     "TaskDescriptor",
     "TaskRegistry",
     "TaskResult",

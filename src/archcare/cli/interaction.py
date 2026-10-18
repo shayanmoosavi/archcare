@@ -40,8 +40,7 @@ class CliInteraction:
         else:
             print_info(message)
 
-    @staticmethod
-    def confirm(prompt: str) -> bool:
+    def confirm(self, prompt: str) -> bool:
         """
         Prompt the user for confirmation.
 

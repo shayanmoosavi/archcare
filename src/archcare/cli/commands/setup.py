@@ -137,7 +137,7 @@ def setup_timers(
             would be done. Defaults to `False`.
     """
     try:
-        user, home_dir = resolve_systemd_target_user()
+        user, home_dir, uid = resolve_systemd_target_user()
     except NotRootError as e:
         SetupPresenter.not_root()
         raise typer.Exit(1) from e
@@ -149,7 +149,7 @@ def setup_timers(
         # Built for the SUDO_USER target, not ctx.obj's own user (which is
         # derived from ARCHCARE_USER and unset in this sudo-driven flow).
         executor = ctx.obj.executor_for_user(user)
-        service = TimerService(executor, user, home_dir)
+        service = TimerService(executor, user, home_dir, uid)
 
         install_response = service.install_templates(dry_run)
         SetupPresenter.render_template_installation(install_response)

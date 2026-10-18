@@ -1,6 +1,6 @@
 [project]
 name = "archcare"
-version = "0.7.1"
+version = "0.7.2"
 description = "A simple maintenance system for Arch Linux"
 readme = "README.md"
 requires-python = ">=3.13,<3.15.0"
@@ -26,8 +26,8 @@ archcare = "archcare.cli:main"
 [dependency-groups]
 dev = [
     "commitizen (>=4.17.0,<5.0.0)",
-    "prek (>=0.4.12,<0.5.0)",
-    "ruff (>=0.15.0,<0.17.0)",
+    "prek (>=0.4.12,<0.7.0)",
+    "ruff (>=0.15.0,<0.20.0)",
     "ty (>=0.0.55,<0.1.0)",
     "types-psutil (>=7.2.1.20260116,<8.0.0.0)",
     { include-group = "docs" },
@@ -92,3 +92,9 @@ select = [
     "PERF"
 ]
 allowed-confusables = ["×"]
+
+[tool.ruff.lint.pylint]
+# TaskExecutor is the coordinator wiring six explicit dependencies (config_loader, settings,
+# state, task_registry, deps, user_context); data travels as arguments, collaborators in the
+# TaskDependencies bundle. BaseTask stays at 4 args, under the default.
+max-args = 6

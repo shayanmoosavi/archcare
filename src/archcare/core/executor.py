@@ -20,7 +20,6 @@ See Also:
     - [`BaseTask`][]: Abstract interface for task classes.
 """
 
-from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from loguru import logger
@@ -37,37 +36,11 @@ from archcare.config import (
 )
 
 from .base_task import BaseTask
-from .interaction import NonInteractive, TaskInteraction
+from .dependencies import TaskDependencies
 from .models import TaskResult, skipped
 from .notifications import NotificationManager
-from .progress import NoOpProgress, TaskProgress
 from .scheduler import TaskScheduler
 from .task_registry import TaskRegistry
-
-
-@dataclass(frozen=True)
-class TaskExecutorPorts:
-    """
-    Dataclass grouping optional port dependencies for [`TaskExecutor`][].
-
-    All fields default to `None`; They are dynamically injected by the
-    `TaskExecutor` constructor.
-
-    Attributes:
-        interaction (TaskInteraction | None): User notification and confirmation adapter.
-            Defaults to [`NonInteractive`][].
-        notification_manager (NotificationManager | None): Desktop notifications sender. If `None`,
-            it is lazily constructed on first access.
-        user_context (UserContext | None): System user context resolution. If `None`, eagerly
-            retrieved from active environment variables.
-        progress (TaskProgress | None): Visual progress tracking adapter.
-            Defaults to [`NoOpProgress`][].
-    """
-
-    interaction: TaskInteraction | None = None
-    notification_manager: NotificationManager | None = None
-    user_context: UserContext | None = None
-    progress: TaskProgress | None = None
 
 
 class TaskExecutor:
@@ -93,8 +66,10 @@ class TaskExecutor:
         settings: AppSettings,
         state: AppState,
         task_registry: TaskRegistry,
-        ports: TaskExecutorPorts | None = None,
-    ):
+        *,
+        deps: TaskDependencies | None = None,
+        user_context: UserContext | None = None,
+    ) -> None:
         """
         Initialize the task executor.
 
@@ -104,9 +79,15 @@ class TaskExecutor:
             state (AppState): Application state for tracking execution history.
             task_registry (TaskRegistry): Static registry of task names mapped to their
                 implementation and detail formatters.
-            ports (TaskExecutorPorts | None): Optional port dependencies (interaction,
-                notification manager, user context, progress). Defaults to `None`,
-                which materializes to `TaskExecutorPorts` with all fields `None`.
+
+        Keyword Args:
+            deps (TaskDependencies | None): Optional behavioral collaborators (interaction,
+                progress, notification manager) shared across the tasks this executor creates.
+                Defaults to `None`, which materializes to a `TaskDependencies` with null-object
+                ports and notifications disabled.
+            user_context (UserContext | None): System user context resolution. If `None`, eagerly
+                retrieved from active environment variables. Executor-internal (gate branch +
+                `chown_if_root`); never forwarded to tasks.
 
         Examples:
             Let's demonstrate how to construct a `TaskExecutor` using mocked dependencies:
@@ -135,15 +116,15 @@ class TaskExecutor:
             - [`BaseTask`][]: Base task implementation structure.
             - [`TaskRegistry`][]: Task registry that maps tasks to their implementations.
         """
-        ports = ports or TaskExecutorPorts()
+        self._deps = deps or TaskDependencies()
         self.config_loader = config_loader
         self.settings = settings
         self.state = state
         self.task_registry = task_registry
-        self.user_context = ports.user_context or UserContext.from_env()
-        self._interaction = ports.interaction or NonInteractive()
-        self._progress = ports.progress or NoOpProgress()
-        self.__notification_manager = ports.notification_manager
+        self.user_context = user_context or UserContext.from_env()
+        self._interaction = self._deps.interaction
+        self._progress = self._deps.progress
+        self.__notification_manager = self._deps.notification_manager
 
     @property
     def notification_manager(self) -> NotificationManager:
@@ -154,7 +135,9 @@ class TaskExecutor:
             NotificationManager: Active notification sender.
         """
         if self.__notification_manager is None:
-            self.__notification_manager = NotificationManager()
+            self.__notification_manager = NotificationManager(
+                target_user=self.user_context.archcare_user
+            )
         return self.__notification_manager
 
     def _create_task(self, task_config: TaskConfig) -> BaseTask:
@@ -163,6 +146,12 @@ class TaskExecutor:
 
         Looks up the concrete task class in `TaskRegistry` and wires it with
         the executor's shared settings, notification manager, and progress port.
+
+        The executor's own `deps` bundle is *not* forwarded raw: its
+        `notification_manager` field may be `None` (meaning "resolve lazily"),
+        whereas the task-facing bundle needs the resolved manager so task
+        notifications actually fire. It is therefore rebuilt here with the
+        lazy-resolved value from the `notification_manager` property.
 
         Args:
             task_config (TaskConfig): Configuration detail model of the task to construct.
@@ -175,13 +164,17 @@ class TaskExecutor:
         """
         task_class = self.task_registry.get_task_class(task_config.name)
 
+        task_deps = TaskDependencies(
+            interaction=self._deps.interaction,
+            progress=self._deps.progress,
+            notification_manager=self.notification_manager,
+        )
+
         return task_class(
             config=task_config,
             settings=self.settings,
-            notification_manager=self.notification_manager,
-            progress=self._progress,
-            interaction=self._interaction,
             state=self.state,
+            deps=task_deps,
         )
 
     def execute_task(self, task_name: str, force: bool = False) -> TaskResult:

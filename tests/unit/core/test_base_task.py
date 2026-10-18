@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from archcare.config import AppSettings, SkipReason, TaskConfig, TaskStatus
-from archcare.core import BaseTask, TaskResult, TaskStep
+from archcare.core import BaseTask, TaskDependencies, TaskResult, TaskStep
 from archcare.core.progress import NoOpProgress, TaskProgress
 
 pytestmark = pytest.mark.usefixtures("no_task_logging")
@@ -56,7 +56,11 @@ class DummyTask(BaseTask):
         context: TaskContext,
         progress: TaskProgress | None = None,
     ):
-        super().__init__(config, settings, progress=progress)
+        # Omit the field when progress is unset: a dataclass default_factory
+        # only applies to omitted fields, so an explicit None would defeat the
+        # NoOpProgress null-object default and leave self.progress as None.
+        deps = TaskDependencies(progress=progress) if progress is not None else TaskDependencies()
+        super().__init__(config, settings, deps=deps)
         self.calls: list[str] = []
         self._context: TaskContext = context
 
