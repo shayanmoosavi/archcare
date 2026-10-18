@@ -132,6 +132,31 @@ archcare setup timers
 | `--enable` / `--no-enable` | Enable and start the per-task timers after installation    | enable  |
 | `--dry-run`                | Show what would be done without touching disk or systemctl | off     |
 
+!!! note "Desktop notifications from timer runs"
+
+    The generated `archcare@.service` runs as **root**, and root has *no* session D-Bus:
+    without help, `notify-send` fails with *“Cannot autolaunch D-Bus without X11 $DISPLAY”* —
+    even on Wayland, because that fallback is X11-era. Two mechanisms keep delivery working:
+
+    - The unit template declares the target user's session bus explicitly
+      (`DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/<uid>/bus`, plus `XDG_RUNTIME_DIR`),
+      resolved from the user record at install time.
+    - A user session bus accepts connections only from its owning user — a D-Bus policy
+      independent of X11 or systemd; root gets the auth handshake completed and then the
+      connection closed (`Error sending data: Broken pipe`). `NotificationManager` therefore
+      re-executes `notify-send` through `runuser(1)` as the target user whenever it runs as
+      a systemd service (`ARCHCARE_USER` set), re-declaring the bus address explicitly because
+      `sudo` and system units scrub the end-user environment.
+
+    Two conditions must still hold for a notification to actually arrive:
+
+    - `/run/user/<uid>` must exist when the timer fires. Keep the user manager alive across
+      logouts with `sudo loginctl enable-linger <user>` so overnight runs can still notify.
+      Without it, the send is skipped and an error is written to the task log — the task itself
+      is never affected.
+    - A notification daemon (`dunst`, `mako`, `swaync`, …) must be running inside that user
+      session to display what the bus receives.
+
 ## `archcare logs`
 
 Show logs for Archcare or a specific task. A single command with an optional
