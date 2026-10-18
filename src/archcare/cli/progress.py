@@ -11,7 +11,7 @@ See Also:
         progress during runs
 """
 
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 
 from rich.progress import (
@@ -68,7 +68,7 @@ class RichProgress:
         self._task_id = self._progress.add_task("Working...", total=total)
 
     @contextmanager
-    def pause(self) -> Iterator[None]:
+    def pause(self) -> Generator[None]:
         """
         Temporarily stop the progress display to yield the terminal.
 
@@ -103,7 +103,7 @@ class RichProgress:
             self._progress.update(self._task_id, advance=1, description=str(step))
 
     @contextmanager
-    def spinner(self, label: str) -> Iterator[None]:
+    def spinner(self, label: str) -> Generator[None]:
         """
         Run an indeterminate spinner for the duration of the block.
 

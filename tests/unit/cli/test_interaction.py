@@ -48,7 +48,7 @@ class TestCliInteraction:
     def test_confirm_delegates_to_typer_confirm(self, mocker):
         mock_confirm: MagicMock = mocker.patch(f"{_MODULE}.typer.confirm", return_value=True)
 
-        result = CliInteraction.confirm("Run anyway?")
+        result = CliInteraction().confirm("Run anyway?")
 
         mock_confirm.assert_called_once_with("Run anyway?")
         assert result is True

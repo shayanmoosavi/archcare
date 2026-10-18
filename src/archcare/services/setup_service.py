@@ -54,19 +54,21 @@ from archcare.utils import (
 from archcare.utils.system_update import SNAPSHOT_PACKAGES
 
 
-def resolve_systemd_target_user() -> tuple[str, str]:
+def resolve_systemd_target_user() -> tuple[str, str, str]:
     """
-    Determine the target user and home directory that systemd units should run as.
+    Determine the target user, home directory, and UID that systemd units should run as.
 
     Must be called under `sudo`: reads `SUDO_USER` (set by `sudo` to the invoking user's name) and
-    resolves their home directory via `pwd`.
+    resolves their `pwd` record.
 
     Returns:
-        (tuple[str, str]): A tuple of:
+        (tuple[str, str, str]): A tuple of:
 
             - `user` (`str`): The invoking (non-root) user's name.
             - `home_dir` (`str`): That user's home directory, used for the `WorkingDirectory`,
                 `ExecStart`, and `ReadWritePaths` fields of the generated unit templates.
+            - `uid` (`str`): That user's UID as a string, interpolated into the unit template's
+                session-bus `Environment=` lines so `notify-send` can reach the user's D-Bus.
 
     Raises:
         NotRootError: If not running as root.
@@ -76,7 +78,7 @@ def resolve_systemd_target_user() -> tuple[str, str]:
         ```bash
         # Correct usage (sudo sets SUDO_USER):
         sudo archcare setup timers
-        # -> resolve_systemd_target_user() -> ("alice", "/home/alice")
+        # -> resolve_systemd_target_user() -> ("alice", "/home/alice", "1000")
 
         # Without sudo, NotRootError is raised before any detection:
         archcare setup timers
@@ -92,11 +94,11 @@ def resolve_systemd_target_user() -> tuple[str, str]:
         raise UserDetectionError("Could not determine the user. Make sure to run with sudo.")
 
     try:
-        home_dir = pwd.getpwnam(user).pw_dir
+        record = pwd.getpwnam(user)
     except KeyError:
         raise UserDetectionError(f"User '{user}' does not exist") from KeyError(user)
 
-    return user, home_dir
+    return user, record.pw_dir, str(record.pw_uid)
 
 
 class ConfigService:
@@ -209,8 +211,9 @@ class TimerService:
 
     Installs the systemd template units (`archcare@.service`, `archcare@.timer`) into
     `/etc/systemd/system`, reloads the daemon, and optionally enables+starts one timer per automated
-    task. The templates are generated from the target user's name and home directory so the service
-    runs `archcare` as the right user.
+    task. The templates are generated from the target user's name, home directory, and UID so the
+    service runs `archcare` as the right user and can reach their session D-Bus for desktop
+    notifications.
 
     Attributes:
         SYSTEMD_DIR (Path): *(class-level)* Systemd unit directory units are installed to
@@ -218,13 +221,15 @@ class TimerService:
         user (str): The target (non-root) user timers run as, resolved via
             [`resolve_systemd_target_user`][].
         home_dir (str): The target user's home directory.
+        uid (str): The target user's UID (as a string), used for the session-bus `Environment=`
+            lines in the generated unit.
         service_file (Path): Full path of the installed `archcare@.service`.
         timer_file (Path): Full path of the installed `archcare@.timer`.
     """
 
     SYSTEMD_DIR = Path("/etc/systemd/system")
 
-    def __init__(self, executor: TaskExecutor, user: str, home_dir: str) -> None:
+    def __init__(self, executor: TaskExecutor, user: str, home_dir: str, uid: str) -> None:
         """
         Initialize the timer service.
 
@@ -235,6 +240,8 @@ class TimerService:
             user (str): Target (non-root) user name for the units.
             home_dir (str): Target user's home directory, embedded into the generated unit templates
                 (`WorkingDirectory`, `ExecStart`, `ReadWritePaths`).
+            uid (str): Target user's UID, embedded into the generated unit template's
+                session-bus `Environment=` lines (`DBUS_SESSION_BUS_ADDRESS`, `XDG_RUNTIME_DIR`).
 
         Side Effects:
             Pre-generates the service and timer unit contents (stored as
@@ -243,9 +250,12 @@ class TimerService:
         self._executor = executor
         self.user = user
         self.home_dir = home_dir
+        self.uid = uid
         self.service_file = self.SYSTEMD_DIR / "archcare@.service"
         self.timer_file = self.SYSTEMD_DIR / "archcare@.timer"
-        self._service_content, self._timer_content = _generate_systemd_templates(home_dir, user)
+        self._service_content, self._timer_content = _generate_systemd_templates(
+            home_dir, user, uid
+        )
 
     def get_automated_tasks(self) -> dict[str, TaskConfig]:
         """
@@ -356,13 +366,14 @@ class TimerService:
         return TimerSetupResponse(automated_tasks, enabled_timers, timer_status)
 
 
-def _generate_systemd_templates(home_dir: str, user: str) -> tuple[str, str]:
+def _generate_systemd_templates(home_dir: str, user: str, uid: str) -> tuple[str, str]:
     """
     Generate the systemd unit file contents for the target user.
 
     Builds the `archcare@.service` template (runs `archcare task run %i` as root with
-    `ARCHCARE_USER` set to the target user, with working directory, logging, security hardening,
-    resource limits, and writable-path restrictions derived from the home directory) and the
+    `ARCHCARE_USER` set to the target user and the unit routed to that user's session D-Bus,
+    with working directory, logging, security hardening, resource limits, and writable-path
+    restrictions derived from the home directory) and the
     `archcare@.timer` template (daily schedule, persistent, randomized delay).
 
     Args:
@@ -370,6 +381,8 @@ def _generate_systemd_templates(home_dir: str, user: str) -> tuple[str, str]:
             and `ReadWritePaths`.
         user (str): Target user's name; exported to the unit as `ARCHCARE_USER` so tasks resolve
             the correct config/state paths.
+        uid (str): Target user's UID; used for the session-bus `Environment=` lines so
+            `notify-send` reaches the user's D-Bus instead of failing to autolaunch one.
 
     Returns:
         (tuple[str, str]): The full INI contents of the service unit and the timer unit, ready
@@ -388,6 +401,13 @@ Wants=network-online.target
 Type=oneshot
 User=root
 Environment="ARCHCARE_USER={user}"
+
+# Route notify-send to the target user's session D-Bus. A root service has no
+# DBUS_SESSION_BUS_ADDRESS and libnotify's fallback (autolaunch) is X11-era and
+# fails without $DISPLAY; sudo scrubs the end-user environment, so the address
+# must be baked into the unit here.
+Environment="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/{uid}/bus"
+Environment="XDG_RUNTIME_DIR=/run/user/{uid}"
 
 # Working directory
 WorkingDirectory={home_dir}

@@ -1,3 +1,14 @@
+## v0.7.2 (2026-10-18)
+
+### Fix
+
+- **core**: fix D-Bus rejecting another user connecting to it
+- add D-Bus session address to systemd template
+
+### Refactor
+
+- **progress**: fix ty deprecation warning
+
 ## v0.7.1 (2026-10-18)
 
 ### Fix

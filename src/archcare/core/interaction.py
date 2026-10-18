@@ -44,8 +44,7 @@ class TaskInteraction(Protocol):
         ...     def notify(self, message: str, level: str = "info") -> None:
         ...         print(f"[{level.upper()}] {message}")
         ...
-        ...     @staticmethod
-        ...     def confirm(prompt: str) -> bool:
+        ...     def confirm(self, prompt: str) -> bool:
         ...         print(f"Prompting: {prompt}")
         ...         return True
         >>>
@@ -75,8 +74,7 @@ class TaskInteraction(Protocol):
         """
         ...
 
-    @staticmethod
-    def confirm(prompt: str) -> bool:
+    def confirm(self, prompt: str) -> bool:
         """
         Ask a yes/no question; return True if the user confirms.
 
@@ -124,8 +122,7 @@ class NonInteractive:
             level (str): The urgency level of the message. Defaults to `'info'`.
         """
 
-    @staticmethod
-    def confirm(prompt: str) -> bool:
+    def confirm(self, prompt: str) -> bool:
         """
         Ask a yes/no question; always returns False.
 

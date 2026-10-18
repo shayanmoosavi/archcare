@@ -54,10 +54,11 @@ from typing import Any
 
 from loguru import logger
 
-from archcare.config import SkipReason, TaskStatus
+from archcare.config import AppSettings, AppState, SkipReason, TaskConfig, TaskStatus
 from archcare.core import (
     BaseTask,
     SystemUpdateDetails,
+    TaskDependencies,
     TaskResult,
     TaskStep,
     failed,
@@ -121,23 +122,34 @@ class SystemUpdateTask(BaseTask):
     #: `MirrorlistUpdateTask`, which is spinner-only because reflector's phases are opaque).
     _STEP_COUNT = 9
 
-    def __init__(self, sync_db_backup: Path | None = None, *args, **kwargs):
+    def __init__(
+        self,
+        config: TaskConfig,
+        settings: AppSettings,
+        *,
+        state: AppState | None = None,
+        deps: TaskDependencies | None = None,
+        sync_db_backup: Path | None = None,
+    ) -> None:
         """
         Initialize the system update task.
 
         Args:
+            config (TaskConfig): Task-specific configuration (e.g., enabled, frequency).
+            settings (AppSettings): Application-wide settings (e.g., log levels, paths).
+
+        Keyword Args:
+            state (AppState | None): Shared execution state for the task run.
+            deps (TaskDependencies | None): Optional behavioral collaborators (interaction,
+                progress, notification manager).
             sync_db_backup (Path | None): Optional pre-existing sync database backup to use
                 instead of creating one. Primarily useful for testing `rollback()`. Defaults
                 to `None` (a timestamped backup is created in `execute()`).
 
-        Other Args:
-            *args (tuple): Forwarded to `BaseTask.__init__()` (`config`, `settings`, ...).
-            **kwargs (dict): Forwarded to `BaseTask.__init__()`.
-
         Side Effects:
             Initializes the transaction bookkeeping attributes.
         """
-        super().__init__(*args, **kwargs)
+        super().__init__(config, settings, state=state, deps=deps)
         self.sync_db_backup = sync_db_backup
         self.pre_update_snapshot_id: int | None = None
         self.manifest_before: Path | None = None
