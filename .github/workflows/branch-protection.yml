@@ -1,0 +1,26 @@
+name: Branch protection
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  guard:
+    name: Allowed merge sources
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce merge-source policy
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          case "$HEAD_REF" in
+            dev | merge/*)
+              echo "OK: $HEAD_REF → main is allowed"
+              ;;
+            *)
+              echo "::error::PRs into main must come from dev (or merge/* for semantic repairs). Got: $HEAD_REF"
+              exit 1
+              ;;
+          esac
