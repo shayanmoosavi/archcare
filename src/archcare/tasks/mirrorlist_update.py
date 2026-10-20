@@ -8,15 +8,17 @@ registry and exposed to users as the `mirrorlist-update` command.
 Workflow:
     1. `pre_check()` verifies that `reflector` is installed and the configured mirrorlist
         file exists.
-    2. `execute()` snapshots the current mirrorlist metadata, creates a timestamped backup, runs
-        `reflector` with the parameters from
-        [`MirrorlistSettings`][archcare.config.models.MirrorlistSettings] (country, protocol,
-        recency, mirror count, sort order), validates the resulting mirrorlist, and records
-        before/after metrics in a [`MirrorlistUpdateDetails`][] payload.
+    2. `execute()` pre-warms sudo credentials with `sudo -v` as the very first step (before any
+        file is touched, so a declined prompt aborts cleanly), snapshots the current mirrorlist
+        metadata, creates a timestamped backup, runs `reflector`
+        with the parameters from [`MirrorlistSettings`][archcare.config.models.MirrorlistSettings]
+        (country, protocol, recency, mirror count, sort order), validates the resulting mirrorlist,
+        and records before/after metrics in a [`MirrorlistUpdateDetails`][] payload.
     3. If anything goes wrong (reflector failure or invalid output), the raised exception triggers
         [`BaseTask.rollback`][], which restores the mirrorlist from the backup.
     4. `post_execute()` prunes old backups after a successful update, keeping only the
-        `backup_retention_count` (default: 5) most recent.
+        `backup_retention_count` (default: 5) most recent. Deletion goes through `sudo` because
+        the backups are root-owned files in a root-owned directory.
 
 !!! warning "Destructive operation"
     This task overwrites `/etc/pacman.d/mirrorlist` (or the configured path). The automatic
@@ -47,6 +49,8 @@ from archcare.core import (
 from archcare.utils import (
     backup_file,
     check_command_exists,
+    delete_backups,
+    ensure_sudo_credentials,
     get_mirrorlist_info,
     restore_backup,
     update_mirrorlist,
@@ -66,8 +70,8 @@ class MirrorlistUpdateTask(BaseTask):
     This task follows the [`BaseTask`][] Template Method contract:
 
     - `pre_check()`: requires `reflector` in `PATH` and an existing mirrorlist file
-    - `execute()`: backup → reflector → validate → report
-    - `post_execute()`: cleanup of old backups on success
+    - `execute()`: pre-warm sudo → backup → reflector → validate → report
+    - `post_execute()`: cleanup of old backups on success (via `sudo rm`)
     - `rollback()`: restore from backup (invoked automatically by `BaseTask.run()`
         when `execute()` raises)
 
@@ -142,16 +146,20 @@ class MirrorlistUpdateTask(BaseTask):
         Update the mirrorlist with the fastest mirrors.
 
         Process:
-            1. Snapshot current mirrorlist metadata (mirror count, protocols, last modified) via
+            1. Pre-warm sudo credentials with `sudo -v` as the very first operation. No progress
+                render is active at that point, so the prompt (if the timestamp is stale) reaches
+                the terminal cleanly; and by pre-warming before the backup, a declined prompt
+                aborts before any file exists that `rollback()` could "restore".
+            2. Snapshot current mirrorlist metadata (mirror count, protocols, last modified) via
                 [`get_mirrorlist_info`][].
-            2. Create a timestamped backup of the mirrorlist. If the backup fails, return a
+            3. Create a timestamped backup of the mirrorlist. If the backup fails, return a
                 `FAILURE` result immediately (no update is attempted without a safety net).
-            3. Run `reflector` with parameters from
+            4. Run `reflector` with parameters from
                 [`MirrorlistSettings`][archcare.config.models.MirrorlistSettings] (`country`,
                 `protocol`, `latest`, `number`, `sort`) while showing a progress spinner.
-            4. Validate the new mirrorlist. A `RuntimeError` is raised on reflector failure or
+            5. Validate the new mirrorlist. A `RuntimeError` is raised on reflector failure or
                 invalid output, which triggers automatic `rollback()` from `BaseTask.run()`.
-            5. Snapshot the new mirrorlist metadata and return a `SUCCESS` result with before/after
+            6. Snapshot the new mirrorlist metadata and return a `SUCCESS` result with before/after
                 metrics.
 
         Returns:
@@ -163,8 +171,10 @@ class MirrorlistUpdateTask(BaseTask):
                 - `failed` (with `old_info` only) if the backup could not be created.
 
         Raises:
-            RuntimeError: If `reflector` fails or the new mirrorlist fails validation. Caught by
-                `BaseTask.run()`, which invokes `rollback()` and records the task as failed.
+            RuntimeError: If sudo credentials could not be obtained (before anything is
+                modified), if `reflector` fails, or if the new mirrorlist fails validation.
+                Any of them is caught by `BaseTask.run()`, which invokes `rollback()` and
+                records the task as failed.
 
         Side Effects:
             - Creates a backup file next to the mirrorlist.
@@ -173,6 +183,18 @@ class MirrorlistUpdateTask(BaseTask):
             - Drives the injected progress reporter (spinner around reflector).
         """
         logger.info("Starting mirrorlist update")
+
+        # Pre-warm sudo credentials first: every sudo-bound call below (`cp` backup, `reflector`,
+        # retention `rm`, rollback restore) stakes its non-interactivity on this timestamp, and a
+        # declined prompt must abort *before* any file is touched, so `rollback()` finds no
+        # backup to "restore". Nothing is rendered at this point, so the prompt reaches the
+        # terminal cleanly.
+        if not ensure_sudo_credentials():
+            raise RuntimeError(
+                "Could not obtain sudo credentials: the sudo prompt failed or was declined."
+                " Refusing to update the root-owned mirrorlist."
+                " Run `sudo -v` and retry."
+            )
 
         # Get current mirrorlist info
         logger.debug("Getting current mirrorlist info")
@@ -206,6 +228,9 @@ class MirrorlistUpdateTask(BaseTask):
                 "sort": mirrorlist_settings.sort,
                 "save_path": self.mirrorlist_path,
             }
+
+            logger.info("Running reflector to update mirrorlist")
+            logger.debug(f"Parameters: {reflector_args}")
 
             logger.info("Running reflector to update mirrorlist")
             logger.debug(f"Parameters: {reflector_args}")
@@ -256,11 +281,16 @@ class MirrorlistUpdateTask(BaseTask):
         in the backup directory (determined by file modification time) and deletes the rest. No-op
         when the update failed or no backup exists.
 
+        Deletion runs through [`delete_backups`][] (`sudo rm`) because the backups are root-owned
+        files in a root-owned directory (e.g. `/etc/pacman.d`): a plain `unlink()` from the
+        unprivileged driver process fails with `PermissionError`, which would make retention
+        silently never prune.
+
         Args:
             result (TaskResult[MirrorlistUpdateDetails]): The result produced by `execute()`.
 
         Side Effects:
-            - Deletes old backup files from disk.
+            - Deletes old backup files from disk (via `sudo rm`).
             - Emits Loguru log messages at `debug`/`info`/`error` levels;
                 cleanup failures are logged but never propagate.
         """
@@ -275,9 +305,10 @@ class MirrorlistUpdateTask(BaseTask):
                 # Keep only the N most recent backups
                 retention = self.settings.mirrorlist.backup_retention_count
                 if len(backups) >= retention:
-                    for old_backup in backups[:-retention]:
+                    stale = backups[:-retention]
+                    for old_backup in stale:
                         logger.debug(f"Removing old backup: {old_backup}")
-                        old_backup.unlink()
+                    delete_backups(stale)
                     logger.info("Old backups cleanup completed")
                 else:
                     logger.info(f"Less than {retention} backups present, no cleanup needed")
@@ -290,7 +321,9 @@ class MirrorlistUpdateTask(BaseTask):
 
         Invoked automatically by [`BaseTask.run`][] when `execute()` raises (e.g., reflector failure
         or failed validation). If the restoration itself fails, logs a `critical` message pointing
-        at the backup so the user can restore manually.
+        at the backup so the user can restore manually. When `execute()` aborted before the backup
+        was created (e.g. declined sudo pre-warm), nothing was modified and this logs a warning
+        instead of attempting a restore.
 
         Side Effects:
             - Overwrites the mirrorlist file with the backup contents (when a backup exists).
