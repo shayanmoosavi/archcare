@@ -16,7 +16,8 @@ from archcare.utils.system import CommandResult
 
 runner = CliRunner()
 
-_SYSTEM_MODULE = "archcare.utils.mirrorlist"
+_MIRRORLIST_MODULE = "archcare.utils.mirrorlist"
+_SYSTEM_MODULE = "archcare.utils.system"
 _MODULE = "archcare.tasks.mirrorlist_update"
 
 
@@ -30,6 +31,10 @@ def _fake_run_with_sudo(command, **_) -> CommandResult:
     Intercepts dangerous sudo commands and safely executes them in memory/tmp.
     """
     command_list = command if isinstance(command, list) else command.split()
+
+    if command_list[0] == "-v":
+        # `sudo -v` pre-warm emitted by `ensure_sudo_credentials`: nothing to protect.
+        return CommandResult(command="sudo -v", returncode=0, stdout="", stderr="", success=True)
 
     if command_list[0] == "cp":
         # Intercept: ["cp", "-p", src, dst]
@@ -48,6 +53,18 @@ def _fake_run_with_sudo(command, **_) -> CommandResult:
         save_idx = command_list.index("--save") + 1
         save_path = Path(command_list[save_idx])
         save_path.write_text("Server = https://fast.mocked.mirror.com/$repo/os/$arch\n")
+        return CommandResult(
+            command=" ".join(command_list),
+            returncode=0,
+            stdout="",
+            stderr="",
+            success=True,
+        )
+
+    if command_list[0] == "rm":
+        # Intercept: ["rm", "-f", <paths...>] emitted by backup retention.
+        for raw_path in command_list[2:]:
+            Path(raw_path).unlink(missing_ok=True)
         return CommandResult(
             command=" ".join(command_list),
             returncode=0,
@@ -84,7 +101,10 @@ def sandbox(archcare_home: Path, mocker):
 
     # 4. Patch command dependencies globally for this test class
     mocker.patch(f"{_MODULE}.check_command_exists", return_value=True)
-    mocker.patch(f"{_SYSTEM_MODULE}.check_command_exists", return_value=True)
+    mocker.patch(f"{_MIRRORLIST_MODULE}.check_command_exists", return_value=True)
+    mocker.patch(f"{_MIRRORLIST_MODULE}.run_command_with_sudo", side_effect=_fake_run_with_sudo)
+    # `ensure_sudo_credentials` lives in utils.system; route its `sudo -v` through the
+    # same in-memory router so integration runs never touch real sudo.
     mocker.patch(f"{_SYSTEM_MODULE}.run_command_with_sudo", side_effect=_fake_run_with_sudo)
 
     return sandbox_mirrorlist
@@ -145,6 +165,26 @@ class TestMirrorlistUpdateTask:
         content = sandbox.read_text()
         assert "old.slow.mirror.com" in content
 
+    def test_declined_sudo_prewarm_aborts_before_any_file_is_touched(self, sandbox: Path, mocker):
+        """
+        Regression: the sudo pre-warm runs before info/backup, so a declined prompt must
+        abort the task before *any* file exists — rollback must never find a backup to
+        "restore" (which would re-prompt with cold credentials and wrongly claim the
+        mirrorlist may be broken).
+        """
+
+        mocker.patch(f"{_MODULE}.ensure_sudo_credentials", return_value=False)
+
+        result = runner.invoke(app, ["--devel", "task", "run", "mirrorlist-update"])
+
+        assert result.exit_code == 1
+        assert "Could not obtain sudo credentials" in result.output
+        assert "No backup available for rollback" in result.output
+
+        # Nothing was created or modified: no backup, original content intact.
+        assert list(sandbox.parent.glob("mirrorlist_*.backup")) == []
+        assert "old.slow.mirror.com" in sandbox.read_text()
+
     def test_rollback_on_reflector_crash(self, sandbox: Path, mocker):
         """Verify original file is restored if reflector times out or crashes."""
 
@@ -160,7 +200,7 @@ class TestMirrorlistUpdateTask:
                 )
             return _fake_run_with_sudo(command, **kwargs)  # Fallback to handle cp
 
-        mocker.patch(f"{_SYSTEM_MODULE}.run_command_with_sudo", side_effect=_fail_reflector)
+        mocker.patch(f"{_MIRRORLIST_MODULE}.run_command_with_sudo", side_effect=_fail_reflector)
 
         # Running with --devel to output log messages
         result = runner.invoke(app, ["--devel", "task", "run", "mirrorlist-update"])
@@ -190,7 +230,7 @@ class TestMirrorlistUpdateTask:
                 )
             return _fake_run_with_sudo(command, **kwargs)
 
-        mocker.patch(f"{_SYSTEM_MODULE}.run_command_with_sudo", side_effect=_write_garbage)
+        mocker.patch(f"{_MIRRORLIST_MODULE}.run_command_with_sudo", side_effect=_write_garbage)
 
         result = runner.invoke(app, ["task", "run", "mirrorlist-update"])
 
@@ -245,13 +285,15 @@ class TestMirrorlistUpdateProgressReporting:
     at all, since reflector's duration isn't decomposable into known steps.
     """
 
-    def test_spinner_used_around_reflector_call(self, sandbox: Path, mock_progress):
+    @pytest.mark.usefixtures("sandbox")
+    def test_spinner_used_around_reflector_call(self, mock_progress):
         result = runner.invoke(app, ["task", "run", "mirrorlist-update", "--verbose"])
 
         assert result.exit_code == 0
         mock_progress.return_value.spinner.assert_called_once()
 
-    def test_spinner_still_used_when_reflector_fails(self, sandbox: Path, mocker, mock_progress):
+    @pytest.mark.usefixtures("sandbox")
+    def test_spinner_still_used_when_reflector_fails(self, mocker, mock_progress):
         """Spinner must wrap the call itself, not just the success path -
         it needs to close cleanly even when reflector reports failure."""
 
@@ -266,14 +308,15 @@ class TestMirrorlistUpdateProgressReporting:
                 )
             return _fake_run_with_sudo(command, **kwargs)
 
-        mocker.patch(f"{_SYSTEM_MODULE}.run_command_with_sudo", side_effect=_fail_reflector)
+        mocker.patch(f"{_MIRRORLIST_MODULE}.run_command_with_sudo", side_effect=_fail_reflector)
 
         result = runner.invoke(app, ["task", "run", "mirrorlist-update"])
 
         assert result.exit_code == 1
         mock_progress.return_value.spinner.assert_called_once()
 
-    def test_spinner_not_used_when_precheck_fails(self, sandbox: Path, mocker, mock_progress):
+    @pytest.mark.usefixtures("sandbox")
+    def test_spinner_not_used_when_precheck_fails(self, mocker, mock_progress):
         """pre_check() rejects before execute() ever runs - the reflector
         call, and therefore the surrounding spinner, should never happen."""
         mocker.patch(f"{_MODULE}.check_command_exists", return_value=False)
@@ -282,7 +325,8 @@ class TestMirrorlistUpdateProgressReporting:
 
         mock_progress.return_value.spinner.assert_not_called()
 
-    def test_no_determinate_bar_used(self, sandbox: Path, mock_progress):
+    @pytest.mark.usefixtures("sandbox")
+    def test_no_determinate_bar_used(self, mock_progress):
         """Regression guard: this task should stay spinner-only. If a
         future edit adds report_progress() calls here, that's a design
         change worth a deliberate decision, not an accidental drift."""
@@ -291,7 +335,8 @@ class TestMirrorlistUpdateProgressReporting:
         mock_progress.return_value.start.assert_not_called()
         mock_progress.return_value.advance.assert_not_called()
 
-    def test_progress_stopped_after_run(self, sandbox: Path, mock_progress):
+    @pytest.mark.usefixtures("sandbox")
+    def test_progress_stopped_after_run(self, mock_progress):
         runner.invoke(app, ["task", "run", "mirrorlist-update"])
 
         mock_progress.return_value.stop.assert_called_once()
