@@ -437,7 +437,8 @@ class SystemUpdateTask(BaseTask):
            conflict prompts render against a clean terminal.
         6. Record the snapper `pre` snapshot id, *before* the AUR step, so the number
            unambiguously refers to the state this task found rather than one the AUR half
-           could have moved the system to.
+           could have moved the system to. The query runs under sudo, so it is paused like
+           the transaction itself.
         7. Run `paru -Sua`, also paused. A failure here is *not* fatal — it produces `PARTIAL`,
            because a failed AUR build says nothing about the state of the pacman sync
            database, and rolling that back would be wrong.
@@ -499,7 +500,10 @@ class SystemUpdateTask(BaseTask):
         # Taken right after pacman: snap-pac's `pre` snapshot is the rollback point for *this*
         # transaction, and the AUR half below would otherwise blur which run created it.
         if detect_btrfs_snapshot_tooling():
-            self.pre_update_snapshot_id = get_latest_snapshot_id()
+            # `snapper list` runs under sudo, so the password prompt must render against a
+            # clean terminal rather than be swallowed by the live progress display.
+            with self.progress.pause():
+                self.pre_update_snapshot_id = get_latest_snapshot_id()
         self.report_progress(TaskStep(name="Snapshot id recorded", status=TaskStatus.SUCCESS))
 
         with self.progress.pause():
@@ -640,7 +644,8 @@ class SystemUpdateTask(BaseTask):
                 leaves the result untouched.
 
         Side Effects:
-            - Deletes cached package files.
+            - Deletes cached package files, with the progress display paused around the sudo
+              `paccache` call so its password prompt can reach the terminal.
             - Replaces `result.details`.
             - Emits Loguru log messages at `debug`/`error` levels; failures are swallowed.
 
@@ -651,10 +656,14 @@ class SystemUpdateTask(BaseTask):
         """
         settings = self.settings.system_update
         try:
-            freed = clean_cache(
-                keep=settings.cache_keep_versions,
-                keep_uninstalled=settings.cache_keep_uninstalled_versions,
-            )
+            # `paccache` shells out through sudo, and post_execute() still has the live progress
+            # bar up (BaseTask.run() stops it only in its `finally`), so the password prompt
+            # would be swallowed — pause around it exactly like the transaction itself.
+            with self.progress.pause():
+                freed = clean_cache(
+                    keep=settings.cache_keep_versions,
+                    keep_uninstalled=settings.cache_keep_uninstalled_versions,
+                )
         except Exception as e:
             logger.error(f"Package cache cleanup failed: {e}")
             return

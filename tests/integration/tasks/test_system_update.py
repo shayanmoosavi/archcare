@@ -24,7 +24,7 @@ _PACMAN_MODULE = "archcare.utils.pacman"
 # System-update has 7 announced progress steps (ANNOUNCED_STEPS in unit tests)
 STEP_COUNT = 9  # _STEP_COUNT in SystemUpdateTask
 ANNOUNCED_STEPS = 7
-PAUSE_COUNT = 2
+SNAPSHOT_ID = 42
 
 
 def _cmd_result(stdout: str = "", success: bool = True) -> CommandResult:
@@ -250,13 +250,45 @@ class TestSystemUpdateProgressReporting:
         mock_progress.return_value.stop.assert_called_once()
 
     def test_progress_paused_around_transactions(self, mock_progress):
-        """Progress is paused three times: around backup_sync_db, pacman, and paru."""
+        """
+        Every sudo-touching call and command that needs interactive input (e.g., `paru`'s
+        interactive PKGBUILD review or `pacman` transaction prompts) in the run pauses the display
+        around its password prompt.
+        """
         runner.invoke(app, ["setup", "config"])
         runner.invoke(app, ["task", "run", "system-update", "--force"])
 
-        # Three pauses: one for `backup_sync_db`, one for `pacman -Syu`, one for `paru -Sua`.
-        PAUSE_COUNT = 3
+        # Four pauses: one for `backup_sync_db`, one for `pacman -Syu`, one for `paru -Sua`,
+        # and one for `paccache` in post_execute. The snapper lookup pauses too, but snapshot
+        # tooling is stubbed off by the autouse fixtures, so that branch does not run here
+        # (covered by `test_progress_paused_with_btrfs_snapshot` below).
+        PAUSE_COUNT = 4
         assert mock_progress.return_value.pause.call_count == PAUSE_COUNT
+
+    def test_progress_paused_with_btrfs_snapshot(self, mocker, mock_progress, archcare_home: Path):
+        """
+        With snapper tooling present, the sudo `snapper list` lookup is also paused.
+
+        `run_command_with_sudo` presumes root, and a swallowed interactive prompt would leave the
+        terminal unusable mid-transaction — the same reasoning as backup/pacman/paru. Tooling
+        is forced on so the snapper branch actually runs; the lookup helper itself is stubbed
+        to a fixed id so the recovery record is deterministic.
+        """
+        mocker.patch(f"{_MODULE}.detect_btrfs_snapshot_tooling", return_value=True)
+        mocker.patch(f"{_MODULE}.get_latest_snapshot_id", return_value=SNAPSHOT_ID)
+
+        runner.invoke(app, ["setup", "config"])
+        result = runner.invoke(app, ["task", "run", "system-update", "--force"])
+
+        assert result.exit_code == 0
+        # Five pauses: backup_sync_db, pacman, paru, the sudo snapper lookup, and `paccache`.
+        PAUSE_COUNT = 5
+        assert mock_progress.return_value.pause.call_count == PAUSE_COUNT
+
+        record = json.loads(
+            (archcare_home / ".local/state/archcare/recovery/system-update.json").read_text()
+        )
+        assert record["pre_update_snapshot_id"] == SNAPSHOT_ID
 
     @pytest.mark.usefixtures("archcare_home")
     def test_progress_lifecycle_on_skip(self, mocker, mock_progress):

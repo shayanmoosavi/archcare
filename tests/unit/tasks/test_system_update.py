@@ -5,6 +5,7 @@ Scope: All of the task-specific logic that genuinely deserve its own
 unit tests, not a re-verification of the base task's behavior.
 """
 
+import functools
 import json
 from collections.abc import Callable
 from contextlib import nullcontext
@@ -19,13 +20,21 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
 from archcare.config import AppSettings, SkipReason, TaskConfig
-from archcare.core import SystemUpdateDetails, TaskDependencies, failed, partial, success
+from archcare.core import (
+    SystemUpdateDetails,
+    TaskDependencies,
+    failed,
+    partial,
+    success,
+)
 from archcare.core.interaction import TaskInteraction
 from archcare.core.progress import TaskProgress
 from archcare.tasks.system_update import SystemUpdateTask
 from archcare.utils import PackageUpdateInfo
 from archcare.utils.info_models import MirrorlistInfo
 from archcare.utils.system import CommandResult
+
+from .conftest import PauseAwareProgress, SudoPauseLedger
 
 _MODULE = "archcare.tasks.system_update"
 
@@ -34,7 +43,10 @@ _MODULE = "archcare.tasks.system_update"
 REPO_UPDATE_COUNT = 3
 AUR_UPDATE_COUNT = 2
 TRANSACTION_COUNT = 2
-PAUSE_COUNT = 3  # pacman + paru + backup_sync_db (all need sudo, so all need pause)
+# `execute()` pauses for all four sudo-backed helpers (see the guard class at the bottom
+# of this module). `post_execute()` adds one more pause around `clean_cache`, but this
+# constant counts execute()'s phases only; runs taken end-to-end live elsewhere.
+PAUSE_COUNT = 4
 ANNOUNCED_STEPS = 7
 SNAPSHOT_ID = 42
 REMOVED_PACKAGES = ["linux-lts"]
@@ -1045,10 +1057,13 @@ class TestExecuteHappyPath:
         self, task: SystemUpdateTask, transaction: _Wiring
     ):
         """
-        Both pacman and paru need the progress rendering to be paused around their transactions due
-        to having interactive prompts themselves. `backup_sync_db` also needs to be paused because
-        it`s a sudo operation.
+        Every sudo-touching call in `execute()` needs the progress rendering paused so its
+        password prompt can reach the terminal: pacman, paru, `backup_sync_db`, and the
+        snapper lookup for the pre-upgrade snapshot id. Tooling detection is forced on so
+        the snapper branch actually runs and its pause is counted.
         """
+        transaction.override("detect_btrfs_snapshot_tooling", return_value=True)
+
         task.execute()
 
         assert transaction.progress.pause.call_count == PAUSE_COUNT
@@ -1478,3 +1493,94 @@ class TestPostExecute:
             success=False,
             message="Failed to back up the pacman sync database: disk full",
         )
+
+
+# ---------------------------------------------------------------------------
+# Sudo guard wiring for this task (shared ledger lives in tests/unit/tasks/conftest.py)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def sudo_guard(
+    sudo_pause_ledger, mocker, task: SystemUpdateTask, tmp_path: Path
+) -> SudoPauseLedger:
+    """Wire `execute()`, `post_execute()`, and `rollback()` with only the OS boundary faked.
+
+    The real utils helpers run (manifest snapshot/diff, backup, cache cleanup, snapper
+    lookup); the shared ledger's recorders answer every wrapper call. Only this task's
+    specifics live here: canned stdout for the read-only queries real helpers issue, a
+    hermetic `SYNC_DB_PATH`, a rebuilt-to-the-real-`clean_cache` with a tmp `cache_dir`, and
+    the snapper branch forced on — that lookup stays REAL because its sudo call is precisely
+    what the guard must see.
+    """
+    ledger = sudo_pause_ledger
+    ledger.canned_stdout.update(
+        {
+            ("checkupdates", "--nocolor"): "linux 6.10.1-1 -> 6.10.2-1\n",
+            ("pacman", "-Q"): "linux 6.10\nvim 9.0\n",
+        }
+    )
+
+    sync_db = tmp_path / "sync"
+    sync_db.mkdir()
+    mocker.patch("archcare.utils.pacman.SYNC_DB_PATH", new=sync_db)
+
+    mocker.patch(f"{_MODULE}.detect_btrfs_snapshot_tooling", return_value=True)
+
+    from archcare.utils.pacman import clean_cache as _real_clean_cache
+
+    mocker.patch(
+        f"{_MODULE}.clean_cache",
+        new=functools.partial(_real_clean_cache, cache_dir=tmp_path / "pac-cache"),
+    )
+
+    task.progress = PauseAwareProgress(ledger)
+    return ledger
+
+
+class TestEverySudoCallRunsWhilePaused:
+    """No sudo call may run while a live render is up — and system-update pre-warms nothing,
+    so every recorded sudo call must have executed with the display not live (the
+    full-invariant method degenerates to exactly that). The class doc and recorders live
+    in tests/unit/tasks/conftest.py.
+    """
+
+    #: First argv tokens each documented sudo helper produces on a fully-successful
+    #: `execute()` + `post_execute()` pass. An alarm-if-vacuous control rather than the
+    #: invariant itself: a token disappearing means the recorder stopped seeing that helper.
+    EXPECTED_SUDO_PREFIXES = frozenset({"cp", "pacman", "snapper", "paccache"})
+
+    def test_execute_and_post_execute_pause_around_every_sudo_call(
+        self, task: SystemUpdateTask, sudo_guard: SudoPauseLedger
+    ):
+        result = task.execute()
+        task.post_execute(result)
+
+        assert sudo_guard.unprotected_sudo_calls() == [], (
+            f"unprotected sudo traffic: {sudo_guard.unprotected_sudo_calls()}"
+        )
+
+    def test_the_guard_observes_all_documented_sudo_helpers(
+        self, task: SystemUpdateTask, sudo_guard: SudoPauseLedger
+    ):
+        """Negative control: the recorder must actually see the documented sudo traffic."""
+        result = task.execute()
+        task.post_execute(result)
+
+        seen = sudo_guard.first_tokens()
+        assert sudo_guard.sudo_calls, "recorder captured no sudo traffic; the harness is vacuous"
+        missing = self.EXPECTED_SUDO_PREFIXES - seen
+        assert not missing, f"documented sudo helpers never observed: {missing}"
+
+    def test_rollback_restores_the_sync_db_under_pause(
+        self, task: SystemUpdateTask, sudo_guard: SudoPauseLedger, tmp_path: Path
+    ):
+        """The failure path reaches sudo too, through `restore_sync_db`."""
+        backup = tmp_path / "sync-db" / "sync-db_2026-01-01_000000"
+        backup.mkdir(parents=True)
+        task.sync_db_backup = backup
+
+        task.rollback()
+
+        assert sudo_guard.unprotected_sudo_calls() == []
+        assert "cp" in sudo_guard.first_tokens()
