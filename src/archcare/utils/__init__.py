@@ -38,6 +38,7 @@ Public API:
         systemd unit name.
     - [`check_filesystem_errors`][]: Scan dmesg and system logs via journalctl for recent filesystem
         and hardware errors.
+    - [`ensure_sudo_credentials`][]: Ensure that the user's timestamp for sudo credentials is fresh.
     - [`format_bytes`][]: Convert a raw byte count into a human-readable string representation
         with units.
     - [`get_system_uptime`][]: Retrieve the system's uptime formatted as a human-readable string.
@@ -49,6 +50,7 @@ Public API:
     - [`backup_file`][]: Create a timestamped backup of a file using sudo to ensure proper
         permissions.
     - [`restore_backup`][]: Restore a file from a backup to its original location using sudo.
+    - [`delete_backups`][]: Delete root-owned backup files via `sudo rm -f`.
     - [`update_mirrorlist`][]: Update the system mirrorlist using the reflector tool with
         customizable filters.
     - [`validate_mirrorlist`][]: Validate the structure and content of a mirrorlist file.
@@ -95,6 +97,7 @@ from .hardware import get_cpu_info, get_disk_usage, get_memory_info
 from .info_models import PackageUpdateInfo
 from .mirrorlist import (
     backup_file,
+    delete_backups,
     get_mirrorlist_info,
     restore_backup,
     update_mirrorlist,
@@ -129,6 +132,7 @@ from .system import (
     change_ownership_to_user,
     check_command_exists,
     check_filesystem_errors,
+    ensure_sudo_credentials,
     format_bytes,
     get_service_logs,
     get_service_status,
@@ -165,8 +169,10 @@ __all__ = [
     "clean_cache",
     "configure_console",
     "console",
+    "delete_backups",
     "detect_btrfs_snapshot_tooling",
     "diff_manifests",
+    "ensure_sudo_credentials",
     "fetch_arch_news_headlines",
     "format_bytes",
     "get_cpu_info",
