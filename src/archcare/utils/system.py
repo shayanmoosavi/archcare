@@ -128,6 +128,13 @@ class CommandOptions:
     env: dict[str, str] | None = None
 
 
+# The single launch seam of the source tree. Every subprocess launch funnels through this
+# alias — `run_command`, `run_command_with_sudo`, and any from-imported *copy* thereof all
+# reach it from their real bodies — so the sudo-guard test fixture intercepts the entire OS
+# boundary with one patch on `archcare.utils.system._launch`.
+_launch = subprocess.run
+
+
 def run_command(
     command: list[str] | str,
     options: CommandOptions | None = None,
@@ -172,7 +179,7 @@ def run_command(
     logger.debug(f"Running command: {command_str}")
 
     try:
-        result = subprocess.run(
+        result = _launch(
             command_list,
             capture_output=options.capture_output,
             text=options.text,
