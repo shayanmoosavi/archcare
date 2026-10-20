@@ -19,6 +19,7 @@ from archcare.utils.info_models import CpuInfo, DiskUsageInfo, MemoryInfo
 from .conftest import PauseAwareProgress, SudoPauseLedger
 
 _MODULE = "archcare.tasks.health_check"
+_PACMAN_MODULE = "archcare.utils.pacman"
 
 pytestmark = pytest.mark.usefixtures("no_task_logging")
 
@@ -54,10 +55,17 @@ def sudo_guard(
     Non-sudo check helpers (psutil-backed and journal-backed) are stubbed at the task module
     so the run is deterministic on any machine; the sudo helper (`check_package_files` →
     `pacman -Qk`) stays REAL, powered by canned stdout, because its pause bracket is exactly
-    what the shared ledger certifies.
+    what the shared ledger certifies — except for its pacman-availability gate, which is
+    stubbed so the launch is not skipped on CI images without pacman.
     """
     ledger = sudo_pause_ledger
     ledger.canned_stdout.update({("pacman", "-Qk"): "linux 5981 files, 0 missing files\n"})
+
+    # `check_package_files`/`check_pacman_database` return early with "pacman command not
+    # found" when `pacman` is absent from PATH — true on ubuntu-latest CI. Stub the
+    # availability check at its launch-site module so the guard observes the `pacman -Qk`
+    # launch deterministically on any machine.
+    mocker.patch(f"{_PACMAN_MODULE}.check_command_exists", return_value=True)
 
     mocker.patch(f"{_MODULE}.get_disk_usage", return_value=DiskUsageInfo(percent=42.0))
     mocker.patch(
