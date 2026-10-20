@@ -111,6 +111,37 @@ def restore_backup(backup_path: Path, target: Path) -> None:
         raise OSError(f"Could not restore backup file: {e}") from e
 
 
+def delete_backups(paths: list[Path]) -> None:
+    """
+    Delete backup files that are potentially root-owned via `sudo rm -f`.
+
+    Timestamped backups created by [`backup_file`][] land next to the source file (typically the
+    root-owned `/etc/pacman.d/`), so they can only be removed with elevated privileges; a plain
+    `Path.unlink()` from the unprivileged driver process raises `PermissionError` because deletion
+    requires write permission on the *parent directory*.
+
+    Args:
+        paths (list[Path]): Backup files to remove. Missing paths are tolerated (`rm -f`).
+
+    Raises:
+        OSError: If the underlying `rm` command fails (permissions, filesystem errors, etc.).
+
+    See Also:
+        [`MirrorlistUpdateTask.post_execute`][archcare.tasks.mirrorlist_update.MirrorlistUpdateTask.post_execute]:
+            the retention pruning that uses this helper.
+    """
+    if not paths:
+        return
+
+    argv = ["rm", "-f", *[str(path) for path in paths]]
+    try:
+        logger.debug(f"Deleting backups: {argv}")
+        run_command_with_sudo(argv, options=CommandOptions(check=True))
+    except CalledProcessError as e:
+        logger.error(f"Failed to delete backups: {e}")
+        raise OSError(f"Could not delete backup files: {e}") from e
+
+
 @dataclass(frozen=True)
 class ReflectorArgs:
     """

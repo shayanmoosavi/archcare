@@ -128,6 +128,13 @@ class CommandOptions:
     env: dict[str, str] | None = None
 
 
+# The single launch seam of the source tree. Every subprocess launch funnels through this
+# alias — `run_command`, `run_command_with_sudo`, and any from-imported *copy* thereof all
+# reach it from their real bodies — so the sudo-guard test fixture intercepts the entire OS
+# boundary with one patch on `archcare.utils.system._launch`.
+_launch = subprocess.run
+
+
 def run_command(
     command: list[str] | str,
     options: CommandOptions | None = None,
@@ -172,7 +179,7 @@ def run_command(
     logger.debug(f"Running command: {command_str}")
 
     try:
-        result = subprocess.run(
+        result = _launch(
             command_list,
             capture_output=options.capture_output,
             text=options.text,
@@ -243,6 +250,7 @@ def run_command_with_sudo(
     See Also:
         - [`run_command`][]: The wrapped command used by this utility.
         - [`is_root`][]: Used to determine if `sudo` prefixing is required.
+        - [`ensure_sudo_credentials`][]: Pre-warming the credential cache for gui-run tasks
     """
     options = options or CommandOptions()
 
@@ -256,6 +264,39 @@ def run_command_with_sudo(
 
     # Run the command
     return run_command(command_list, options=options)
+
+
+def ensure_sudo_credentials() -> bool:
+    """
+    Pre-warm the sudo credential cache so later sudo calls cannot prompt mid-display.
+
+    Runs `sudo -v` with stdio inherited, which refreshes the sudo timestamp (typically valid
+    for ~15 minutes) or prompts on the real terminal when it is stale. Call sites use this
+    to guarantee that an upcoming [`run_command_with_sudo`][] call — one that executes while
+    a live progress render (bar *or* spinner) is active — can never open its own password
+    prompt, because Rich's continuous redrawing would clobber it.
+
+    Returns:
+        bool: `True` when credentials are valid or freshly refreshed; `False` when sudo
+            failed or the password prompt was declined. Callers decide deliberately how to
+            fail — refusing a sudo-bound operation is the honest outcome.
+
+    Side Effects:
+        May prompt on the real terminal. Succeeds without prompting while the timestamp is
+        fresh or the process already runs as root.
+
+    See Also:
+        - [`run_command_with_sudo`][]: The later launches that stake their prompt on this
+        - [`is_root`][]: Root runs skip the refresh entirely
+    """
+    if is_root():
+        return True
+
+    # `sudo -v` with inherited stdio so the possible password prompt reaches the terminal.
+    # Routed through the sudo wrapper on purpose: it is part of the same sudo boundary the
+    # guard harness records.
+    result = run_command_with_sudo(["-v"], options=CommandOptions(capture_output=False))
+    return result.success
 
 
 def check_command_exists(command: str) -> bool:

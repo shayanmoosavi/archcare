@@ -1,3 +1,14 @@
+## v0.7.3 (2026-10-21)
+
+### Fix
+
+- **tasks**: fix backup removal logic and sudo prompts not appearing
+- **utils**: add new helpers
+
+### Refactor
+
+- **utils**: alias `subprocess.run` to `_launch` for single mocking point
+
 ## v0.7.2 (2026-10-18)
 
 ### Fix

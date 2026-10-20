@@ -30,7 +30,7 @@ from archcare.utils.system import (
 
 _MODULE = "archcare.utils.system"
 
-_PATCH_SUBPROCESS_RUN = f"{_MODULE}.subprocess.run"
+_PATCH_SUBPROCESS_RUN = f"{_MODULE}._launch"
 _PATCH_IS_ROOT = f"{_MODULE}.is_root"
 _PATCH_RUN_COMMAND = f"{_MODULE}.run_command"
 _PATCH_RUN_SYSTEMCTL = f"{_MODULE}.run_systemctl"
