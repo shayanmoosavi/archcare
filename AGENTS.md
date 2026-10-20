@@ -49,32 +49,32 @@ utils/      → subprocess wrappers, system/hardware queries, notifications
 
 ### Core Layer (`src/archcare/core/`)
 
-| File               | Purpose                                                                                                                                        |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `base_task.py`     | `BaseTask` - abstract base with `execute()`, `pre_check()`, `should_run()`, `post_execute()`, `rollback()`, `run()`                            |
-| `dependencies.py`  | `TaskDependencies` - frozen dataclass bundle of optional collaborators (`interaction`, `progress`, `notification_manager`)                     |
-| `executor.py`      | `TaskExecutor` - coordinates task instantiation, execution, state updates; derives task-facing `TaskDependencies` bundles in `_create_task()`  |
-| `task_registry.py` | `TaskRegistry`, `TaskDescriptor` - static mapping of task name → (class, formatter)                                                            |
-| `models.py`        | `TaskResult[TDetails]`, `TaskStep`, `IssueSeverity`, `MaintenanceIssue`, factory functions (`success`, `failed`, `skipped`, `partial`)         |
+| File               | Purpose                                                                                                                                                 |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `base_task.py`     | `BaseTask` - abstract base with `execute()`, `pre_check()`, `should_run()`, `post_execute()`, `rollback()`, `run()`                                     |
+| `dependencies.py`  | `TaskDependencies` - frozen dataclass bundle of optional collaborators (`interaction`, `progress`, `notification_manager`)                              |
+| `executor.py`      | `TaskExecutor` - coordinates task instantiation, execution, state updates; derives task-facing `TaskDependencies` bundles in `_create_task()`           |
+| `task_registry.py` | `TaskRegistry`, `TaskDescriptor` - static mapping of task name → (class, formatter)                                                                     |
+| `models.py`        | `TaskResult[TDetails]`, `TaskStep`, `IssueSeverity`, `MaintenanceIssue`, factory functions (`success`, `failed`, `skipped`, `partial`)                  |
 | `task_details.py`  | Per-task detail dataclasses: `FailedServicesDetails`, `HealthCheckDetails`, `MaintenanceCheckDetails`, `MirrorlistUpdateDetails`, `SystemUpdateDetails` |
-| `scheduler.py`     | `TaskScheduler` - determines if tasks are due based on frequency/last run                                                                      |
-| `formatter.py`     | `TaskDetailFormatter` protocol, `DefaultFormatter`                                                                                             |
-| `interaction.py`   | `TaskInteraction` protocol, `NonInteractive` implementation                                                                                    |
-| `progress.py`      | `TaskProgress` protocol (`start()`, `advance()`, `stop()`, `pause()`, `spinner()`), `NoOpProgress`                                             |
-| `notifications.py` | `NotificationManager` - desktop notifications via `notify-send`                                                                                |
-| `exceptions.py`    | Core exception hierarchy                                                                                                                       |
+| `scheduler.py`     | `TaskScheduler` - determines if tasks are due based on frequency/last run                                                                               |
+| `formatter.py`     | `TaskDetailFormatter` protocol, `DefaultFormatter`                                                                                                      |
+| `interaction.py`   | `TaskInteraction` protocol, `NonInteractive` implementation                                                                                             |
+| `progress.py`      | `TaskProgress` protocol (`start()`, `advance()`, `stop()`, `pause()`, `spinner()`), `NoOpProgress`                                                      |
+| `notifications.py` | `NotificationManager` - desktop notifications via `notify-send`                                                                                         |
+| `exceptions.py`    | Core exception hierarchy                                                                                                                                |
 
 ### Config Layer (`src/archcare/config/`)
 
-| File          | Purpose                                                                                                                                                                                |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `models.py`   | Pydantic models: `TaskConfig`, `TasksConfig`, `AppSettings`, `AppState`, `TaskState`, `MirrorlistSettings`, `MaintenanceCheckSettings`, `HealthCheckSettings`, `SystemUpdateSettings`, `IgnoredServicesConfig` |
-| `enums.py`    | Enums: `TaskType`, `TaskStatus`, `SkipReason`, `LogLevel`                                                                                                                              |
-| `loader.py`   | `ConfigLoader` - loads/saves TOML (settings, tasks, ignored-services) and JSON (state)                                                                                                 |
-| `exceptions.py` | Config-layer exceptions rooted at `ArchcareConfigError` (`UnknownTaskError`, `HomeDirectoryResolutionError`, `InvalidUnitNameError`, ...) — several deliberately also subclass `ValueError` |
-| `defaults.py` | Default TOML document builders for initial config creation                                                                                                                             |
-| `logging.py`  | Logging setup with loguru                                                                                                                                                              |
-| `user.py`     | `UserContext` - resolves ARCHCARE_USER/SUDO_USER, chown helpers                                                                                                                        |
+| File            | Purpose                                                                                                                                                                                                        |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `models.py`     | Pydantic models: `TaskConfig`, `TasksConfig`, `AppSettings`, `AppState`, `TaskState`, `MirrorlistSettings`, `MaintenanceCheckSettings`, `HealthCheckSettings`, `SystemUpdateSettings`, `IgnoredServicesConfig` |
+| `enums.py`      | Enums: `TaskType`, `TaskStatus`, `SkipReason`, `LogLevel`                                                                                                                                                      |
+| `loader.py`     | `ConfigLoader` - loads/saves TOML (settings, tasks, ignored-services) and JSON (state)                                                                                                                         |
+| `exceptions.py` | Config-layer exceptions rooted at `ArchcareConfigError` (`UnknownTaskError`, `HomeDirectoryResolutionError`, `InvalidUnitNameError`, ...) — several deliberately also subclass `ValueError`                    |
+| `defaults.py`   | Default TOML document builders for initial config creation                                                                                                                                                     |
+| `logging.py`    | Logging setup with loguru                                                                                                                                                                                      |
+| `user.py`       | `UserContext` - resolves ARCHCARE_USER/SUDO_USER, chown helpers                                                                                                                                                |
 
 ### Tasks Layer (`src/archcare/tasks/`)
 
@@ -395,6 +395,25 @@ archcare debug test-notification --severity warning
 - **Full-state restore mechanism**: Before any upgrade, the `system-update` task saves `snapper` snapshot info (if available) and the sync DB. The restore script (`downgrade.sh`) pipes `pacman -Qe` (explicitly installed packages) to `pacman -S -`; `pacman -Qmq` lists foreign/AUR packages for manual reinstalation. This matches the ArchWiki `pacman -S` dependency-resolution method (`pacman/Installation` page).
 - **Durable recovery artifacts**: The `downgrade.sh` script is written once (guarded by `exists()`) and never regenerated. `cache_keep_uninstalled_versions = 1` (default raised from 0) preserves uninstalled package artifacts for recovery.
 - **Task result typed**: `SystemUpdateDetails` (frozen dataclass) carries `repo_updates_count`, `aur_updates_count`, `packages_upgraded`, `aur_packages_upgraded`, `aur_packages_failed`, `packages_removed`, `pacnew_files`, `pre_update_snapshot_id`, and `cache_freed_bytes`. Registered in `cli/context.py` `DEFAULT_TASK_REGISTRY`.
+- **Sudo calls must never prompt under a live progress render** (bar _or_ spinner —
+  `RichProgress.spinner()` runs its own live-rendered widget, so a spinner is _not_ inherently
+  safer than the bar). Any helper that can reach `utils.system.run_command_with_sudo` must run
+  with the display not live — before any display has started, or inside `self.progress.pause()`
+  (`system-update`: backup/pacman/paru/snapper/paccache and the rollback restore;
+  `health-check`: `pacman -Qk`) — or ride a pre-warmed credential cache from an earlier
+  unpaused `sudo -v`: mirrorlist-update runs `ensure_sudo_credentials()` _first_ in `execute()`
+  (a declined prompt aborts before any file exists, so `rollback()` must never find a backup to
+  "restore"), keeping the reflector spinner deliberately for its nondeterministic network phase
+  (covered by the pre-warm). Root-owned retention backups are deleted via `delete_backups()`
+  (`sudo rm -f`); a plain `unlink()` raises PermissionError.
+    - Enforcement is behavioral — source-level checks (grep/AST of the task file) cannot see the
+      wrapper, which is referenced only inside the utils modules. The shared `sudo_pause_ledger`
+      fixture (`tests/unit/tasks/conftest.py`) patches the single launch seam `utils.system._launch`
+      (an alias of the source tree's only `subprocess.run`, which both wrappers funnel into even
+      via from-imported copies), records every sudo launch with its display-liveness state, and
+      each task's guard test class asserts not-live (or pre-warmed). If anything bypasses the
+      seam, the ledger goes vacuous and the per-task anti-vacuous `first_tokens()` assertions
+      fail loudly.
 
 ---
 
