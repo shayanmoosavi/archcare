@@ -144,9 +144,11 @@ timers). See [Configuration & state](configuration.md) for the model tour.
 
 ### **UTILS** — the OS boundary
 
-[`system`][archcare.utils.system] (subprocess wrappers — the _only_ place that spawns processes),
-[`hardware`][archcare.utils.hardware] (psutil queries), and the pacman/mirrorlist domain helpers.
-Everything above this layer can be tested without a real system underneath.
+[`system`][archcare.utils.system] (subprocess wrappers — the _only_ place that spawns processes,
+all funneled through a single launch seam, `system._launch`, that the test harness has to
+intercept), [`hardware`][archcare.utils.hardware] (psutil queries), and the
+pacman/mirrorlist domain helpers. Everything above this layer can be tested without a real system
+underneath.
 
 ### **EXC** — one root exception
 

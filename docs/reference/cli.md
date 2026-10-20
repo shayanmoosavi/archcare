@@ -98,15 +98,23 @@ archcare task recover system-update
 !!! note
 
     A recovery record must exist from a previous run. If no record is found, the command exits `1`
-    with "No recovery information available."
+    with a reason naming the task and its path
+    (`No recovery record found for "system-update" at ...`). An unreadable record reports the same
+    way.
 
     The `system-update` task writes a recovery record (snapshot ID, sync DB backup, package
-    manifests) on every run. The `recover` command reads that record and prints:
+    manifests) on every run. The `recover` command reads that record and prints, most-relevant
+    first:
 
-    - `snapper rollback <id>` — if a Btrfs snapshot was created
-    - `bash /path/to/downgrade.sh` — the restore script (runs `pacman -S -` to reinstall the
-        pre-upgrade package set)
-    - `ls /var/cache/pacman/pkg/` — cache pointer for removed packages
+    - `snapper rollback <id>` — shown only when a pre-update snapshot was created, so a machine
+        without `snapper` never gets a rollback command it cannot run
+    - `bash /path/to/downgrade.sh` — the generated restore script. It *executes only the
+        sync-database restore*, then prints the ArchWiki full-restore commands
+        (`pacman -Qe | sudo pacman -S -`, `pacman -Qmq`) **commented out** for you to review and
+        run — nothing beyond the database restore runs on its own
+    - `ls /var/cache/pacman/pkg/` plus an example
+        `sudo pacman -U /var/cache/pacman/pkg/[package-name].pkg.tar.zst` — the manual reinstall
+        path for packages the restore commands cannot reach
 
 ## `archcare setup`
 
