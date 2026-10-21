@@ -87,6 +87,11 @@ def mock_subprocess_checks(mocker):
     )
 
 
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+
 class TestHealthCheckTask:
     def test_all_checks_pass(self, archcare_home: Path):
         runner.invoke(app, ["setup", "config"])
@@ -208,6 +213,11 @@ class TestHealthCheckTask:
         assert result.exit_code == 1
         assert "critical issue" in result.output.lower()
         assert '"last_status": "failure"' in _state_json(archcare_home)
+
+
+# ---------------------------------------------------------------------------
+# Progress reporting
+# ---------------------------------------------------------------------------
 
 
 class TestHealthCheckProgressReporting:

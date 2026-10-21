@@ -21,8 +21,9 @@ class TaskDependencies:
 
     Data (config, settings, state) travels as explicit constructor arguments; collaborators travel
     in this bundle. Ports get null-object default factories, so an omitted field means "use the
-    default implementation". `notification_manager` is the only None-able field: `None` means
-    notifications are disabled; it's resolved lazily upon first access at
+    default implementation". `notification_manager` is the only None-able field: `None` means no
+    notifier was supplied. `BaseTask` treats that as notifications disabled; it's resolved lazily
+    upon first access at
     [`TaskExecutor.notification_manager`][archcare.core.executor.TaskExecutor.notification_manager].
 
     Attributes:
