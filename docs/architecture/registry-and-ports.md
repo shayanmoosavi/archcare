@@ -182,10 +182,12 @@ factories, so core code never needs an `is None` check.
        [`ensure_sudo_credentials()`][archcare.utils.system.ensure_sudo_credentials] first in
        `execute()`, then deliberately keeps its reflector spinner.
 
-    Both shapes are enforced behaviorally, not by review: the shared `sudo_pause_ledger` test
-    harness patches the single launch seam (`utils.system._launch`), records every launch together
-    with its display-liveness state, and each task's guard test fails on any unprotected sudo
-    call. Follow suit with a guard test in `tests/unit/tasks/` for any new task that touches sudo.
+    Both shapes are enforced behaviorally, not by review: the shared `prompt_guard_ledger` test
+    harness patches the single launch seam (`utils.system._launch`) and fails fast with an
+    `AssertionError` at the exact offending launch — an unwired guard, a live cold sudo call,
+    or a live `paru -Sua` — with each task's anti-vacuous `first_tokens()` assertion catching a
+    recorder that stopped seeing traffic. Follow suit with a guard test in `tests/unit/tasks/`
+    for any new task that launches a prompt-capable tool.
 
 Wiring detail worth knowing: the executor stores the bundle once and passes a derived copy into
 **every task it constructs** (as the `deps` constructor argument), so a task can report the
