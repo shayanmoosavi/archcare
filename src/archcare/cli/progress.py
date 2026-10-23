@@ -14,6 +14,7 @@ See Also:
 from collections.abc import Generator
 from contextlib import contextmanager
 
+from rich.console import Console
 from rich.progress import (
     BarColumn,
     Progress,
@@ -37,12 +38,18 @@ class RichProgress:
     as steps advance.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, console: Console | None = None) -> None:
         """
         Initialize the progress adapter.
 
         Builds the Rich `Progress` widget with spinner, description, bar, percentage, and
         elapsed-time columns; no rendering starts until `start()` or `spinner()`.
+
+        Args:
+            console (Console | None): Console to render against. Tests inject a
+                non-terminal console (`Console(file=StringIO())`) so a live render can
+                never write escape codes to the real stdout; `None` — the default used by
+                `cli.context` — hands Rich its standard terminal console.
         """
         self._progress = Progress(
             SpinnerColumn(),
@@ -50,6 +57,7 @@ class RichProgress:
             BarColumn(),
             TaskProgressColumn(),
             TimeElapsedColumn(),
+            console=console,
         )
         self._task_id: TaskID | None = None
 
@@ -133,3 +141,19 @@ class RichProgress:
         """
         self._progress.stop()
         self._task_id = None
+
+    @property
+    def is_live(self) -> bool:
+        """
+        Report whether the underlying Rich live render is currently active.
+
+        True while a bar started by `start()` or a `spinner()` body is running — and also
+        after a `pause()` body exits, because `pause()` restarts the render
+        unconditionally, even when nothing had been rendering when the bracket was
+        entered. That restart is the semantic the prompt-guard test harness depends on:
+        leaving any pause bracket means the display is live again.
+
+        Returns:
+            bool: `True` while Rich's `Live` is started, `False` otherwise.
+        """
+        return self._progress.live.is_started
