@@ -395,25 +395,30 @@ archcare debug test-notification --severity warning
 - **Full-state restore mechanism**: Before any upgrade, the `system-update` task saves `snapper` snapshot info (if available) and the sync DB. The restore script (`downgrade.sh`) pipes `pacman -Qe` (explicitly installed packages) to `pacman -S -`; `pacman -Qmq` lists foreign/AUR packages for manual reinstalation. This matches the ArchWiki `pacman -S` dependency-resolution method (`pacman/Installation` page).
 - **Durable recovery artifacts**: The `downgrade.sh` script is written once (guarded by `exists()`) and never regenerated. `cache_keep_uninstalled_versions = 1` (default raised from 0) preserves uninstalled package artifacts for recovery.
 - **Task result typed**: `SystemUpdateDetails` (frozen dataclass) carries `repo_updates_count`, `aur_updates_count`, `packages_upgraded`, `aur_packages_upgraded`, `aur_packages_failed`, `packages_removed`, `pacnew_files`, `pre_update_snapshot_id`, and `cache_freed_bytes`. Registered in `cli/context.py` `DEFAULT_TASK_REGISTRY`.
-- **Sudo calls must never prompt under a live progress render** (bar _or_ spinner —
+- **Prompt-capable launches must never meet a live progress render** (bar _or_ spinner —
   `RichProgress.spinner()` runs its own live-rendered widget, so a spinner is _not_ inherently
-  safer than the bar). Any helper that can reach `utils.system.run_command_with_sudo` must run
-  with the display not live — before any display has started, or inside `self.progress.pause()`
-  (`system-update`: backup/pacman/paru/snapper/paccache and the rollback restore;
-  `health-check`: `pacman -Qk`) — or ride a pre-warmed credential cache from an earlier
-  unpaused `sudo -v`: mirrorlist-update runs `ensure_sudo_credentials()` _first_ in `execute()`
+  safer than the bar). Every launch that can open a prompt — sudo traffic (including the
+  `sudo -v` credential refresh) and `paru -Sua` (future tools via `_PROMPT_CAPABLE_TOOLS`) —
+  must run with the display not live: before any display has started, or inside
+  `self.progress.pause()` (`system-update`: backup/pacman/paru/snapper/paccache and the
+  rollback restore; `health-check`: `pacman -Qk`). Sudo may instead ride a pre-warmed
+  credential cache from an earlier unpaused `sudo -v`: mirrorlist-update runs
+  `ensure_sudo_credentials()` _first_ in `execute()`
   (a declined prompt aborts before any file exists, so `rollback()` must never find a backup to
   "restore"), keeping the reflector spinner deliberately for its nondeterministic network phase
-  (covered by the pre-warm). Root-owned retention backups are deleted via `delete_backups()`
+  (covered by the pre-warm); a fresh timestamp never exempts a non-sudo prompt such as `paru`'s
+  diff review. Root-owned retention backups are deleted via `delete_backups()`
   (`sudo rm -f`); a plain `unlink()` raises PermissionError.
     - Enforcement is behavioral — source-level checks (grep/AST of the task file) cannot see the
-      wrapper, which is referenced only inside the utils modules. The shared `sudo_pause_ledger`
+      wrapper, which is referenced only inside the utils modules. The shared `prompt_guard_ledger`
       fixture (`tests/unit/tasks/conftest.py`) patches the single launch seam `utils.system._launch`
       (an alias of the source tree's only `subprocess.run`, which both wrappers funnel into even
-      via from-imported copies), records every sudo launch with its display-liveness state, and
-      each task's guard test class asserts not-live (or pre-warmed). If anything bypasses the
-      seam, the ledger goes vacuous and the per-task anti-vacuous `first_tokens()` assertions
-      fail loudly.
+      via from-imported copies) and raises `AssertionError` at the exact offending launch — an
+      unwired guard, a live cold sudo call, or a live `paru -Sua` — with liveness read from the
+      task's own `RichProgress.is_live`, injected through `TaskDependencies(progress=...)` the
+      way `TaskExecutor._create_task()` delivers ports (guard tests never assign `task.progress`
+      directly). If anything bypasses the seam the recording goes vacuous, which each task's
+      anti-vacuous `first_tokens()` assertion flags loudly.
 
 ---
 
