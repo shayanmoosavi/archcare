@@ -1,8 +1,11 @@
 """Unit tests for the CLI's RichProgress adapter."""
 
+from io import StringIO
 from unittest.mock import MagicMock
 
 import pytest
+from _pytest.capture import CaptureFixture
+from rich.console import Console
 
 from archcare.cli.progress import RichProgress
 from archcare.config import TaskStatus
@@ -29,6 +32,28 @@ class TestConstruction:
         mock_progress_class.assert_called_once()
         assert rich_progress._task_id is None
 
+    def test_console_is_plumbed_into_the_rich_progress(self, mock_progress_class: MagicMock):
+        """
+        The injection seam the prompt-guard tests rely on: a caller-provided console must reach
+        the underlying Rich progress unchanged.
+        """
+        console = Console(file=StringIO())
+
+        RichProgress(console=console)
+
+        mock_progress_class.assert_called_once()
+        assert mock_progress_class.call_args.kwargs["console"] is console
+
+    def test_console_defaults_to_none(self, mock_progress_class: MagicMock):
+        """
+        `cli/context.py` constructs `RichProgress()` with no args — the default path
+        must keep handing Rich its standard terminal console.
+        """
+        RichProgress()
+
+        mock_progress_class.assert_called_once()
+        assert mock_progress_class.call_args.kwargs["console"] is None
+
 
 class TestStart:
     def test_starts_the_live_display_and_adds_a_task(self, rich_progress: RichProgress):
@@ -41,8 +66,10 @@ class TestStart:
         assert rich_progress._task_id is mock_progress.add_task.return_value
 
     def test_total_none_still_adds_a_task(self, rich_progress: RichProgress):
-        """total=None is the indeterminate case - Rich itself decides how to
-        render it, RichProgress just has to pass it through unchanged."""
+        """
+        total=None is the indeterminate case - Rich itself decides how to render it,
+        RichProgress just has to pass it through unchanged.
+        """
         mock_progress: MagicMock = rich_progress._progress  # ty:ignore[invalid-assignment]
 
         rich_progress.start(total=None)
@@ -136,3 +163,68 @@ class TestSpinner:
 
         mock_progress.remove_task.assert_called_once()
         mock_progress.stop.assert_called_once()
+
+
+@pytest.fixture
+def real_progress() -> RichProgress:
+    """
+    An adapter over the REAL Rich Progress, rendering into a string buffer.
+
+    `is_live` cannot be tested against the class-mocked fixture above: every liveness
+    question would be answered with a MagicMock. The prompt-guard harness reads this
+    property at every guarded launch, so the transitions below are its contract.
+    """
+    return RichProgress(console=Console(file=StringIO()))
+
+
+class TestIsLive:
+    def test_false_before_any_display(self, real_progress: RichProgress):
+        assert real_progress.is_live is False
+
+    def test_true_between_start_and_stop(self, real_progress: RichProgress):
+        real_progress.start(total=3)
+        assert real_progress.is_live is True
+
+        real_progress.stop()
+        assert real_progress.is_live is False
+
+    def test_false_inside_a_pause_bracket_and_true_after(self, real_progress: RichProgress):
+        """A pause bracket is exactly the window guarded commands may run inside."""
+        real_progress.start(total=3)
+
+        with real_progress.pause():
+            assert real_progress.is_live is False
+
+        assert real_progress.is_live is True
+
+    def test_pause_exit_marks_live_even_without_a_prior_start(self, real_progress: RichProgress):
+        """
+        The documented quirk the guard relies on: `pause()` restarts the render unconditionally, so
+        a first pause taken while nothing was rendering still leaves the display live afterwards.
+        """
+        with real_progress.pause():
+            assert real_progress.is_live is False
+
+        assert real_progress.is_live is True
+
+    def test_spinner_body_is_live_and_teardown_is_not(self, real_progress: RichProgress):
+        with real_progress.spinner("Checking for AUR updates"):
+            assert real_progress.is_live is True
+
+        assert real_progress.is_live is False
+
+    def test_renders_nothing_to_the_real_stdout(
+        self, real_progress: RichProgress, capsys: CaptureFixture[str]
+    ):
+        """
+        The whole point of the console seam: a full start → pause → spinner → stop cycle must not
+        leak a single byte of escape codes onto the runner's stdout.
+        """
+        real_progress.start(total=3)
+        with real_progress.pause():
+            pass
+        with real_progress.spinner("working"):
+            pass
+        real_progress.stop()
+
+        assert capsys.readouterr().out == ""

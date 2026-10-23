@@ -5,12 +5,12 @@ Scope: All of the task-specific logic that genuinely deserve its own
 unit tests, not a re-verification of the base task's behavior.
 """
 
-import functools
 import json
 from collections.abc import Callable
 from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from functools import partial as functools_partial
 from os.path import expanduser
 from pathlib import Path
 from typing import Any
@@ -34,7 +34,7 @@ from archcare.utils import PackageUpdateInfo
 from archcare.utils.info_models import MirrorlistInfo
 from archcare.utils.system import CommandResult
 
-from .conftest import PauseAwareProgress, SudoPauseLedger
+from .conftest import PromptGuardLedger, bind_guard_progress
 
 _MODULE = "archcare.tasks.system_update"
 
@@ -79,8 +79,14 @@ def system_update_settings(tmp_path: Path, monkeypatch: MonkeyPatch) -> AppSetti
 
 
 @pytest.fixture
-def task(system_update_config: TaskConfig, system_update_settings: AppSettings) -> SystemUpdateTask:
-    return SystemUpdateTask(config=system_update_config, settings=system_update_settings)
+def task(
+    task_deps: TaskDependencies,
+    system_update_config: TaskConfig,
+    system_update_settings: AppSettings,
+) -> SystemUpdateTask:
+    return SystemUpdateTask(
+        config=system_update_config, settings=system_update_settings, deps=task_deps
+    )
 
 
 def _clear_static_gates(mocker, *, stale_mirrorlist=False) -> None:
@@ -242,6 +248,44 @@ def transaction(task: SystemUpdateTask, mocker, mock_progress: MagicMock) -> _Wi
 
     task.progress = mock_progress
     return _Wiring(patch=mocker.patch, mocks=mocks, progress=mock_progress)
+
+
+@pytest.fixture
+def prompt_guard(
+    prompt_guard_ledger: PromptGuardLedger, mocker, tmp_path: Path
+) -> PromptGuardLedger:
+    """
+    Wire `execute()`, `post_execute()`, and `rollback()` with only the OS boundary faked.
+
+    The real utils helpers run (manifest snapshot/diff, backup, cache cleanup, snapper
+    lookup); the shared ledger's recorders answer every wrapper call. Only this task's
+    specifics live here: canned stdout for the read-only queries real helpers issue, a
+    hermetic `SYNC_DB_PATH`, a rebuilt-to-the-real-`clean_cache` with a tmp `cache_dir`, and
+    the snapper branch forced on — that lookup stays REAL because its sudo call is precisely
+    what the guard must see.
+    """
+    ledger = prompt_guard_ledger
+    ledger.canned_stdout.update(
+        {
+            ("checkupdates", "--nocolor"): "linux 6.10.1-1 -> 6.10.2-1\n",
+            ("pacman", "-Q"): "linux 6.10\nvim 9.0\n",
+        }
+    )
+
+    sync_db = tmp_path / "sync"
+    sync_db.mkdir()
+    mocker.patch("archcare.utils.pacman.SYNC_DB_PATH", new=sync_db)
+
+    mocker.patch(f"{_MODULE}.detect_btrfs_snapshot_tooling", return_value=True)
+
+    from archcare.utils.pacman import clean_cache as _real_clean_cache
+
+    mocker.patch(
+        f"{_MODULE}.clean_cache",
+        new=functools_partial(_real_clean_cache, cache_dir=tmp_path / "pac-cache"),
+    )
+
+    return ledger
 
 
 class TestPreCheckCommands:
@@ -1496,91 +1540,63 @@ class TestPostExecute:
 
 
 # ---------------------------------------------------------------------------
-# Sudo guard wiring for this task (shared ledger lives in tests/unit/tasks/conftest.py)
+# Prompt guard tests
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture
-def sudo_guard(
-    sudo_pause_ledger, mocker, task: SystemUpdateTask, tmp_path: Path
-) -> SudoPauseLedger:
-    """Wire `execute()`, `post_execute()`, and `rollback()` with only the OS boundary faked.
-
-    The real utils helpers run (manifest snapshot/diff, backup, cache cleanup, snapper
-    lookup); the shared ledger's recorders answer every wrapper call. Only this task's
-    specifics live here: canned stdout for the read-only queries real helpers issue, a
-    hermetic `SYNC_DB_PATH`, a rebuilt-to-the-real-`clean_cache` with a tmp `cache_dir`, and
-    the snapper branch forced on — that lookup stays REAL because its sudo call is precisely
-    what the guard must see.
+class TestEveryGuardedLaunchRunsWhilePaused:
     """
-    ledger = sudo_pause_ledger
-    ledger.canned_stdout.update(
-        {
-            ("checkupdates", "--nocolor"): "linux 6.10.1-1 -> 6.10.2-1\n",
-            ("pacman", "-Q"): "linux 6.10\nvim 9.0\n",
-        }
-    )
-
-    sync_db = tmp_path / "sync"
-    sync_db.mkdir()
-    mocker.patch("archcare.utils.pacman.SYNC_DB_PATH", new=sync_db)
-
-    mocker.patch(f"{_MODULE}.detect_btrfs_snapshot_tooling", return_value=True)
-
-    from archcare.utils.pacman import clean_cache as _real_clean_cache
-
-    mocker.patch(
-        f"{_MODULE}.clean_cache",
-        new=functools.partial(_real_clean_cache, cache_dir=tmp_path / "pac-cache"),
-    )
-
-    task.progress = PauseAwareProgress(ledger)
-    return ledger
-
-
-class TestEverySudoCallRunsWhilePaused:
-    """No sudo call may run while a live render is up — and system-update pre-warms nothing,
-    so every recorded sudo call must have executed with the display not live (the
-    full-invariant method degenerates to exactly that). The class doc and recorders live
-    in tests/unit/tasks/conftest.py.
+    Every guarded launch must run with the display not live — system-update pre-warms
+    nothing, so the fail-fast router raises at the moment any live launch happens (cold
+    sudo work, or `paru -Sua` meeting a render). Passing means a full `execute()` +
+    `post_execute()` (+ `rollback()`) never tripped it. The guard lives in conftest.py.
     """
 
-    #: First argv tokens each documented sudo helper produces on a fully-successful
-    #: `execute()` + `post_execute()` pass. An alarm-if-vacuous control rather than the
-    #: invariant itself: a token disappearing means the recorder stopped seeing that helper.
-    EXPECTED_SUDO_PREFIXES = frozenset({"cp", "pacman", "snapper", "paccache"})
+    @pytest.fixture
+    def task_deps(self, prompt_guard: PromptGuardLedger) -> TaskDependencies:
+        """Class-scoped override: tasks under the guard receive progress via TaskDependencies."""
+        return TaskDependencies(progress=bind_guard_progress(prompt_guard))
 
-    def test_execute_and_post_execute_pause_around_every_sudo_call(
-        self, task: SystemUpdateTask, sudo_guard: SudoPauseLedger
+    # First argv tokens each documented helper produces on a fully-successful `execute()` +
+    # `post_execute()` pass. An alarm-if-vacuous control rather than the invariant itself: a token
+    # disappearing means the recorder stopped seeing that helper.
+    EXPECTED_GUARDED_TOOLS = frozenset({"cp", "pacman", "snapper", "paccache", "paru"})
+
+    def test_task_drives_the_guard_bound_adapter(
+        self, task: SystemUpdateTask, prompt_guard: PromptGuardLedger
     ):
+        """The bundle must deliver the bound adapter itself — the guard reads `is_live` off it."""
+        assert task.progress is prompt_guard.progress
+
+    def test_execute_and_post_execute_pause_around_every_guarded_launch(
+        self, task: SystemUpdateTask, prompt_guard: PromptGuardLedger
+    ):
+        """Run the full flow: a violating launch raises inside the router at that call."""
         result = task.execute()
         task.post_execute(result)
 
-        assert sudo_guard.unprotected_sudo_calls() == [], (
-            f"unprotected sudo traffic: {sudo_guard.unprotected_sudo_calls()}"
-        )
+        assert prompt_guard.guarded_calls, "recorder saw no guarded traffic; harness is vacuous"
 
-    def test_the_guard_observes_all_documented_sudo_helpers(
-        self, task: SystemUpdateTask, sudo_guard: SudoPauseLedger
+    def test_the_guard_observes_all_documented_helpers(
+        self, task: SystemUpdateTask, prompt_guard: PromptGuardLedger
     ):
-        """Negative control: the recorder must actually see the documented sudo traffic."""
+        """Negative control: the recorder must actually see the documented traffic."""
         result = task.execute()
         task.post_execute(result)
 
-        seen = sudo_guard.first_tokens()
-        assert sudo_guard.sudo_calls, "recorder captured no sudo traffic; the harness is vacuous"
-        missing = self.EXPECTED_SUDO_PREFIXES - seen
-        assert not missing, f"documented sudo helpers never observed: {missing}"
+        seen = prompt_guard.first_tokens()
+        assert prompt_guard.guarded_calls, "recorder saw no guarded traffic; harness is vacuous"
+        missing = self.EXPECTED_GUARDED_TOOLS - seen
+        assert not missing, f"documented helpers never observed: {missing}"
 
     def test_rollback_restores_the_sync_db_under_pause(
-        self, task: SystemUpdateTask, sudo_guard: SudoPauseLedger, tmp_path: Path
+        self, task: SystemUpdateTask, prompt_guard: PromptGuardLedger, tmp_path: Path
     ):
-        """The failure path reaches sudo too, through `restore_sync_db`."""
+        """The failure path reaches sudo too, through `restore_sync_db` — same guard."""
         backup = tmp_path / "sync-db" / "sync-db_2026-01-01_000000"
         backup.mkdir(parents=True)
         task.sync_db_backup = backup
 
         task.rollback()
 
-        assert sudo_guard.unprotected_sudo_calls() == []
-        assert "cp" in sudo_guard.first_tokens()
+        assert "cp" in prompt_guard.first_tokens()
