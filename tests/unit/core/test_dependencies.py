@@ -29,7 +29,7 @@ class TestTaskDependencies:
         assert deps.notification_manager is None
 
     def test_custom_values(self, mocker):
-        # Patching the real PATH probe so the test is environment independant
+        # Patching the real PATH probe so the test is environment independent
         mocker.patch("archcare.core.notifications.check_command_exists")
 
         interaction = NonInteractive()

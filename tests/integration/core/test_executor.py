@@ -313,8 +313,9 @@ class TestExecutorNextDue:
         """
         A run that stood down does not consume the schedule.
 
-        The task is still due, so it is retried — otherwise a single quiet run would push the next
-        attempt a full frequency into the future.
+        A skip reason besides `NO_WORK_NEEDED` shouldn't move the schedule forward,
+        otherwise, the tasks that were skipped several times in a row will shift the
+        next due forever and never run.
         """
         runner.invoke(app, ["setup", "config"])
         runner.invoke(app, ["task", "run", VEHICLE])
