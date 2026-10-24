@@ -413,12 +413,16 @@ archcare debug test-notification --severity warning
       wrapper, which is referenced only inside the utils modules. The shared `prompt_guard_ledger`
       fixture (`tests/unit/tasks/conftest.py`) patches the single launch seam `utils.system._launch`
       (an alias of the source tree's only `subprocess.run`, which both wrappers funnel into even
-      via from-imported copies) and raises `AssertionError` at the exact offending launch — an
-      unwired guard, a live cold sudo call, or a live `paru -Sua` — with liveness read from the
-      task's own `RichProgress.is_live`, injected through `TaskDependencies(progress=...)` the
-      way `TaskExecutor._create_task()` delivers ports (guard tests never assign `task.progress`
-      directly). If anything bypasses the seam the recording goes vacuous, which each task's
-      anti-vacuous `first_tokens()` assertion flags loudly.
+      via from-imported copies), pins `utils.system.is_root` to `False` so a root runner cannot
+      drop the `sudo` prefix past the router, and raises `AssertionError` at the exact offending
+      launch — an unwired guard, a live cold sudo call, or a live `paru -Sua` — with liveness read
+      from the task's own `RichProgress.is_live`, injected through `TaskDependencies(progress=...)`
+      the way `TaskExecutor._create_task()` delivers ports (guard tests never assign `task.progress`
+      directly). Every violation message is recorded in `ledger.violations` and re-asserted in each
+      guard class's `task_deps` teardown — `post_execute()`/`rollback()` deliberately swallow
+      `Exception`, and that teardown also stops the bound render (direct-`execute()` tests never
+      reach `run()`'s `finally`). If anything bypasses the seam the recording goes vacuous, which
+      each task's anti-vacuous `first_tokens()` assertion flags loudly.
 
 ---
 
