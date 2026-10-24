@@ -111,7 +111,7 @@ def sandbox(archcare_home: Path, mocker):
 
 
 # ---------------------------------------------------------------------------
-# Helpers / fixtures
+# Tests
 # ---------------------------------------------------------------------------
 
 
@@ -277,6 +277,11 @@ class TestMirrorlistUpdateTask:
         remaining_names = [b.name for b in remaining_backups]
         assert not any("2026-01-01" in name for name in remaining_names)
         assert not any("2026-01-02" in name for name in remaining_names)
+
+
+# ---------------------------------------------------------------------------
+# Progress reporting
+# ---------------------------------------------------------------------------
 
 
 class TestMirrorlistUpdateProgressReporting:

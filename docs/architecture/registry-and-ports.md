@@ -154,7 +154,8 @@ The widest port — five methods, plus the [`TaskStep`][archcare.core.models.Tas
   is unknown up front.
 - `advance(step: TaskStep)` — report one completed pipeline step.
 - `pause()` — a context manager that suspends the live display, so an interactive `confirm()` prompt
-  doesn't clobber the progress widget mid-render.
+  doesn't clobber the progress widget mid-render — and so a sudo-bound launch never sits on a
+  password prompt underneath the render (see the contract note below).
 - `spinner(label)` — a context manager for indeterminate work (an indefinite-length phase inside
   a step).
 
@@ -164,6 +165,32 @@ or indeterminate (spinner) mode. The [`NoOpProgress`][archcare.core.progress.NoO
 swallows every call — the null object that makes non-interactive runs free. Both null objects are
 supplied by the [`TaskDependencies`][archcare.core.dependencies.TaskDependencies] bundle's default
 factories, so core code never needs an `is None` check.
+
+!!! note "The display contract around sudo"
+
+    Any call that can reach
+    [`run_command_with_sudo`][archcare.utils.system.run_command_with_sudo] must never wait for a
+    password while a render is live — and `spinner()` starts its own live-rendered widget, so a
+    spinner is _not_ safer than the bar. Tasks have exactly two sanctioned shapes:
+
+    1. **Not live at call time** — run before any display has started, or inside
+       `self.progress.pause()` while one is up
+       (`system-update` task pauses around its backup/`pacman`/`paru`/`snapper`/`paccache` launches
+       and the rollback restore; `health-check` task pauses around `pacman -Qk`).
+    2. **Pre-warmed credentials** — an earlier unpaused `sudo -v`, taken before the display starts,
+       covers a later display-live launch: `mirrorlist-update` calls
+       [`ensure_sudo_credentials()`][archcare.utils.system.ensure_sudo_credentials] first in
+       `execute()`, then deliberately keeps its reflector spinner.
+
+    Both shapes are enforced behaviorally, not by review: the shared `prompt_guard_ledger` test
+    harness patches the single launch seam (`utils.system._launch`), pins `utils.system.is_root`
+    to `False` so a root runner cannot drop the `sudo` prefix past the router, and fails fast
+    with an `AssertionError` at the exact offending launch — an unwired guard, a live cold sudo
+    call, or a live `paru -Sua`. Each violation is also recorded and re-asserted at fixture
+    teardown, so tasks' deliberate `except Exception` swallows (`post_execute`/`rollback`) cannot
+    hide one; each task's anti-vacuous `first_tokens()` assertion catches a recorder that stopped
+    seeing traffic. Follow suit with a guard test in `tests/unit/tasks/` for any new task that
+    launches a prompt-capable tool.
 
 Wiring detail worth knowing: the executor stores the bundle once and passes a derived copy into
 **every task it constructs** (as the `deps` constructor argument), so a task can report the

@@ -166,7 +166,7 @@ is in the [lifecycle page](../architecture/task-lifecycle.md#the-basetask-contra
 
 | Hook           | When it runs                                                                          | What the example does                                                                                                                                  |
 | -------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `__init__`     | when the [`TaskExecutor`][archcare.core.executor.TaskExecutor] instantiates the class | forwards config/settings/state/deps via `super().__init__()`, then adds task state (`report_path`)                                                      |
+| `__init__`     | when the [`TaskExecutor`][archcare.core.executor.TaskExecutor] instantiates the class | forwards config/settings/state/deps via `super().__init__()`, then adds task state (`report_path`)                                                     |
 | `pre_check`    | first gate                                                                            | env prerequisite via [`check_command_exists`][archcare.utils.system.check_command_exists]; `(False, reason)` skips with `SkipReason.DEPENDENCY_FAILED` |
 | `should_run`   | second gate                                                                           | cheap probe; `(False, reason, skip_reason)` skips with that reason                                                                                     |
 | `execute`      | the work, inside a contextualized logger                                              | the only required hook; returns `TaskResult[MyTaskDetails]`                                                                                            |
@@ -519,11 +519,11 @@ uv run archcare task run my-task --force --verbose
 within its `frequency` window.
 
 !!! note "NO_WORK_NEEDED advances next due date"
-    When `should_run()` returns `(False, ..., SkipReason.NO_WORK_NEEDED)`, the task is skipped but
-    the scheduler treats it as a successful cycle — `next_due` is advanced by `frequency` days.
-    This prevents a task that finds no work from becoming permanently overdue after its first
-    real run. Only `DISABLED` clears `next_due` entirely; other skip reasons preserve the
-    existing `next_due`.
+When `should_run()` returns `(False, ..., SkipReason.NO_WORK_NEEDED)`, the task is skipped but
+the scheduler treats it as a successful cycle — `next_due` is advanced by `frequency` days.
+This prevents a task that finds no work from becoming permanently overdue after its first
+real run. Only `DISABLED` clears `next_due` entirely; other skip reasons preserve the
+existing `next_due`.
 
 ## Pitfalls
 
@@ -549,9 +549,13 @@ within its `frequency` window.
   [`TaskNotRegisteredError`][archcare.core.exceptions.TaskNotRegisteredError] or an unknown-task
   error depending on which side is missing.
 - **If your task needs sudo**, say so in the class docstring, use
-  [`run_command_with_sudo`][archcare.utils.system.run_command_with_sudo], pause progress rendering
-  around the prompt (the health-check task wraps its sudo call in `self.progress.pause()`), and
-  gate `pre_check` on the binary existing.
+  [`run_command_with_sudo`][archcare.utils.system.run_command_with_sudo], and gate `pre_check` on
+  the binary existing. Keep the launch off a live render — wrap it in `self.progress.pause()`
+  (`health-check` wraps its `pacman -Qk` call), or cover it with a pre-warmed credential cache from
+  an earlier unpaused `sudo -v` (`mirrorlist-update` calls `ensure_sudo_credentials()` first in
+  `execute()`). The [Registry, Ports & Extensibility](../architecture/registry-and-ports.md) page
+  documents both sanctioned shapes, and each task gets a guard test that fails if any sudo call is
+  left exposed.
 
 ## Related pages
 

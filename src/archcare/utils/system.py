@@ -130,7 +130,7 @@ class CommandOptions:
 
 # The single launch seam of the source tree. Every subprocess launch funnels through this
 # alias — `run_command`, `run_command_with_sudo`, and any from-imported *copy* thereof all
-# reach it from their real bodies — so the sudo-guard test fixture intercepts the entire OS
+# reach it from their real bodies — so the prompt-guard test fixture intercepts the entire OS
 # boundary with one patch on `archcare.utils.system._launch`.
 _launch = subprocess.run
 

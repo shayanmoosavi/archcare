@@ -7,8 +7,10 @@ update. Everything here funnels through [`run_command`][archcare.utils.system.ru
 sole OS boundary.
 
 !!! note "Root vs. non-root"
-    `paru` refuses to run as root — AUR builds must not be performed with elevated privileges.
-    [`run_aur_upgrade`][] therefore uses [`run_command`][archcare.utils.system.run_command]
+    `paru` bails with "can't install AUR package as root" only when AUR builds are pending —
+    `makepkg` underneath hard-refuses root outright (exit 10), while read-only `paru`
+    invocations run fine as root. AUR builds must not be performed with elevated privileges,
+    so [`run_aur_upgrade`][] uses [`run_command`][archcare.utils.system.run_command]
     without `sudo`, unlike the `pacman` half.
 
 See Also:

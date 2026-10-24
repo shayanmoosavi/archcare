@@ -3,8 +3,8 @@ Task execution coordinator for the Archcare core layer.
 
 This module provides `TaskExecutor`, which coordinates task instantiation, controls execution
 lifecycles, and manages dynamic execution updates over persistent status states. It interfaces with
-configuration loader, scheduler, task registry, and various ports (for user interactions, progress
-tracking, and notifications).
+configuration loader, scheduler, task registry, notification manager, and various ports (for user
+interactions and progress tracking).
 
 Key Concepts:
     - **Execution Control**: It orchestrates loading task configurations, checking prerequisites
@@ -51,10 +51,6 @@ class TaskExecutor:
     pre-run filters (e.g., verifying if a task is enabled or due), launching lifecycle
     runs, and persisting execution results back to the state database.
 
-    Attributes:
-        user_context (UserContext): Resolves the active user context via `ARCHCARE_USER`
-            environment variable.
-
     Methods:
         notification_manager: *(property)* The lazy-loaded shared desktop notification manager.
         execute_task: Execute a single task by name.
@@ -84,10 +80,10 @@ class TaskExecutor:
             deps (TaskDependencies | None): Optional behavioral collaborators (interaction,
                 progress, notification manager) shared across the tasks this executor creates.
                 Defaults to `None`, which materializes to a `TaskDependencies` with null-object
-                ports and notifications disabled.
+                ports and a lazily built notifications manager.
             user_context (UserContext | None): System user context resolution. If `None`, eagerly
-                retrieved from active environment variables. Executor-internal (gate branch +
-                `chown_if_root`); never forwarded to tasks.
+                retrieved from via `ARCHCARE_USER` environment variable. Executor-internal
+                (gate branch + `chown_if_root`); never forwarded to tasks.
 
         Examples:
             Let's demonstrate how to construct a `TaskExecutor` using mocked dependencies:

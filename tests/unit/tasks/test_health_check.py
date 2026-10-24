@@ -1,22 +1,24 @@
 """
 Unit tests for HealthCheckTask (tasks/health_check.py).
 
-Seeded by the sudo-guard work: this task's only sudo-bound helper is `check_package_files`
+Seeded by the prompt-guard work: this task's only sudo-bound helper is `check_package_files`
 (`sudo pacman -Qk`, wrapped in `progress.pause()` inside `execute()`). Everything else is
 either psutil-backed or answered from the shared ledger's canned stdout, so the guard runs
 the real orchestration and certifies the pause bracket.
 """
 
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
 from archcare.config import AppSettings, TaskConfig
+from archcare.core import TaskDependencies
 from archcare.tasks.health_check import HealthCheckTask
 from archcare.utils.info_models import CpuInfo, DiskUsageInfo, MemoryInfo
 
-from .conftest import PauseAwareProgress, SudoPauseLedger
+from .conftest import PromptGuardLedger, bind_guard_progress
 
 _MODULE = "archcare.tasks.health_check"
 _PACMAN_MODULE = "archcare.utils.pacman"
@@ -39,16 +41,19 @@ def health_check_config() -> TaskConfig:
 
 @pytest.fixture
 def task(
-    tmp_path: Path, monkeypatch: MonkeyPatch, health_check_config: TaskConfig
+    task_deps: TaskDependencies,
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    health_check_config: TaskConfig,
 ) -> HealthCheckTask:
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-    return HealthCheckTask(config=health_check_config, settings=AppSettings(user=None))
+    return HealthCheckTask(
+        config=health_check_config, settings=AppSettings(user=None), deps=task_deps
+    )
 
 
 @pytest.fixture
-def sudo_guard(
-    sudo_pause_ledger: SudoPauseLedger, mocker, task: HealthCheckTask
-) -> SudoPauseLedger:
+def prompt_guard(prompt_guard_ledger: PromptGuardLedger, mocker) -> PromptGuardLedger:
     """
     Health-check wiring for the shared guard.
 
@@ -58,7 +63,7 @@ def sudo_guard(
     what the shared ledger certifies — except for its pacman-availability gate, which is
     stubbed so the launch is not skipped on CI images without pacman.
     """
-    ledger = sudo_pause_ledger
+    ledger = prompt_guard_ledger
     ledger.canned_stdout.update({("pacman", "-Qk"): "linux 5981 files, 0 missing files\n"})
 
     # `check_package_files`/`check_pacman_database` return early with "pacman command not
@@ -79,31 +84,57 @@ def sudo_guard(
     mocker.patch(f"{_MODULE}.get_system_uptime", return_value="1 day, 3:45")
     mocker.patch(f"{_MODULE}.check_filesystem_errors", return_value=[])
 
-    task.progress = PauseAwareProgress(ledger)
     return ledger
 
 
-class TestEverySudoCallRunsWhilePaused:
-    """The task owns exactly one sudo call (`pacman -Qk`); the guard pins that it ran paused."""
+class TestEveryGuardedLaunchRunsWhilePaused:
+    """
+    The task's only guarded launch (`pacman -Qk`, sudo-bound) must run paused — a live
+    launch would raise inside the fail-fast router at the call itself.
+    """
+
+    @pytest.fixture
+    def task_deps(self, prompt_guard: PromptGuardLedger) -> Iterator[TaskDependencies]:
+        """
+        Class-scoped override: tasks under the guard receive progress via TaskDependencies.
+
+        Teardown stops the render (`run()`'s finally never runs for direct-execute tests)
+        and re-asserts the ledger, because `post_execute()`/`rollback()` deliberately
+        swallow `Exception` — a guard raise caught there would otherwise pass silently.
+        """
+        progress = bind_guard_progress(prompt_guard)
+        yield TaskDependencies(progress=progress)
+        progress.stop()
+        assert not prompt_guard.violations, f"prompt-guard violations: {prompt_guard.violations}"
+
+    def test_task_drives_the_guard_bound_adapter(
+        self, task: HealthCheckTask, prompt_guard: PromptGuardLedger
+    ):
+        """The bundle must deliver the bound adapter itself — the guard reads `is_live` off it."""
+        assert task.progress is prompt_guard.progress
 
     def test_execute_pauses_around_the_pacman_qk_call(
-        self, task: HealthCheckTask, sudo_guard: SudoPauseLedger
+        self, task: HealthCheckTask, prompt_guard: PromptGuardLedger
     ):
         task.execute()
 
-        assert sudo_guard.unprotected_sudo_calls() == []
         # Recorded argv is sudo-prefixed: ("sudo", "pacman", "-Qk", ...).
-        qk_calls = [call for call in sudo_guard.sudo_calls if call[0][1:3] == ("pacman", "-Qk")]
+        qk_calls = [
+            (argv, was_live)
+            for argv, was_live in prompt_guard.guarded_calls
+            if argv[1:3] == ("pacman", "-Qk")
+        ]
         assert len(qk_calls) == 1, f"expected exactly one pacman -Qk launch, got {qk_calls}"
-        assert not qk_calls[0][1], (
+        _, live = qk_calls[0]
+        assert not live, (
             "pacman -Qk must execute while the display is not live (inside its pause bracket)"
         )
 
     def test_the_guard_observes_the_documented_sudo_helper(
-        self, task: HealthCheckTask, sudo_guard: SudoPauseLedger
+        self, task: HealthCheckTask, prompt_guard: PromptGuardLedger
     ):
         """Negative control against an accidental vacuous pass of the assertion above."""
         task.execute()
 
-        assert sudo_guard.sudo_calls, "recorder captured no sudo traffic; harness is vacuous"
-        assert sudo_guard.first_tokens() == {"pacman"}
+        assert prompt_guard.guarded_calls, "recorder saw no guarded traffic; harness is vacuous"
+        assert prompt_guard.first_tokens() == {"pacman"}

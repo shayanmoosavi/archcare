@@ -5,12 +5,12 @@ Scope: All of the task-specific logic that genuinely deserve its own
 unit tests, not a re-verification of the base task's behavior.
 """
 
-import functools
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from functools import partial as functools_partial
 from os.path import expanduser
 from pathlib import Path
 from typing import Any
@@ -34,7 +34,7 @@ from archcare.utils import PackageUpdateInfo
 from archcare.utils.info_models import MirrorlistInfo
 from archcare.utils.system import CommandResult
 
-from .conftest import PauseAwareProgress, SudoPauseLedger
+from .conftest import PromptGuardLedger, bind_guard_progress
 
 _MODULE = "archcare.tasks.system_update"
 
@@ -79,12 +79,19 @@ def system_update_settings(tmp_path: Path, monkeypatch: MonkeyPatch) -> AppSetti
 
 
 @pytest.fixture
-def task(system_update_config: TaskConfig, system_update_settings: AppSettings) -> SystemUpdateTask:
-    return SystemUpdateTask(config=system_update_config, settings=system_update_settings)
+def task(
+    task_deps: TaskDependencies,
+    system_update_config: TaskConfig,
+    system_update_settings: AppSettings,
+) -> SystemUpdateTask:
+    return SystemUpdateTask(
+        config=system_update_config, settings=system_update_settings, deps=task_deps
+    )
 
 
 def _clear_static_gates(mocker, *, stale_mirrorlist=False) -> None:
-    """Stub the two host-dependent `should_run()` gates that have nothing to do with the test.
+    """
+    Stub the two host-dependent `should_run()` gates that have nothing to do with the test.
 
     Gate 1 reads the real `/etc/pacman.d/mirrorlist` and gate 3 inspects `/usr/lib/modules`.
     Left unpatched, both make the outcome depend on the machine running the suite — which might
@@ -109,7 +116,8 @@ def _updates(count: int) -> list[PackageUpdateInfo]:
 
 
 def _unread_news(mocker, headlines: list[str] | None = None) -> None:
-    """Stub the two calls the news gate makes once `has_unread_arch_news()` reports `True`.
+    """
+    Stub the two calls the news gate makes once `has_unread_arch_news()` reports `True`.
 
     `headlines` defaults to empty, which is what a real `informant`/`paru` run that cannot be
     parsed into titles yields — the prompt then falls back to generic wording.
@@ -122,7 +130,8 @@ def _unread_news(mocker, headlines: list[str] | None = None) -> None:
 
 
 def _interaction(task: SystemUpdateTask, *, confirm: bool = True) -> MagicMock:
-    """Inject a specced interaction port into `task` whose `confirm()` answers with `confirm`.
+    """
+    Inject a specced interaction port into `task` whose `confirm()` answers with `confirm`.
 
     Returned so a test can assert on `confirm.assert_called_once()` /
     `confirm.assert_not_called()`. A specced mock keeps the port's contract honest: a call to a
@@ -135,7 +144,8 @@ def _interaction(task: SystemUpdateTask, *, confirm: bool = True) -> MagicMock:
 
 
 def _prompted_at(task: SystemUpdateTask, when: datetime | None) -> MagicMock:
-    """Give `task` a persisted state whose `system-update` entry was last prompted at `when`.
+    """
+    Give `task` a persisted state whose `system-update` entry was last prompted at `when`.
 
     `when=None` models a user who has never been prompted, which is what makes the cooldown
     inapplicable. Only `last_news_prompt` is set, because that is the single field the news gate
@@ -151,7 +161,8 @@ def _prompted_at(task: SystemUpdateTask, when: datetime | None) -> MagicMock:
 
 
 def _ok(command: str = "mock") -> CommandResult:
-    """A successful `CommandResult`.
+    """
+    A successful `CommandResult`.
 
     `stdout`/`stderr` are empty exactly as they are in production: both transaction helpers run
     with stdio inherited, so the exit code is the only signal a test may rely on.
@@ -168,7 +179,8 @@ def _fail(command: str = "mock", returncode: int = 1) -> CommandResult:
 
 @pytest.fixture
 def mock_progress() -> MagicMock:
-    """A progress port that records `advance`/`pause` calls and stays a working context manager.
+    """
+    A progress port that records `advance`/`pause` calls and stays a working context manager.
 
     `MagicMock(spec=TaskProgress)` would make `pause()` return a MagicMock, and `with
     mock.pause():` would be a no-op that still counts as a call — enough for the call-count
@@ -182,7 +194,8 @@ def mock_progress() -> MagicMock:
 
 @dataclass
 class _Wiring:
-    """Handles for the OS-boundary stubs installed by the `transaction` fixture.
+    """
+    Handles for the OS-boundary stubs installed by the `transaction` fixture.
 
     Returning the mocks (instead of the bare `mocker` object) keeps every test free of
     pytest-mock internals: `transaction.mocks["run_system_upgrade"]` reads as what it is, and
@@ -200,7 +213,8 @@ class _Wiring:
 
 @pytest.fixture
 def transaction(task: SystemUpdateTask, mocker, mock_progress: MagicMock) -> _Wiring:
-    """Wire every OS boundary `execute()` touches, so the transaction runs fully in memory.
+    """
+    Wire every OS boundary `execute()` touches, so the transaction runs fully in memory.
 
     `execute()` reaches the real system through exactly these helpers, and two of them
     (`run_system_upgrade`, `run_aur_upgrade`) would actually attempt to modify this machine.
@@ -244,6 +258,44 @@ def transaction(task: SystemUpdateTask, mocker, mock_progress: MagicMock) -> _Wi
     return _Wiring(patch=mocker.patch, mocks=mocks, progress=mock_progress)
 
 
+@pytest.fixture
+def prompt_guard(
+    prompt_guard_ledger: PromptGuardLedger, mocker, tmp_path: Path
+) -> PromptGuardLedger:
+    """
+    Wire `execute()`, `post_execute()`, and `rollback()` with only the OS boundary faked.
+
+    The real utils helpers run (manifest snapshot/diff, backup, cache cleanup, snapper
+    lookup); the shared ledger's recorders answer every wrapper call. Only this task's
+    specifics live here: canned stdout for the read-only queries real helpers issue, a
+    hermetic `SYNC_DB_PATH`, a rebuilt-to-the-real-`clean_cache` with a tmp `cache_dir`, and
+    the snapper branch forced on — that lookup stays REAL because its sudo call is precisely
+    what the guard must see.
+    """
+    ledger = prompt_guard_ledger
+    ledger.canned_stdout.update(
+        {
+            ("checkupdates", "--nocolor"): "linux 6.10.1-1 -> 6.10.2-1\n",
+            ("pacman", "-Q"): "linux 6.10\nvim 9.0\n",
+        }
+    )
+
+    sync_db = tmp_path / "sync"
+    sync_db.mkdir()
+    mocker.patch("archcare.utils.pacman.SYNC_DB_PATH", new=sync_db)
+
+    mocker.patch(f"{_MODULE}.detect_btrfs_snapshot_tooling", return_value=True)
+
+    from archcare.utils.pacman import clean_cache as _real_clean_cache
+
+    mocker.patch(
+        f"{_MODULE}.clean_cache",
+        new=functools_partial(_real_clean_cache, cache_dir=tmp_path / "pac-cache"),
+    )
+
+    return ledger
+
+
 class TestPreCheckCommands:
     def test_missing_pacman_blocks_with_arch_wiki_guide(self, mocker, task: SystemUpdateTask):
         mocker.patch(f"{_MODULE}.check_command_exists", return_value=False)
@@ -271,7 +323,8 @@ class TestPreCheckCommands:
         assert "sudo pacman -S pacman-contrib" in reason
 
     def test_missing_paru_blocks_with_aur_install_hint(self, task: SystemUpdateTask, mocker):
-        """`paru` is an AUR package — the hint must NOT suggest `sudo pacman -S paru`.
+        """
+        `paru` is an AUR package — the hint must NOT suggest `sudo pacman -S paru`.
 
         pacman cannot install AUR packages, so the hint points at building paru from
         the AUR with `makepkg` (or installing it via another AUR helper) instead.
@@ -313,7 +366,8 @@ class TestPreCheckTerminal:
         assert "`pacman` not found" not in reason
 
     def test_all_prerequisites_present_passes(self, task: SystemUpdateTask, mocker):
-        """`pre_check()` is purely static now: a clean host returns `(True, "")` with no stubs.
+        """
+        `pre_check()` is purely static: a clean host returns `(True, "")` with no stubs.
 
         Deliberately patches *nothing* else — `should_run()` owns the host-dependent gates, so a
         passing `pre_check()` must not require any of them to be stubbed first.
@@ -347,7 +401,8 @@ class TestShouldRunMirrorlist:
         assert "/etc/pacman.d/custom-mirrorlist" in reason
 
     def test_unresolvable_mirrorlist_does_not_block(self, task: SystemUpdateTask, mocker):
-        """A missing mirrorlist file yields `last_modified is None` — unknown, not stale.
+        """
+        A missing mirrorlist file yields `last_modified is None` — unknown, not stale.
 
         Failing open here is deliberate: the task must not invent a staleness verdict from an
         absent file, which is exactly the state `mirrorlist-update` is about to fix.
@@ -398,7 +453,8 @@ class TestShouldRunMirrorlist:
         assert skip_reason == SkipReason.MIRRORLIST_STALE
 
     def test_mirrorlist_gate_beats_the_reboot_gate(self, task: SystemUpdateTask, mocker):
-        """A stale mirrorlist is reported ahead of a pending reboot: it is the cheaper fix.
+        """
+        A stale mirrorlist is reported ahead of a pending reboot: it is the cheaper fix.
 
         Telling someone to reboot when `archcare task run mirrorlist-update` is all that is
         needed would send them through a much heavier remedy for no reason.
@@ -438,7 +494,8 @@ class TestShouldRunMirrorlist:
 
 
 class TestShouldRunReboot:
-    """Gate 3 of `should_run()`: a replaced running kernel blocks until the user reboots.
+    """
+    Gate 3 of `should_run()`: a replaced running kernel blocks until the user reboots.
 
     The gate sits *after* the threshold gate on purpose — there is no point telling someone to
     reboot when there is nothing to install — and *before* the news prompt, so the news
@@ -514,7 +571,8 @@ class TestShouldRunReboot:
 
 
 class TestRequiresReboot:
-    """`_requires_reboot()` translates the utils probe into a user-facing message.
+    """
+    `_requires_reboot()` translates the utils probe into a user-facing message.
 
     The pkgbase detection itself (directory scan, `OSError` handling, running-kernel matching)
     belongs to `get_pending_kernel_reboot` and is covered in its corresponding unit test; these
@@ -558,7 +616,8 @@ class TestRecoveryFilePath:
 
 
 class TestHomeIsolation:
-    """Guards against this module ever writing into the developer's real home.
+    """
+    Guards against this module ever writing into the developer's real home.
 
     `run()` creates a log file at `settings.log_dir/tasks/<name>.log`. If the
     `Path.home` redirect in `system_update_settings` is ever dropped, weakened, or defeated by the
@@ -572,7 +631,8 @@ class TestHomeIsolation:
 
     @staticmethod
     def _real_home_tasks_log() -> Path:
-        """The real `~/.local/state/archcare/logs/tasks`, independent of the fixture.
+        """
+        The real `~/.local/state/archcare/logs/tasks`, independent of the fixture.
 
         `system_update_settings` monkeypatches `Path.home()`, so calling it here would just
         hand back tmp_path and the assertion would be vacuous. `expanduser` reads $HOME
@@ -626,7 +686,8 @@ class TestPendingRepoUpdateCache:
 
 
 class TestShouldRunPendingRepo:
-    """Gate 2 of `should_run()`: the `min_repo_updates_threshold` batching gate.
+    """
+    Gate 2 of `should_run()`: the `min_repo_updates_threshold` batching gate.
 
     `_clear_static_gates` is applied by every test here because the mirrorlist and reboot gates
     run *before* this one; without it the outcome would depend on the developer's machine.
@@ -751,7 +812,8 @@ class TestShouldRunPendingRepo:
         assert skip_reason is None
 
     def test_news_gate_is_last(self, task: SystemUpdateTask, mocker):
-        """Only the news gate may prompt: it is reached after all the cheap deterministic gates.
+        """
+        Only the news gate may prompt: it is reached after all the cheap deterministic gates.
 
         Patching it here (rather than `_pending_repo_updates`) is what proves the ordering — the
         news helper returns a refusal, so if any earlier gate had already blocked, the refusal
@@ -778,7 +840,8 @@ class TestShouldRunPendingRepo:
 
 class TestNewsAcknowledgement:
     def test_noop_when_no_news_tool_installed(self, task: SystemUpdateTask, mocker):
-        """Missing news tools must not block a non-interactive-style run.
+        """
+        Missing news tools must not block a non-interactive-style run.
 
         `has_unread_arch_news()` fails open, so this is the contract the gate relies on: the
         gate never re-checks for the tool itself, it simply trusts `False` to mean "nothing
@@ -922,8 +985,10 @@ class TestNewsAcknowledgement:
         state.set_task_news_prompt.assert_called_once_with("system-update")
 
     def test_prompts_when_never_prompted_before(self, task: SystemUpdateTask, mocker):
-        """`last_news_prompt is None` means the user has never been asked, so the cooldown does
-        not apply — the very first run with unread news must prompt."""
+        """
+        `last_news_prompt is None` means the user has never been asked, so the cooldown
+        does not apply — the very first run with unread news must prompt.
+        """
         _unread_news(mocker)
         interaction = _interaction(task, confirm=True)
         _prompted_at(task, None)
@@ -963,7 +1028,8 @@ class TestNewsAcknowledgement:
 
 
 class TestShouldSkipPrompt:
-    """`_should_skip_prompt()` — the cooldown half of the news gate.
+    """
+    `_should_skip_prompt()` — the cooldown half of the news gate.
 
     It exists so the prompt is asked at most once per `news_acknowledge_cooldown_minutes` window;
     a `state` of `None` (unit tests, programmatic callers) means there is nothing to remember,
@@ -1069,7 +1135,8 @@ class TestExecuteHappyPath:
         assert transaction.progress.pause.call_count == PAUSE_COUNT
 
     def test_advances_progress_once_per_step(self, task: SystemUpdateTask, transaction: _Wiring):
-        """`advance` fires once per `report_progress`, and the counts differ by design.
+        """
+        `advance` fires once per `report_progress`, and the counts differ by design.
 
         `_STEP_COUNT` describes the transaction's phases, but only seven of them are announced:
         the pre-flight update query has no UI to advance through — it is silent setup — and
@@ -1084,7 +1151,8 @@ class TestExecuteHappyPath:
     def test_calls_the_utilities_in_transaction_order(
         self, task: SystemUpdateTask, transaction: _Wiring
     ):
-        """The order is the safety contract: manifest, then backup, then anything destructive.
+        """
+        The order is the safety contract: manifest, then backup, then anything destructive.
 
         Snapshotting before the backup, and running pacman only after both, is what makes a
         failure recoverable. Reordering these calls would still satisfy every other assertion
@@ -1150,7 +1218,8 @@ class TestExecuteFailurePaths:
         assert not task.recovery_file.exists()
 
     def test_pacman_failure_raises_for_rollback(self, task: SystemUpdateTask, transaction: _Wiring):
-        """A pacman abort must reach `BaseTask.run()` as an exception, not a FAILED result.
+        """
+        A pacman abort must reach `BaseTask.run()` as an exception, not a FAILED result.
 
         Returning a result would skip rollback entirely — the sync database was already
         refreshed by the failed transaction, so restoring it is the only thing that matters.
@@ -1218,7 +1287,8 @@ class TestSnapshotRecording:
 class TestRecoveryRecord:
     @pytest.mark.usefixtures("transaction")
     def test_record_has_exactly_the_documented_key_set(self, task: SystemUpdateTask):
-        """The recovery record is a contract with `archcare task recover` and with the user.
+        """
+        The recovery record is a contract with `archcare task recover` and with the user.
 
         A key added here without a consumer, or `updated_at` dropped, would break the manual
         recovery path while every field-level assertion below still passed. Pin the set itself,
@@ -1293,7 +1363,8 @@ class TestRollback:
     def test_restores_the_sync_db_from_the_backup(
         self, task: SystemUpdateTask, transaction: _Wiring
     ):
-        """The backup taken in `execute()` is the restore point — and nothing else is passed.
+        """
+        The backup taken in `execute()` is the restore point — and nothing else is passed.
 
         Asserting on `call_args` rather than `call_count` pins *which* backup is used: a
         rollback against a stale or freshly-named path would restore the wrong state while
@@ -1308,7 +1379,8 @@ class TestRollback:
     def test_no_backup_logs_and_does_not_restore(
         self, task: SystemUpdateTask, transaction: _Wiring
     ):
-        """No backup means nothing to rewind, and that is not an error worth raising.
+        """
+        No backup means nothing to rewind, and that is not an error worth raising.
 
         `execute()` returns a failure when the backup itself fails, but another caller may
         raise before that point; a rollback with nothing to restore must be a no-op.
@@ -1329,7 +1401,8 @@ class TestRollback:
     def test_restore_failure_does_not_mask_the_transaction_error(
         self, task: SystemUpdateTask, transaction: _Wiring
     ):
-        """Through `run()`: a pacman failure must still read as a pacman failure.
+        """
+        Through `run()`: a pacman failure must still read as a pacman failure.
 
         Tested at the template-method level rather than by calling `rollback()` directly —
         the property under test belongs to `BaseTask.run()`'s sequencing, not to the method
@@ -1351,7 +1424,8 @@ class TestRollback:
     def test_a_restore_failure_still_yields_a_pacman_failure(
         self, task: SystemUpdateTask, transaction: _Wiring
     ):
-        """The negative control: a broken restore must not become the reported error.
+        """
+        The negative control: a broken restore must not become the reported error.
 
         If `rollback()` propagated, the user's terminal would blame the restore instead of
         `pacman -Syu` — the one thing they need to act on.
@@ -1371,7 +1445,8 @@ class TestPostExecute:
     def test_successful_run_triggers_cache_cleanup(
         self, task: SystemUpdateTask, transaction: _Wiring
     ):
-        """The retention values must come from settings, not from a hardcoded default.
+        """
+        The retention values must come from settings, not from a hardcoded default.
 
         `cache_keep_versions` is the user's downgrade depth: a hardcoded value would silently
         purge more history than the configuration allows.
@@ -1440,7 +1515,8 @@ class TestPostExecute:
     def test_a_failing_notify_is_swallowed(
         self, system_update_config: TaskConfig, system_update_settings: AppSettings
     ):
-        """A broken notification backend must not fail a run that already upgraded the system.
+        """
+        A broken notification backend must not fail a run that already upgraded the system.
 
         `post_execute()` runs inside `run()`'s `try` block, so a raise here would be caught,
         routed to `rollback()`, and report a good upgrade as a failure.
@@ -1460,7 +1536,8 @@ class TestPostExecute:
 
     @pytest.mark.usefixtures("transaction")
     def test_a_completed_run_is_announced(self, task: SystemUpdateTask):
-        """A successful upgrade is worth a desktop notification: it is long and manual.
+        """
+        A successful upgrade is worth a desktop notification: it is long and manual.
 
         Requests `transaction`: this result is a success, so without the fixture the real
         `clean_cache` would run `sudo paccache` for real.
@@ -1478,7 +1555,8 @@ class TestPostExecute:
 
     @pytest.mark.usefixtures("transaction")
     def test_a_backup_failure_run_is_announced(self, task: SystemUpdateTask):
-        """A failed run is the case that matters most — the user needs to know it happened.
+        """
+        A failed run is the case that matters most — the user needs to know it happened.
 
         Requests `transaction` so a future edit that widens the cleanup gate cannot turn
         this into a real `sudo paccache` call.
@@ -1496,91 +1574,75 @@ class TestPostExecute:
 
 
 # ---------------------------------------------------------------------------
-# Sudo guard wiring for this task (shared ledger lives in tests/unit/tasks/conftest.py)
+# Prompt guard tests
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture
-def sudo_guard(
-    sudo_pause_ledger, mocker, task: SystemUpdateTask, tmp_path: Path
-) -> SudoPauseLedger:
-    """Wire `execute()`, `post_execute()`, and `rollback()` with only the OS boundary faked.
-
-    The real utils helpers run (manifest snapshot/diff, backup, cache cleanup, snapper
-    lookup); the shared ledger's recorders answer every wrapper call. Only this task's
-    specifics live here: canned stdout for the read-only queries real helpers issue, a
-    hermetic `SYNC_DB_PATH`, a rebuilt-to-the-real-`clean_cache` with a tmp `cache_dir`, and
-    the snapper branch forced on — that lookup stays REAL because its sudo call is precisely
-    what the guard must see.
+class TestEveryGuardedLaunchRunsWhilePaused:
     """
-    ledger = sudo_pause_ledger
-    ledger.canned_stdout.update(
-        {
-            ("checkupdates", "--nocolor"): "linux 6.10.1-1 -> 6.10.2-1\n",
-            ("pacman", "-Q"): "linux 6.10\nvim 9.0\n",
-        }
-    )
-
-    sync_db = tmp_path / "sync"
-    sync_db.mkdir()
-    mocker.patch("archcare.utils.pacman.SYNC_DB_PATH", new=sync_db)
-
-    mocker.patch(f"{_MODULE}.detect_btrfs_snapshot_tooling", return_value=True)
-
-    from archcare.utils.pacman import clean_cache as _real_clean_cache
-
-    mocker.patch(
-        f"{_MODULE}.clean_cache",
-        new=functools.partial(_real_clean_cache, cache_dir=tmp_path / "pac-cache"),
-    )
-
-    task.progress = PauseAwareProgress(ledger)
-    return ledger
-
-
-class TestEverySudoCallRunsWhilePaused:
-    """No sudo call may run while a live render is up — and system-update pre-warms nothing,
-    so every recorded sudo call must have executed with the display not live (the
-    full-invariant method degenerates to exactly that). The class doc and recorders live
-    in tests/unit/tasks/conftest.py.
+    Every guarded launch must run with the display not live — system-update pre-warms
+    nothing, so the fail-fast router raises at the moment any live launch happens (cold
+    sudo work, or `paru -Sua` meeting a render). Passing means a full `execute()` +
+    `post_execute()` (+ `rollback()`) never tripped it. The guard lives in conftest.py.
     """
 
-    #: First argv tokens each documented sudo helper produces on a fully-successful
-    #: `execute()` + `post_execute()` pass. An alarm-if-vacuous control rather than the
-    #: invariant itself: a token disappearing means the recorder stopped seeing that helper.
-    EXPECTED_SUDO_PREFIXES = frozenset({"cp", "pacman", "snapper", "paccache"})
+    @pytest.fixture
+    def task_deps(self, prompt_guard: PromptGuardLedger) -> Iterator[TaskDependencies]:
+        """
+        Class-scoped override: tasks under the guard receive progress via `TaskDependencies`.
 
-    def test_execute_and_post_execute_pause_around_every_sudo_call(
-        self, task: SystemUpdateTask, sudo_guard: SudoPauseLedger
+        Teardown stops the render (`run()`'s finally never runs for direct-execute tests)
+        and re-asserts the ledger, because `post_execute()`/`rollback()` deliberately
+        swallow `Exception` — a guard raise caught there would otherwise pass silently.
+        """
+        progress = bind_guard_progress(prompt_guard)
+        yield TaskDependencies(progress=progress)
+        progress.stop()
+        assert not prompt_guard.violations, f"prompt-guard violations: {prompt_guard.violations}"
+
+    # First argv tokens each documented helper produces on a fully-successful `execute()` +
+    # `post_execute()` pass. An alarm-if-vacuous control rather than the invariant itself: a token
+    # disappearing means the recorder stopped seeing that helper.
+    EXPECTED_GUARDED_TOOLS = frozenset({"cp", "pacman", "snapper", "paccache", "paru"})
+
+    def test_task_drives_the_guard_bound_adapter(
+        self, task: SystemUpdateTask, prompt_guard: PromptGuardLedger
     ):
+        """The bundle must deliver the bound adapter itself — the guard reads `is_live` off it."""
+        assert task.progress is prompt_guard.progress
+
+    def test_execute_and_post_execute_pause_around_every_guarded_launch(
+        self, task: SystemUpdateTask, prompt_guard: PromptGuardLedger
+    ):
+        """Run the full flow: a violating launch raises inside the router at that call."""
         result = task.execute()
         task.post_execute(result)
 
-        assert sudo_guard.unprotected_sudo_calls() == [], (
-            f"unprotected sudo traffic: {sudo_guard.unprotected_sudo_calls()}"
-        )
+        assert prompt_guard.guarded_calls, "recorder saw no guarded traffic; harness is vacuous"
 
-    def test_the_guard_observes_all_documented_sudo_helpers(
-        self, task: SystemUpdateTask, sudo_guard: SudoPauseLedger
+    def test_the_guard_observes_all_documented_helpers(
+        self, task: SystemUpdateTask, prompt_guard: PromptGuardLedger
     ):
-        """Negative control: the recorder must actually see the documented sudo traffic."""
+        """Negative control: the recorder must actually see the documented traffic."""
         result = task.execute()
         task.post_execute(result)
 
-        seen = sudo_guard.first_tokens()
-        assert sudo_guard.sudo_calls, "recorder captured no sudo traffic; the harness is vacuous"
-        missing = self.EXPECTED_SUDO_PREFIXES - seen
-        assert not missing, f"documented sudo helpers never observed: {missing}"
+        seen = prompt_guard.first_tokens()
+        assert prompt_guard.guarded_calls, "recorder saw no guarded traffic; harness is vacuous"
+        missing = self.EXPECTED_GUARDED_TOOLS - seen
+        assert not missing, f"documented helpers never observed: {missing}"
 
     def test_rollback_restores_the_sync_db_under_pause(
-        self, task: SystemUpdateTask, sudo_guard: SudoPauseLedger, tmp_path: Path
+        self, task: SystemUpdateTask, prompt_guard: PromptGuardLedger, tmp_path: Path
     ):
-        """The failure path reaches sudo too, through `restore_sync_db`."""
+        """The failure path reaches sudo too, through `restore_sync_db` — same guard."""
         backup = tmp_path / "sync-db" / "sync-db_2026-01-01_000000"
         backup.mkdir(parents=True)
         task.sync_db_backup = backup
+        # Production reaches rollback only after execute() raised with the bar already up
+        # (`run()` stops it in its finally), so the render must be live here too.
+        task.progress.start(total=1)
 
         task.rollback()
 
-        assert sudo_guard.unprotected_sudo_calls() == []
-        assert "cp" in sudo_guard.first_tokens()
+        assert "cp" in prompt_guard.first_tokens()
