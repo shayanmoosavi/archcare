@@ -64,6 +64,7 @@ class TestStart:
         mock_progress.start.assert_called_once()
         mock_progress.add_task.assert_called_once_with("Working...", total=5)
         assert rich_progress._task_id is mock_progress.add_task.return_value
+        rich_progress.stop()
 
     def test_total_none_still_adds_a_task(self, rich_progress: RichProgress):
         """
@@ -75,6 +76,7 @@ class TestStart:
         rich_progress.start(total=None)
 
         mock_progress.add_task.assert_called_once_with("Working...", total=None)
+        rich_progress.stop()
 
 
 class TestPause:
@@ -90,6 +92,7 @@ class TestPause:
             mock_progress.start.assert_not_called()
 
         mock_progress.start.assert_called_once()
+        rich_progress.stop()
 
     def test_resumes_even_if_body_raises(self, rich_progress: RichProgress):
         mock_progress: MagicMock = rich_progress._progress  # ty:ignore[invalid-assignment]
@@ -98,6 +101,7 @@ class TestPause:
             raise RuntimeError("sudo prompt handling failed")
 
         mock_progress.start.assert_called_once()
+        rich_progress.stop()
 
 
 class TestAdvance:
@@ -111,6 +115,7 @@ class TestAdvance:
         mock_progress.update.assert_called_once_with(
             rich_progress._task_id, advance=1, description=str(step)
         )
+        rich_progress.stop()
 
     def test_noop_when_start_was_never_called(self, rich_progress: RichProgress):
         """FailedServicesTask never calls start() - advance() must not
@@ -121,6 +126,7 @@ class TestAdvance:
         rich_progress.advance(step)
 
         mock_progress.update.assert_not_called()
+        rich_progress.stop()
 
 
 class TestStop:
@@ -164,6 +170,23 @@ class TestSpinner:
         mock_progress.remove_task.assert_called_once()
         mock_progress.stop.assert_called_once()
 
+    def test_leaves_a_render_it_did_not_start_untouched(self, rich_progress: RichProgress):
+        """
+        Ownership contract: a spinner entered while the main bar's render is showing removes
+        only its own task on exit and must not stop the bar — that teardown is exactly what
+        used to darken system-update's display before its post-query pause brackets.
+        """
+        mock_progress: MagicMock = rich_progress._progress  # ty:ignore[invalid-assignment]
+        rich_progress.start(total=5)
+        mock_progress.reset_mock()  # isolate spinner()'s own calls from start()'s
+
+        with rich_progress.spinner("label"):
+            pass
+
+        mock_progress.remove_task.assert_called_once()
+        mock_progress.stop.assert_not_called()
+        rich_progress.stop()
+
 
 @pytest.fixture
 def real_progress() -> RichProgress:
@@ -196,6 +219,7 @@ class TestIsLive:
             assert real_progress.is_live is False
 
         assert real_progress.is_live is True
+        real_progress.stop()
 
     def test_pause_exit_marks_live_even_without_a_prior_start(self, real_progress: RichProgress):
         """
@@ -206,11 +230,29 @@ class TestIsLive:
             assert real_progress.is_live is False
 
         assert real_progress.is_live is True
+        real_progress.stop()
 
     def test_spinner_body_is_live_and_teardown_is_not(self, real_progress: RichProgress):
         with real_progress.spinner("Checking for AUR updates"):
             assert real_progress.is_live is True
 
+        assert real_progress.is_live is False
+        real_progress.stop()
+
+    def test_spinner_leaves_a_running_bar_live(self, real_progress: RichProgress):
+        """
+        The ownership contract behind system-update's pause brackets: a spinner entered with
+        the bar rendering removes only its own line, so the display is still live after the
+        query spinners and the next pause bracket has a live render to stop — with the old
+        full teardown the backup step found a dark display and its pause was unobservable.
+        """
+        real_progress.start(total=3)
+
+        with real_progress.spinner("Checking for AUR updates"):
+            assert real_progress.is_live is True
+
+        assert real_progress.is_live is True
+        real_progress.stop()
         assert real_progress.is_live is False
 
     def test_renders_nothing_to_the_real_stdout(

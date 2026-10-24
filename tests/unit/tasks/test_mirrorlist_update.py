@@ -8,6 +8,7 @@ is gone — plus the failure side of a declined pre-warm (abort before any file 
 
 import os
 import time
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -96,9 +97,18 @@ class TestSudoChoreography:
     """The guard pins the order and display-state of every sudo-bound call in the flow."""
 
     @pytest.fixture
-    def task_deps(self, prompt_guard: PromptGuardLedger) -> TaskDependencies:
-        """Class-scoped override: tasks under the guard receive progress via TaskDependencies."""
-        return TaskDependencies(progress=bind_guard_progress(prompt_guard))
+    def task_deps(self, prompt_guard: PromptGuardLedger) -> Iterator[TaskDependencies]:
+        """
+        Class-scoped override: tasks under the guard receive progress via TaskDependencies.
+
+        Teardown stops the render (`run()`'s finally never runs for direct-execute tests)
+        and re-asserts the ledger, because `post_execute()`/`rollback()` deliberately
+        swallow `Exception` — a guard raise caught there would otherwise pass silently.
+        """
+        progress = bind_guard_progress(prompt_guard)
+        yield TaskDependencies(progress=progress)
+        progress.stop()
+        assert not prompt_guard.violations, f"prompt-guard violations: {prompt_guard.violations}"
 
     def test_task_drives_the_guard_bound_adapter(
         self, task: MirrorlistUpdateTask, prompt_guard: PromptGuardLedger

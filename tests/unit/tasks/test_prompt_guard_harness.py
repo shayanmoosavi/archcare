@@ -172,3 +172,25 @@ class TestReadOnlyTrafficIsNotGuarded:
 
         assert result.success
         assert ledger.guarded_calls == []
+
+
+class TestSwallowedViolationsStillFailTeardown:
+    def test_a_swallowed_raise_leaves_a_recorded_violation(
+        self, bound_guard: tuple[PromptGuardLedger, RichProgress]
+    ):
+        """
+        Models `post_execute()`/`rollback()`'s deliberate `except Exception`: the raise
+        disappears at the call, but the record is what fixture teardown re-asserts, so a
+        swallowed violation can never pass silently.
+        """
+        ledger, progress = bound_guard
+        progress.start(total=2)
+        swallowed: AssertionError | None = None
+
+        try:
+            run_command_with_sudo(["cp", "/src", "/dst"])
+        except AssertionError as e:
+            swallowed = e  # the swallow under test — production logs and continues here.
+
+        assert isinstance(swallowed, AssertionError)
+        assert "live display and no warm" in ledger.violations[0]

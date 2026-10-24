@@ -7,6 +7,7 @@ either psutil-backed or answered from the shared ledger's canned stdout, so the 
 the real orchestration and certifies the pause bracket.
 """
 
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -93,9 +94,18 @@ class TestEveryGuardedLaunchRunsWhilePaused:
     """
 
     @pytest.fixture
-    def task_deps(self, prompt_guard: PromptGuardLedger) -> TaskDependencies:
-        """Class-scoped override: tasks under the guard receive progress via TaskDependencies."""
-        return TaskDependencies(progress=bind_guard_progress(prompt_guard))
+    def task_deps(self, prompt_guard: PromptGuardLedger) -> Iterator[TaskDependencies]:
+        """
+        Class-scoped override: tasks under the guard receive progress via TaskDependencies.
+
+        Teardown stops the render (`run()`'s finally never runs for direct-execute tests)
+        and re-asserts the ledger, because `post_execute()`/`rollback()` deliberately
+        swallow `Exception` — a guard raise caught there would otherwise pass silently.
+        """
+        progress = bind_guard_progress(prompt_guard)
+        yield TaskDependencies(progress=progress)
+        progress.stop()
+        assert not prompt_guard.violations, f"prompt-guard violations: {prompt_guard.violations}"
 
     def test_task_drives_the_guard_bound_adapter(
         self, task: HealthCheckTask, prompt_guard: PromptGuardLedger

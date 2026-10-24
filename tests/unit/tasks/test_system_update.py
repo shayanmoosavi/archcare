@@ -6,7 +6,7 @@ unit tests, not a re-verification of the base task's behavior.
 """
 
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -1587,9 +1587,18 @@ class TestEveryGuardedLaunchRunsWhilePaused:
     """
 
     @pytest.fixture
-    def task_deps(self, prompt_guard: PromptGuardLedger) -> TaskDependencies:
-        """Class-scoped override: tasks under the guard receive progress via TaskDependencies."""
-        return TaskDependencies(progress=bind_guard_progress(prompt_guard))
+    def task_deps(self, prompt_guard: PromptGuardLedger) -> Iterator[TaskDependencies]:
+        """
+        Class-scoped override: tasks under the guard receive progress via `TaskDependencies`.
+
+        Teardown stops the render (`run()`'s finally never runs for direct-execute tests)
+        and re-asserts the ledger, because `post_execute()`/`rollback()` deliberately
+        swallow `Exception` — a guard raise caught there would otherwise pass silently.
+        """
+        progress = bind_guard_progress(prompt_guard)
+        yield TaskDependencies(progress=progress)
+        progress.stop()
+        assert not prompt_guard.violations, f"prompt-guard violations: {prompt_guard.violations}"
 
     # First argv tokens each documented helper produces on a fully-successful `execute()` +
     # `post_execute()` pass. An alarm-if-vacuous control rather than the invariant itself: a token
@@ -1630,6 +1639,9 @@ class TestEveryGuardedLaunchRunsWhilePaused:
         backup = tmp_path / "sync-db" / "sync-db_2026-01-01_000000"
         backup.mkdir(parents=True)
         task.sync_db_backup = backup
+        # Production reaches rollback only after execute() raised with the bar already up
+        # (`run()` stops it in its finally), so the render must be live here too.
+        task.progress.start(total=1)
 
         task.rollback()
 
