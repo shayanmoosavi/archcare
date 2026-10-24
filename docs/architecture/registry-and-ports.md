@@ -183,11 +183,14 @@ factories, so core code never needs an `is None` check.
        `execute()`, then deliberately keeps its reflector spinner.
 
     Both shapes are enforced behaviorally, not by review: the shared `prompt_guard_ledger` test
-    harness patches the single launch seam (`utils.system._launch`) and fails fast with an
-    `AssertionError` at the exact offending launch — an unwired guard, a live cold sudo call,
-    or a live `paru -Sua` — with each task's anti-vacuous `first_tokens()` assertion catching a
-    recorder that stopped seeing traffic. Follow suit with a guard test in `tests/unit/tasks/`
-    for any new task that launches a prompt-capable tool.
+    harness patches the single launch seam (`utils.system._launch`), pins `utils.system.is_root`
+    to `False` so a root runner cannot drop the `sudo` prefix past the router, and fails fast
+    with an `AssertionError` at the exact offending launch — an unwired guard, a live cold sudo
+    call, or a live `paru -Sua`. Each violation is also recorded and re-asserted at fixture
+    teardown, so tasks' deliberate `except Exception` swallows (`post_execute`/`rollback`) cannot
+    hide one; each task's anti-vacuous `first_tokens()` assertion catches a recorder that stopped
+    seeing traffic. Follow suit with a guard test in `tests/unit/tasks/` for any new task that
+    launches a prompt-capable tool.
 
 Wiring detail worth knowing: the executor stores the bundle once and passes a derived copy into
 **every task it constructs** (as the `deps` constructor argument), so a task can report the
