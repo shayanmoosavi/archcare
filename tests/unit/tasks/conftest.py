@@ -50,6 +50,9 @@ class PromptGuardLedger:
         self.warmed = False
         # `(argv, was_live)` per guarded launch, in order; sudo-bound argv keeps its prefix.
         self.guarded_calls: list[tuple[tuple[str, ...], bool]] = []
+        # Violation messages, kept because tasks deliberately swallow `Exception`
+        # (post_execute/rollback) — the guard fixtures re-assert this list at teardown.
+        self.violations: list[str] = []
         # Canned stdout for read-only commands, keyed on `(argv[0], argv[1])`.
         self.canned_stdout: dict[tuple[str, str], str] = {}
         # Side effects per first argv token, so real helpers consuming nominal output work.
@@ -84,10 +87,11 @@ class PromptGuardLedger:
 
         Side Effects:
             Appends `(argv, was_live)` to `guarded_calls` — before raising, so a caught
-            violation leaves its trace — and updates `warmed`.
+            violation leaves its trace — records the message in `violations` for the
+            teardown re-check, and updates `warmed`.
         """
         if self.progress is None:
-            raise AssertionError(
+            raise self._violation(
                 f"prompt guard unwired: {list(argv)} is a guarded launch but no progress "
                 "was bound — inject bind_guard_progress(ledger) through "
                 "TaskDependencies(progress=...)"
@@ -97,7 +101,7 @@ class PromptGuardLedger:
 
         if argv in _CREDENTIAL_REFRESH_ARGUMENTS:
             if was_live:
-                raise AssertionError(
+                raise self._violation(
                     f"prompt guard violation: {list(argv)} ran while the display was "
                     "live — a credential refresh must happen before the display starts, "
                     "inside progress.pause(), or after it stops"
@@ -105,18 +109,29 @@ class PromptGuardLedger:
             self.warmed = True
         elif argv[:1] == ("sudo",):
             if was_live and not self.warmed:
-                raise AssertionError(
+                raise self._violation(
                     f"prompt guard violation: {list(argv)} ran with a live display and "
                     "no warm sudo timestamp — wrap it in progress.pause() or pre-warm "
                     "with `sudo -v` while the display is down"
                 )
         elif argv[:2] in _PROMPT_CAPABLE_TOOLS:
             if was_live:
-                raise AssertionError(
+                raise self._violation(
                     f"prompt guard violation: {list(argv)} is prompt-capable and ran "
                     "while the display was live (warm credentials do not exempt it) — "
                     "wrap it in progress.pause()"
                 )
+
+    def _violation(self, message: str) -> AssertionError:
+        """
+        Record a guard violation and return it for raising.
+
+        The record is what fixture teardown re-asserts: `post_execute()`/`rollback()`
+        deliberately swallow `Exception`, so an immediate raise alone could disappear
+        and let a violating run pass silently.
+        """
+        self.violations.append(message)
+        return AssertionError(message)
 
     def first_tokens(self) -> set[str]:
         """
@@ -170,15 +185,17 @@ def task_deps() -> TaskDependencies:
 @pytest.fixture
 def prompt_guard_ledger(mocker) -> PromptGuardLedger:
     """
-    Install the prompt guard at the single launch seam.
+    Install the prompt guard at the single launch seam, pinned to a non-root runner.
 
     `archcare.utils.system._launch` is the source tree's only `subprocess.run`, and both
     wrappers funnel into it from their real bodies — one patch covers every caller's
-    from-imported copy. The router sends guarded launches (sudo-prefixed or in
-    `_PROMPT_CAPABLE_TOOLS`) through the ledger's fail-fast check, applies registered
-    `side_effects` to the prefix-stripped argv, and answers everything else from
-    `canned_stdout`. The real helpers above the seam stay real — certifying them is the
-    point.
+    from-imported copy. `is_root` is pinned `False` for uniformity: as root the wrappers
+    drop the `sudo` prefix and skip `sudo -v` entirely, so guarded launches would bypass
+    the router and the guard would certify nothing. The router sends guarded launches
+    (sudo-prefixed or in `_PROMPT_CAPABLE_TOOLS`) through the ledger's fail-fast check,
+    applies registered `side_effects` to the prefix-stripped argv, and answers everything
+    else from `canned_stdout`. The real helpers above the seam stay real — certifying
+    them is the point.
     """
     ledger = PromptGuardLedger()
 
@@ -202,5 +219,6 @@ def prompt_guard_ledger(mocker) -> PromptGuardLedger:
             success=True,
         )
 
+    mocker.patch("archcare.utils.system.is_root", return_value=False)
     mocker.patch("archcare.utils.system._launch", new=_prompt_guard_router)
     return ledger
