@@ -1,3 +1,10 @@
+## v0.8.0 (2026-10-24)
+
+### Feat
+
+- **progress**: improve spinner render handling by only removing the spinner from `Progress` instance
+- **cli**: add `is_live` property and an injectable console to `RichProgress` for easier testing
+
 ## v0.7.3 (2026-10-21)
 
 ### Fix
