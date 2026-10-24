@@ -115,8 +115,11 @@ class RichProgress:
         """
         Run an indeterminate spinner for the duration of the block.
 
-        Independent of the main bar: starts a fresh render, shows a spinner with the given label,
-        and tears everything down on exit (including on exceptions).
+        Independent of the main bar: shows a spinner with the given label, removing only its
+        own line on exit — a render the spinner did not start (the main bar already showing)
+        keeps running, including on exceptions, so bar steps stay visible across a query
+        spinner and the next pause bracket still finds a live display to stop. A spinner that
+        cold-starts the display owns it and tears it down on exit.
 
         Args:
             label (str): Text shown next to the spinner.
@@ -124,13 +127,17 @@ class RichProgress:
         Yields:
             None: Nothing; used purely for the display lifecycle.
         """
+        # The bar owns the render iff its task exists and the display is actually showing;
+        # the spinner may only tear down what it started itself.
+        render_was_showing = self._task_id is not None and self.is_live
         self._progress.start()
         task_id = self._progress.add_task(label, total=None)
         try:
             yield
         finally:
             self._progress.remove_task(task_id)
-            self._progress.stop()
+            if not render_was_showing:
+                self._progress.stop()
 
     def stop(self) -> None:
         """
