@@ -53,6 +53,16 @@ from archcare.utils import (
 )
 from archcare.utils.system_update import SNAPSHOT_PACKAGES
 
+# The packages that are required for Archcare to function.
+REQUIRED_PKG_STATUS = {
+    # paru exposes a CLI binary
+    "paru": lambda: check_command_exists("paru"),
+    # pacman-contrib provides checkupdates, paccache, pacdiff but no "pacman-contrib" binary
+    "pacman-contrib": lambda: is_package_installed("pacman-contrib"),
+    # reflector is the backend used by the mirrorlist-update task.
+    "reflector": lambda: check_command_exists("reflector"),
+}
+
 
 def resolve_systemd_target_user() -> tuple[str, str, str]:
     """
@@ -181,19 +191,10 @@ class ConfigService:
 
         logger.remove()  # Silencing the logger for this method
 
-        # paru exposes a CLI binary
-        paru_installed = check_command_exists("paru")
-
-        # pacman-contrib provides checkupdates, paccache, pacdiff but no "pacman-contrib" binary
-        pacman_contrib_installed = is_package_installed("pacman-contrib")
-
-        # reflector is the backend used by the mirrorlist-update task.
-        reflector_installed = check_command_exists("reflector")
-
+        # Required packages: paru + pacman-contrib + reflector (all must be present)
         required = [
-            PackageCheck(name="paru", installed=paru_installed),
-            PackageCheck(name="pacman-contrib", installed=pacman_contrib_installed),
-            PackageCheck(name="reflector", installed=reflector_installed),
+            PackageCheck(name=pkg, installed=is_installed())
+            for pkg, is_installed in REQUIRED_PKG_STATUS.items()
         ]
 
         # Btrfs tooling: snap-pac + grub-btrfs (both must be present)
