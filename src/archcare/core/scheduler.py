@@ -265,8 +265,8 @@ class TaskScheduler:
         DAYS_IN_A_WEEK = 7
 
         for info in all_info:
-            if not info.is_due and info.next_due is not None:
-                days_until = (info.next_due - datetime.now()).days
+            if not info.is_due and (next_due := info.next_due) is not None:
+                days_until = (next_due - datetime.now()).days
                 if days_until <= DAYS_IN_A_WEEK:
                     upcoming_count += 1
 

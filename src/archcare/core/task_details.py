@@ -240,12 +240,12 @@ class MaintenanceCheckSummary:
             return "All maintenance tasks are up to date!"
 
         parts = []
-        if self.critical_count:
-            parts.append(f"{self.critical_count} critical")
-        if self.warning_count:
-            parts.append(f"{self.warning_count} warning")
-        if self.info_count:
-            parts.append(f"{self.info_count} info")
+        if critical_count := self.critical_count:
+            parts.append(f"{critical_count} critical")
+        if warning_count := self.warning_count:
+            parts.append(f"{warning_count} warning")
+        if info_count := self.info_count:
+            parts.append(f"{info_count} info")
 
         return f"Found {', '.join(parts)} issue(s) requiring attention"
 

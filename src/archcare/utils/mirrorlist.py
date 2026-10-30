@@ -203,17 +203,13 @@ def update_mirrorlist(
     reflector_cmd = ["reflector"]
 
     # Add country filter
-    if payload.country:
-        countries = (
-            payload.country if isinstance(payload.country, str) else ",".join(payload.country)
-        )
+    if country := payload.country:
+        countries = country if isinstance(country, str) else ",".join(country)
         reflector_cmd.extend(["--country", countries])
 
     # Add protocol filter
-    if payload.protocol:
-        protocols = (
-            payload.protocol if isinstance(payload.protocol, str) else ",".join(payload.protocol)
-        )
+    if protocol := payload.protocol:
+        protocols = protocol if isinstance(protocol, str) else ",".join(protocol)
         reflector_cmd.extend(["--protocol", protocols])
 
     # Add latest filter
@@ -226,8 +222,8 @@ def update_mirrorlist(
     reflector_cmd.extend(["--sort", payload.sort])
 
     # Add save path if specified
-    if payload.save_path:
-        reflector_cmd.extend(["--save", str(payload.save_path)])
+    if save_path := payload.save_path:
+        reflector_cmd.extend(["--save", str(save_path)])
 
     logger.debug(f"Running reflector: {' '.join(reflector_cmd)}")
 

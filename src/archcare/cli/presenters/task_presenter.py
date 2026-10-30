@@ -168,20 +168,20 @@ class TaskPresenter:
             return
 
         lines = []
-        if response.snapshot_id is not None:
-            lines.append(f"  Pre-update snapshot: {response.snapshot_id}")
-        if response.updated_at:
-            lines.append(f"  Last update attempt: {response.updated_at}")
-        if response.aur_packages_failed:
-            lines.append(f"  AUR packages that failed: {', '.join(response.aur_packages_failed)}")
-        if response.packages_removed:
-            lines.append(f"  Packages removed: {', '.join(response.packages_removed)}")
+        if (snapshot_id := response.snapshot_id) is not None:
+            lines.append(f"  Pre-update snapshot: {snapshot_id}")
+        if updated_at := response.updated_at:
+            lines.append(f"  Last update attempt: {updated_at}")
+        if aur_failures := response.aur_packages_failed:
+            lines.append(f"  AUR packages that failed: {', '.join(aur_failures)}")
+        if removed := response.packages_removed:
+            lines.append(f"  Packages removed: {', '.join(removed)}")
         if lines:
             print_panel("Recovery Info", "\n".join(lines))
 
-        if response.commands:
+        if commands := response.commands:
             print_header("Suggested commands (run these yourself)")
-            for command in response.commands:
+            for command in commands:
                 # Escaped, not printed raw: Rich reads `[...]` as console markup, so a command
                 # carrying a glob like `[linux]-6.9.pkg.tar.zst` would silently lose the bracketed
                 # part and a stray `[/...]` would raise `MarkupError`. These lines are meant to be
@@ -359,13 +359,13 @@ class TaskPresenter:
             f"[bold]Duration:[/bold] {result.duration_seconds:.2f}s",
         ]
 
-        if result.error:
-            lines.append(f"[bold red]Error:[/bold red] {escape(result.error)}")
+        if error := result.error:
+            lines.append(f"[bold red]Error:[/bold red] {escape(error)}")
 
         # Delegate the domain details to the factory if verbose
-        if verbose and result.details is not None:
+        if verbose and (details := result.details) is not None:
             lines.append("\n[bold]Details:[/bold]")
             formatter_class = self._task_registry.get_formatter_class(task_name)
-            lines.extend(formatter_class().format(result.details))
+            lines.extend(formatter_class().format(details))
 
         return "\n".join(lines)

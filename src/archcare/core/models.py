@@ -208,8 +208,8 @@ class TaskResult[TDetails]:
         """
         parts = [f"[{self.status.value.upper()}] {self.message}"]
 
-        if self.duration_seconds > 0:
-            parts.append(f"({self.duration_seconds:.2f}s)")
+        if (duration := self.duration_seconds) > 0:
+            parts.append(f"({duration:.2f}s)")
 
         if self.error:
             parts.append(f"Error: {self.error}")

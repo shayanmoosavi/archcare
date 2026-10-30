@@ -116,8 +116,7 @@ class RecoveryService:
         snapshot_id = record.get("pre_update_snapshot_id")
         if isinstance(snapshot_id, int):
             commands.append(f"snapper rollback {snapshot_id}")
-        backup = record.get("sync_db_backup")
-        if backup:
+        if backup := record.get("sync_db_backup"):
             # Write the restore script and point the user at it.
             script = self._write_restore_script(Path(str(backup)))
             commands.append(f"bash {script}   # restores the pre-upgrade state; read it first")

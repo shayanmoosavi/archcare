@@ -72,27 +72,27 @@ class MaintenanceCheckPresenter:
 
         console.print()
 
-        if details.critical_issues:
+        if critical_issues := details.critical_issues:
             MaintenanceCheckPresenter._render_issues_table(
                 console,
                 title="🟥 Critical Issues",
-                issues=details.critical_issues,
+                issues=critical_issues,
                 style="red",
             )
 
-        if details.warning_issues:
+        if warning_issues := details.warning_issues:
             MaintenanceCheckPresenter._render_issues_table(
                 console,
                 title="🟨 Warning Issues",
-                issues=details.warning_issues,
+                issues=warning_issues,
                 style="yellow",
             )
 
-        if details.info_issues:
+        if info_issues := details.info_issues:
             MaintenanceCheckPresenter._render_issues_table(
                 console,
                 title="🟦 Information",
-                issues=details.info_issues,
+                issues=info_issues,
                 style="blue",
             )
 

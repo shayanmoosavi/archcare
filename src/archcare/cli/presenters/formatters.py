@@ -76,10 +76,10 @@ class FailedServicesFormatter:
         lines.append(f"[red]   Requiring attention: {details.actual_failures}[/red]")
         lines.append(f"[dim]  Ignored: {details.ignored}[/dim]")
 
-        if details.failed_services:
+        if failures := details.failed_services:
             lines.append("\n[bold]Failed Services:[/bold]")
 
-            self._add_failure_details(details.failed_services, lines)
+            self._add_failure_details(failures, lines)
 
         return lines
 
@@ -229,11 +229,13 @@ class MirrorlistUpdateFormatter:
         """
         lines = []
 
-        if details.old_mirrors is not None and details.new_mirrors is not None:
-            lines.append(f"  Mirrors: {details.old_mirrors} → {details.new_mirrors}")
+        if (old_mirrors := details.old_mirrors) is not None and (
+            new_mirrors := details.new_mirrors
+        ) is not None:
+            lines.append(f"  Mirrors: {old_mirrors} → {new_mirrors}")
 
-        if details.backup_path:
-            lines.append(f"  Backup: {details.backup_path}")
+        if backup_path := details.backup_path:
+            lines.append(f"  Backup: {backup_path}")
 
         if last_modified := details.old_info.last_modified:
             lines.append(f"  Previous update: {last_modified}")
@@ -353,17 +355,17 @@ class SystemUpdateFormatter:
         if counts := self._format_counts(details):
             lines.append(counts)
 
-        if details.aur_packages_failed:
+        if aur_failures := details.aur_packages_failed:
             lines.append("\n[bold yellow]AUR build failures:[/bold yellow]")
-            lines.extend(f"  • [yellow]{pkg}[/yellow]" for pkg in details.aur_packages_failed)
+            lines.extend(f"  • [yellow]{pkg}[/yellow]" for pkg in aur_failures)
 
-        if details.packages_removed:
+        if removed := details.packages_removed:
             lines.append("\n[bold]Packages removed:[/bold]")
-            lines.extend(f"  • {pkg}" for pkg in details.packages_removed)
+            lines.extend(f"  • {pkg}" for pkg in removed)
 
-        if details.pacnew_files:
+        if pacnew_files := details.pacnew_files:
             lines.append("\n[bold].pacnew files (review manually):[/bold]")
-            lines.extend(f"  • {path}" for path in details.pacnew_files)
+            lines.extend(f"  • {path}" for path in pacnew_files)
 
         if (snapshot_id := details.pre_update_snapshot_id) is not None:
             lines.append(

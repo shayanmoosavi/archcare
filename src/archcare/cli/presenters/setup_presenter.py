@@ -80,14 +80,14 @@ class SetupPresenter:
             response (ConfigInitResponse): Initialization outcome from
                 [`ConfigService.initialize`][archcare.services.setup_service.ConfigService.initialize].
         """
-        if response.created_files:
+        if created := response.created_files:
             print_success("Configuration files created:")
-            for f in response.created_files:
+            for f in created:
                 console.print(f"  ✔ {f.name}")
 
-        if response.skipped_files:
+        if skipped := response.skipped_files:
             print_info("Already present, left untouched:")
-            for f in response.skipped_files:
+            for f in skipped:
                 console.print(f"  - {f.name}")
 
         print_success("Configuration initialized!")
@@ -109,16 +109,16 @@ class SetupPresenter:
         """
         print_header("Dependency Check")
 
-        if response.required:
+        if required := response.required:
             print_info("Required dependencies:")
-            for pkg in response.required:
+            for pkg in required:
                 marker = "✔" if pkg.installed else "✘"
                 status = "installed" if pkg.installed else "missing"
                 console.print(f"  {marker} {pkg.name} ({status})")
 
-        if response.conditional:
+        if conditional := response.conditional:
             print_info("Conditional (Btrfs) dependencies:")
-            for pkg in response.conditional:
+            for pkg in conditional:
                 marker = "✔" if pkg.installed else "✘"
                 status = "installed" if pkg.installed else "missing"
                 console.print(f"  {marker} {pkg.name} ({status})")
@@ -202,11 +202,11 @@ class SetupPresenter:
             console.print("=" * 60, style="bold blue")
             _list_timers(response)
 
-        if response.timer_status:
+        if timer_status := response.timer_status:
             console.print("=" * 60, style="bold blue")
             print_info("Timer Status")
             console.print("=" * 60, style="bold blue")
-            console.print(f"\n{response.timer_status}")
+            console.print(f"\n{timer_status}")
 
     @staticmethod
     def no_automated_tasks() -> None:

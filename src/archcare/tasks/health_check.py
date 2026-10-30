@@ -77,17 +77,17 @@ class HealthCheckTask(BaseTask):
     Severity thresholds (configurable via
     [`HealthCheckSettings`][archcare.config.models.HealthCheckSettings]):
 
-    | Check                  | Warning                              | Critical (issue)          |
-    | ---------------------- | ------------------------------------ | ------------------------- |
-    | Disk usage (`/`)       | > `disk_warning_percent`%            | > `disk_critical_percent`% |
+    | Check                  | Warning                              | Critical (issue)             |
+    | ---------------------- | ------------------------------------ | ---------------------------- |
+    | Disk usage (`/`)       | > `disk_warning_percent`%            | > `disk_critical_percent`%   |
     | Memory usage           | > `memory_warning_percent`%          | > `memory_critical_percent`% |
-    | Swap usage             | > `swap_warning_percent`%            | —                         |
-    | CPU usage              | > `cpu_warning_percent`%             | —                         |
-    | Load average (1 min)   | > 2× CPU core count                  | —                         |
-    | Filesystem errors      | —                                    | any error                 |
-    | Pacman database        | —                                    | unhealthy                 |
-    | Package files          | —                                    | unhealthy                 |
-    | System uptime          | —                                    | — (informational)         |
+    | Swap usage             | > `swap_warning_percent`%            | —                            |
+    | CPU usage              | > `cpu_warning_percent`%             | —                            |
+    | Load average (1 min)   | > 2× CPU core count                  | —                            |
+    | Filesystem errors      | —                                    | any error                    |
+    | Pacman database        | —                                    | unhealthy                    |
+    | Package files          | —                                    | unhealthy                    |
+    | System uptime          | —                                    | — (informational)            |
 
     This task follows the [`BaseTask`][] Template Method contract. Unlike some tasks, it does not
     override `pre_check()` or `should_run()`: all checks are read-only queries that are always safe

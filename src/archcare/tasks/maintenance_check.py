@@ -197,18 +197,16 @@ class MaintenanceCheckTask(BaseTask):
 
         # Determine overall status
         error_message = None
-        if self._critical_issues:
-            error_message = f"{len(self._critical_issues)} critical issues found"
+        if critical_issues := self._critical_issues:
+            error_message = f"{len(critical_issues)} critical issues found"
             status = TaskStatus.FAILURE
             logger.error(error_message)
-        elif self._warning_issues:
+        elif warning_issues := self._warning_issues:
             status = TaskStatus.PARTIAL
-            logger.warning(f"{len(self._warning_issues)} warning issues found")
-        elif self._info_issues:
+            logger.warning(f"{len(warning_issues)} warning issues found")
+        elif info_issues := self._info_issues:
             status = TaskStatus.SUCCESS
-            logger.success(
-                f"{len(self._info_issues)} info issues found. No immediate attention required"
-            )
+            logger.success(f"{len(info_issues)} info issues found. No immediate attention required")
         else:
             status = TaskStatus.SUCCESS
             logger.success("No issues found")
@@ -711,14 +709,14 @@ class MaintenanceCheckTask(BaseTask):
             lines.append("\n")
         else:
             # Add issues by severity
-            if details.critical_issues:
-                self._add_issues_section(lines, "🟥 CRITICAL ISSUES", details.critical_issues)
+            if critical := details.critical_issues:
+                self._add_issues_section(lines, "🟥 CRITICAL ISSUES", critical)
 
-            if details.warning_issues:
-                self._add_issues_section(lines, "🟨 WARNING ISSUES", details.warning_issues)
+            if warning := details.warning_issues:
+                self._add_issues_section(lines, "🟨 WARNING ISSUES", warning)
 
-            if details.info_issues:
-                self._add_issues_section(lines, "🟦 INFORMATION", details.info_issues)
+            if info := details.info_issues:
+                self._add_issues_section(lines, "🟦 INFORMATION", info)
 
         lines.append("End of report")
         lines.append("=" * 80)
@@ -768,12 +766,12 @@ class MaintenanceCheckTask(BaseTask):
             list[str]: Text lines for the report, including a trailing blank line.
         """
         lines = [f"Task: {issue.task_name}", f"Issue: {issue.description}"]
-        if issue.days_overdue is not None:
-            lines.append(f"Days Overdue: {issue.days_overdue}")
-        if issue.last_run:
-            lines.append(f"Last Run: {issue.last_run.strftime('%Y-%m-%d %H:%M:%S')}")
-        if issue.last_status:
-            lines.append(f"Last Status: {issue.last_status.value}")
+        if (days_overdue := issue.days_overdue) is not None:
+            lines.append(f"Days Overdue: {days_overdue}")
+        if last_run := issue.last_run:
+            lines.append(f"Last Run: {last_run.strftime('%Y-%m-%d %H:%M:%S')}")
+        if last_status := issue.last_status:
+            lines.append(f"Last Status: {last_status}")
         lines.append(f"Recommendation: {issue.recommendation}")
         lines.append("\n")
         return lines
