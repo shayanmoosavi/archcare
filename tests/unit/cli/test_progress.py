@@ -1,5 +1,6 @@
 """Unit tests for the CLI's RichProgress adapter."""
 
+from collections.abc import Generator
 from io import StringIO
 from unittest.mock import MagicMock
 
@@ -21,8 +22,24 @@ def mock_progress_class(mocker) -> MagicMock:
 
 
 @pytest.fixture
-def rich_progress(mock_progress_class: MagicMock) -> RichProgress:
-    return RichProgress()
+def rich_progress(mock_progress_class: MagicMock) -> Generator[RichProgress]:
+    progress = RichProgress()
+    yield progress
+    progress.stop()
+
+
+@pytest.fixture
+def real_progress() -> Generator[RichProgress]:
+    """
+    An adapter over the REAL Rich Progress, rendering into a string buffer.
+
+    `is_live` cannot be tested against the class-mocked fixture above: every liveness
+    question would be answered with a MagicMock. The prompt-guard harness reads this
+    property at every guarded launch, so the transitions below are its contract.
+    """
+    progress = RichProgress(console=Console(file=StringIO()))
+    yield progress
+    progress.stop()
 
 
 class TestConstruction:
@@ -64,7 +81,6 @@ class TestStart:
         mock_progress.start.assert_called_once()
         mock_progress.add_task.assert_called_once_with("Working...", total=5)
         assert rich_progress._task_id is mock_progress.add_task.return_value
-        rich_progress.stop()
 
     def test_total_none_still_adds_a_task(self, rich_progress: RichProgress):
         """
@@ -76,7 +92,6 @@ class TestStart:
         rich_progress.start(total=None)
 
         mock_progress.add_task.assert_called_once_with("Working...", total=None)
-        rich_progress.stop()
 
 
 class TestPause:
@@ -92,7 +107,6 @@ class TestPause:
             mock_progress.start.assert_not_called()
 
         mock_progress.start.assert_called_once()
-        rich_progress.stop()
 
     def test_resumes_even_if_body_raises(self, rich_progress: RichProgress):
         mock_progress: MagicMock = rich_progress._progress  # ty:ignore[invalid-assignment]
@@ -101,7 +115,6 @@ class TestPause:
             raise RuntimeError("sudo prompt handling failed")
 
         mock_progress.start.assert_called_once()
-        rich_progress.stop()
 
 
 class TestAdvance:
@@ -115,7 +128,6 @@ class TestAdvance:
         mock_progress.update.assert_called_once_with(
             rich_progress._task_id, advance=1, description=str(step)
         )
-        rich_progress.stop()
 
     def test_noop_when_start_was_never_called(self, rich_progress: RichProgress):
         """FailedServicesTask never calls start() - advance() must not
@@ -126,7 +138,6 @@ class TestAdvance:
         rich_progress.advance(step)
 
         mock_progress.update.assert_not_called()
-        rich_progress.stop()
 
 
 class TestStop:
@@ -185,19 +196,6 @@ class TestSpinner:
 
         mock_progress.remove_task.assert_called_once()
         mock_progress.stop.assert_not_called()
-        rich_progress.stop()
-
-
-@pytest.fixture
-def real_progress() -> RichProgress:
-    """
-    An adapter over the REAL Rich Progress, rendering into a string buffer.
-
-    `is_live` cannot be tested against the class-mocked fixture above: every liveness
-    question would be answered with a MagicMock. The prompt-guard harness reads this
-    property at every guarded launch, so the transitions below are its contract.
-    """
-    return RichProgress(console=Console(file=StringIO()))
 
 
 class TestIsLive:
@@ -219,7 +217,6 @@ class TestIsLive:
             assert real_progress.is_live is False
 
         assert real_progress.is_live is True
-        real_progress.stop()
 
     def test_pause_exit_marks_live_even_without_a_prior_start(self, real_progress: RichProgress):
         """
@@ -230,14 +227,12 @@ class TestIsLive:
             assert real_progress.is_live is False
 
         assert real_progress.is_live is True
-        real_progress.stop()
 
     def test_spinner_body_is_live_and_teardown_is_not(self, real_progress: RichProgress):
         with real_progress.spinner("Checking for AUR updates"):
             assert real_progress.is_live is True
 
         assert real_progress.is_live is False
-        real_progress.stop()
 
     def test_spinner_leaves_a_running_bar_live(self, real_progress: RichProgress):
         """
